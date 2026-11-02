@@ -44,12 +44,12 @@ adds code. No product features yet.
 Networking logic, SQLite schema, UI beyond placeholder, CI config.
 
 ## Acceptance criteria
-- [ ] `npm run check` passes from a clean clone (after `npm ci`).
+- [x] `npm run check` passes from a clean clone (after `npm ci`).
 - [ ] `npm run dev` opens a window with the Pixi placeholder rendered (state honestly in the
       report whether you could visually verify; a screenshot path in the report if you can).
 - [ ] `cargo build -p meshyard-hook --release` binary starts and exits in < 20 ms with empty stdin
       (measure and report).
-- [ ] `meshyard-net` compiles against iroh 1.x (just constructing nothing — a `pub fn version()`
+- [x] `meshyard-net` compiles against iroh 1.x (just constructing nothing — a `pub fn version()`
       re-export is fine).
 - [x] No hand-edited generated files; lockfiles committed as generated.
 - [x] Report written to `docs/reports/T-001.md` (what was done, commands run + results, deviations,
@@ -57,9 +57,19 @@ Networking logic, SQLite schema, UI beyond placeholder, CI config.
 
 ## Recovery status (2026-11-02, updated by Codex, pending review)
 
-Scaffold source and generated lockfiles are prepared. Keep **in-progress**: full workspace
-Clippy/tests, iroh compilation and native bundling are not verified because local builds ran
-out of disk space. Frontend checks/build and focused Rust checks passed. Vite startup and local
-HTTP were observed; no native window or screenshot was verified. The first release-hook
-invocation exceeded 20 ms; warm runs passed. Detailed commands and evidence are in
-`docs/reports/T-001.md`. Do not start T-002 under this worker authorization.
+Keep **in-progress** pending parent native visual verification and the unchanged <20 ms hook
+criterion. In `/private/tmp/meshyard-t001-recovery-checkout` (fresh clone at `fc749ca`), `npm ci`
+and the complete `npm run check` passed: five Rust tests across the full seven-package
+workspace, three Vitest tests, formatting, Clippy -D warnings, TypeScript, ESLint, and Prettier.
+The real Tauri CLI built a debug `.app` at
+`/Volumes/Kursmodule/Meshyard-build/target/debug/bundle/macos/Meshyard.app`; static inspection
+confirmed the production `tauri/custom-protocol` feature and all 11 embedded frontend assets.
+The installed exact 1.99.1 pin resolved through external RUSTUP_HOME; target/cargo/npm caches
+also used the external build environment documented in README and the appended report.
+
+The release hook built successfully. Of 51 silent launches, the first was 289.108791 ms;
+50 warm launches had median 2.026833 ms and maximum 3.010916 ms. The earlier 442.321500 ms
+first-launch failure remains recorded; the <20 ms criterion is still unmet. No native window,
+WKWebView rendering, or screenshot was verified by this worker. Historical ENOSPC/build failures
+are preserved in `docs/reports/T-001.md` alongside the successful recovery. Do not start T-002
+under this worker authorization.

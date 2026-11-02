@@ -26,3 +26,32 @@ from the original placeholder SVG. No networking endpoint is constructed by this
 
 See `docs/HANDOFF.md`, `docs/ARCHITECTURE.md`, and `docs/reports/T-001.md` for protocol and evidence.
 No license has been chosen (D-5); `LICENSE` is intentionally absent.
+
+## Temporary T-001 recovery environment
+
+Validation currently runs from the isolated checkout
+`/private/tmp/meshyard-t001-recovery-checkout` (baseline `fc749ca`). Keep the external
+`/Volumes/Kursmodule` volume mounted while building or running the resulting bundle.
+From that checkout's root:
+
+```sh
+export PATH="/Users/dionarifi/.cargo/bin:$PATH"
+export RUSTUP_HOME=/Volumes/Kursmodule/Meshyard-build/rustup
+export CARGO_HOME=/Volumes/Kursmodule/Meshyard-build/cargo
+export CARGO_TARGET_DIR=/Volumes/Kursmodule/Meshyard-build/target
+export npm_config_cache=/Volumes/Kursmodule/Meshyard-build/npm-cache
+unset RUSTUP_TOOLCHAIN
+export CARGO_PROFILE_DEV_DEBUG=0 CARGO_PROFILE_TEST_DEBUG=0 CARGO_PROFILE_RELEASE_DEBUG=0
+export CARGO_INCREMENTAL=0 CARGO_BUILD_JOBS=2
+npm ci
+npm run check
+npm run build
+cargo build -p meshyard-hook --release
+```
+
+The actual `rust-toolchain.toml` pin must resolve to 1.99.1; no stable override is used.
+The expected debug bundle is
+`/Volumes/Kursmodule/Meshyard-build/target/debug/bundle/macos/Meshyard.app`.
+Native window/Pixi verification is performed separately by the parent with `npm run dev`.
+The recovery worker leaves T-001 in progress until that verification and the hook latency
+acceptance decision; see the appended recovery evidence in `docs/reports/T-001.md`.
