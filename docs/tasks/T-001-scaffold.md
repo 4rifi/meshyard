@@ -1,6 +1,6 @@
 # T-001 — Repository scaffold
 
-Status: ready · Owner: Codex · Reviewer: Claude
+Status: in-progress · Owner: Codex · Reviewer: Claude
 
 ## Objective
 A buildable, testable skeleton that matches `docs/ARCHITECTURE.md §3`, so every later task only
@@ -51,6 +51,15 @@ Networking logic, SQLite schema, UI beyond placeholder, CI config.
       (measure and report).
 - [ ] `meshyard-net` compiles against iroh 1.x (just constructing nothing — a `pub fn version()`
       re-export is fine).
-- [ ] No hand-edited generated files; lockfiles committed as generated.
-- [ ] Report written to `docs/reports/T-001.md` (what was done, commands run + results, deviations,
+- [x] No hand-edited generated files; lockfiles committed as generated.
+- [x] Report written to `docs/reports/T-001.md` (what was done, commands run + results, deviations,
       open questions).
+
+## Recovery status (2026-11-02, updated by Codex, pending review)
+
+Scaffold source and generated lockfiles are prepared. Keep **in-progress**: full workspace
+Clippy/tests, iroh compilation and native bundling are not verified because local builds ran
+out of disk space. Frontend checks/build and focused Rust checks passed. Vite startup and local
+HTTP were observed; no native window or screenshot was verified. The first release-hook
+invocation exceeded 20 ms; warm runs passed. Detailed commands and evidence are in
+`docs/reports/T-001.md`. Do not start T-002 under this worker authorization.
