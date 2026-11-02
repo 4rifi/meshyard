@@ -1,6 +1,8 @@
 # Meshyard — Architecture
 
 Status: v1 (2026-11-02). Owner: Claude Code (architect). Changes go through an ADR entry (§10).
+**Wire formats, authorization, pairing, sync and ingest are specified normatively in
+`docs/PROTOCOL.md`; it overrides the summaries in §§4–7 below.**
 
 ## 1. Overview
 
@@ -83,7 +85,7 @@ Dependency direction: `core` ← `store`, `net`, `agents` ← `app`, `node`. `co
 - **Workspace** = `{ workspace_id (random 128-bit), name, mode: Auto|Strict, sharing_policy,
   members: [{endpoint_id, display_name, role: owner|member, paired_at}] }`.
 - Membership changes are events in the workspace log (§6), authored by the owner in MVP.
-  Multi-admin / revocation semantics are M3.
+  Revocation is M2 (epochs reserved in PROTOCOL v1); multi-admin is later.
 
 ## 5. Networking (`meshyard-net`)
 
@@ -178,7 +180,8 @@ MVP model: **per-device append-only event logs**, replicated full-mesh.
 - Supervisor per peer: states `Offline → Connecting → Connected{path: Direct|Relayed, rtt}`
   `→ Degraded → Offline`, exponential backoff 1 s…60 s with jitter, immediate retry on network
   change.
-- Path info from `Connection::paths()` / `paths_stream()` (`is_ip`, `is_relay`, `rtt`).
+- Path info from `Connection::paths()` / `paths_stream()`; status is based on the **selected**
+  path (`is_selected() && is_ip()` = Direct). Verified on docs.rs for iroh 1.0.0 by Codex review.
 - `Diagnostics` struct exposed to UI: mode, own reachability (home relay, direct addrs count,
   port mapping result), per-peer path/RTT/last error/last seen, plus human-readable advice
   ("Strict P2P: no direct path — both peers are behind NAT without port mapping").
@@ -231,14 +234,14 @@ trait AgentAdapter {
 | session started | `SessionStart` | `SessionStart` | Idle | verified |
 | prompt submitted | `UserPromptSubmit` | `UserPromptSubmit` | Thinking | verified |
 | file edit tool | `PreToolUse` Edit/Write/MultiEdit | `PreToolUse` apply_patch | Building | inferred (`tool.edit`) |
-| test command | `PreToolUse` Bash matching test patterns | `PreToolUse` shell matching | Testing | inferred (`cmd.test`) |
+| test command | `PreToolUse` Bash matching test patterns | `PreToolUse` `Bash` (also `exec_command`) matching | Testing | inferred (`cmd.test`) |
 | git merge/rebase | Bash `git merge|rebase|cherry-pick` | same | Merging | inferred (`cmd.git_merge`) |
-| review | `/review`-style prompt or read-only tool streak | `codex review` session | Reviewing | inferred (`review.*`) |
+| review | read-only tool streak / review subagent type (prompt text is never read) | `codex review` session | Reviewing | inferred (`review.*`) |
 | fix after failure | edit following failed test/tool | same | Fixing | inferred (`fix.after_failure`) |
 | needs human | `Notification` (permission/idle), `PermissionRequest` | `PermissionRequest` | WaitingForInput | verified |
 | tool failed | `PostToolUseFailure` | `PostToolUse` with error | (input to Fixing rule) | — |
 | turn finished | `Stop` | `Stop` | Finished → Idle after 60 s | verified |
-| model/API failure | `StopFailure` | `PostModelRequest status=failed` | Error | verified |
+| model/API failure | `StopFailure` | failed `PostModelRequest` followed by `Stop` without success (a single failure may be retried) | Error | verified / inferred (Codex) |
 | session ended | `SessionEnd` | `SessionEnd` | AgentGone | verified |
 
 Pattern matching runs on the **local** command string; the command string itself is never shared.
@@ -281,6 +284,8 @@ Pattern matching runs on the **local** command string; the command string itself
 - **ADR-003** Per-device append-only logs instead of CRDT library for MVP. (accepted)
 - **ADR-004** Agent observation via official hooks only; transcript parsing out of MVP. (accepted)
 - **ADR-005** `meshyard-hook` is a separate minimal binary over a UID-checked Unix socket. (accepted)
+- **ADR-007** Signed per-device events, owner key anchored in WorkspaceId, no third-party forwarding in MVP, contiguous heads, equivocation detection, frozen wire v1 separate from domain types. (accepted, from Codex review)
+- **ADR-008** Two-stage admission (device, then workspace) and persistent pairing state machine with transcript-bound SAS. (accepted, from Codex review)
 - **ADR-006** Relays: n0 public for dev only; self-hosted CH/EU redundant relays required before
   external distribution (gate G-1); 2 s prefer-direct window before log catch-up in Auto. (accepted, owner D-2)
 

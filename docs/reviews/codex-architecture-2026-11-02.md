@@ -1,0 +1,64 @@
+# Codex architecture review — 2026-11-02 (read-only `codex exec`, independent of implementer session)
+
+**Urteil:** Der MVP ist grundsätzlich machbar. Strict P2P ist technisch schlüssig und überwiegend ehrlich beschrieben. Vor T-002/T-005 fehlen jedoch verbindliche Regeln für Event-Autorisierung, Log-Lücken und den Abschluss des Pairings.
+
+**Prüfbasis:** Alle angeforderten Dokumente und die drei vorhandenen Task-Spezifikationen gelesen. iroh **1.0.0** auf docs.rs sowie offizielle Hook-Dokumentation geprüft. Keine Dateien geändert, keine Builds, Netzwerk- oder Hardwaretests ausgeführt. **Verifiziert** bezeichnet Dokumentationsbefunde; **Einschätzung** meine Bewertung des Designs.
+
+## 1. P2P und iroh 1.x
+
+**Verifiziert:** `N0DisableRelay` existiert in 1.0.0 und setzt tatsächlich `N0.apply(builder).relay_mode(RelayMode::Disabled)`. DNS/pkarr bleibt aktiv und veröffentlicht direkte IP-Adressen. Die Presets benötigen einen Crypto-Provider, etwa über `tls-ring`. Die dokumentierte Strict-Garantie passt dazu. [iroh-Preset-Quellcode](https://docs.rs/crate/iroh/1.0.0/source/src/endpoint/presets.rs)
+
+- **major — Pfad vorhanden bedeutet nicht Pfad ausgewählt.** `Connection::paths()` und `paths_stream()` existieren; mehrere Pfade können gleichzeitig offen sein. `Path::is_ip()`, `is_relay()`, `is_selected()` und `rtt()` existieren ebenfalls. **Empfehlung:** UI und Prefer-direct-Fenster auf `is_selected() && is_ip()` stützen. Den Status als lokalen Sendepfad verstehen; daraus folgt keine Garantie über sämtliche empfangenen Bytes. Eigene Diagnosewerte aus den geliehenen Snapshots kopieren. [Connection](https://docs.rs/iroh/1.0.0/iroh/endpoint/struct.Connection.html), [Path](https://docs.rs/iroh/1.0.0/iroh/endpoint/struct.Path.html)
+
+- **minor — Zwei Sekunden sind eine plausible Heuristik, keine Datenschutzgrenze.** Pairing und Hello dürfen bereits über Relay laufen; nach dem Fenster kann auch Catch-up darüber laufen. **Empfehlung:** Fenster beibehalten, aber messen: Direct-Erfolgsrate, eingesparte Relay-Bytes und zusätzliche Startlatenz. Bereits direkten Verbindungen keine Wartezeit auferlegen; Abbruch und Timeout sauber behandeln. **Einschätzung.**
+
+- **major — T-003 ist noch nicht zuverlässig offline/deterministisch spezifiziert.** Die N0-Presets aktivieren öffentliche Discovery; `test-utils` ersetzt diese lediglich durch Staging. Eine Relay-only-Adresse verhindert außerdem nicht, dass anschließend ein direkter Pfad entsteht. **Empfehlung:** Testkonfiguration ohne öffentliche Discovery verwenden, lokalen Relay explizit konfigurieren und direkte Erreichbarkeit für den Relay-Test kontrolliert verhindern. Beim Strict-Negativtest auch Cache und alternative Adressquellen ausschließen. [Preset-Quellcode](https://docs.rs/crate/iroh/1.0.0/source/src/endpoint/presets.rs), [Builder-Quellcode](https://docs.rs/crate/iroh/1.0.0/source/src/endpoint.rs)
+
+- **minor — Einige Infrastrukturversprechen sind zu absolut.** „Relays store nothing“ ist keine durch Meshyard erzwingbare Eigenschaft öffentlicher Betreiber. Ein Timeout beweist auch nicht „beide hinter NAT“. **Empfehlung:** „Keine persistente Speicherung durch unsere Relay-Konfiguration vorgesehen“ schreiben; Diagnosen zwischen Beobachtung und vermuteter Ursache unterscheiden. Selbst gehostete Relays verbessern Strict ohne Relay nicht. **Einschätzung; ARCHITECTURE §5, SECURITY §3, ROADMAP R-2.**
+
+## 2. Pairing und Sicherheit
+
+- **blocker — Transportauthentifizierung ersetzt keine Event- und Membership-Autorisierung.** Bei weitergereichten Logs authentifiziert TLS den Übermittler, nicht den angegebenen Autor. Ein Peer könnte sonst `MemberAdded` als Owner oder `AgentState` für ein fremdes Gerät einschleusen. **Empfehlung:** Owner-Schlüssel bei Workspace-Erstellung verankern; Membership-Events ausschließlich durch diesen autorisieren. Weitergereichte Events über kanonisch kodierte, Workspace-gebundene Autorensignaturen prüfen. Alternativ im MVP ausschließlich Events des direkt authentifizierten Autors akzeptieren und Drittlog-Weitergabe ausdrücklich ausschließen. **Einschätzung; ARCHITECTURE §§4–6.**
+
+- **major — Pairing braucht eine persistente Zustandsmaschine.** „Token prüfen, used setzen, beide bestätigen“ lässt konkurrierende Einlösungen, Disconnect und Crash zwischen den Bestätigungen offen. **Empfehlung:** Atomare Token-Reservierung an Joiner-ID und Pairing-Vorgang binden; beide Bestätigungen explizit austauschen. Membership und Allowlist erst nach erfolgreichem Abschluss aktivieren; Wiederaufnahme, Abbruch und erneute Einladung definieren. Keine zustandsändernden Pairing-Nachrichten über 0-RTT verarbeiten. **Einschätzung; ARCHITECTURE §5.3.**
+
+- **major — SAS schützt nur bei tatsächlichem Vergleich; Ticket-Metadaten bleiben ungebunden.** Ein gestohlener Link ermöglicht weiterhin Einlösungsrennen und Invite-Verbrauch. Die SAS umfasst weder Workspace noch Modus oder Protokollversion. **Empfehlung:** Kanonischen Pairing-Transcript einschließlich IDs, Workspace, Modus, Version und frischen Nonces binden. Wortliste und Entropie festlegen; beide Seiten bestätigen ausdrücklich. Ein eingehender Link darf die lokale Strict-Vorgabe niemals ohne Zustimmung auf Auto setzen. Tickets auch aus CLI-Argumenten, Fehlerausgaben und Deep-Link-Telemetrie heraushalten. **Einschätzung.**
+
+- **major — Die Allowlist ist noch zu grob.** Vor dem Hello ist der Workspace nicht bekannt; ein workspace-unabhängiger Geräteschlüssel darf nicht automatisch Zugang zu allen Workspaces geben. `pair/1` ist zudem eine notwendige Ausnahme vom pauschalen „keine Frames vor Membership“. **Empfehlung:** Zuerst gerätebezogene Zulassung, anschließend begrenztes Hello und Workspace-Membership-Prüfung vor jedem Datenaustausch. Pairing separat begrenzen: Deadline, Verbindungszahl, Versuche und Payload-Größe. Sicherheitsversprechen auf „keine Anwendungsframes verarbeitet“ präzisieren; QUIC kann bereits Bytes puffern. **Einschätzung; SECURITY §1, ARCHITECTURE §5.2.**
+
+## 3. Sync und spätere Teamfähigkeit
+
+**Einschätzung:** Full Mesh ist für 3–8 Geräte vertretbar: maximal 28 Gerätepaare. Die schwierigeren Probleme liegen bei Konsistenz und Berechtigungen, nicht bei dieser Peerzahl. Ein CRDT ist für geräteeigene Agentzustände zunächst unnötig.
+
+- **major — `max_seq` ist bei Lücken kein sicherer Head.** Werden 1 und 3 gespeichert und Head 3 gemeldet, wird Event 2 möglicherweise nie nachgefordert. **Empfehlung:** Head als höchsten *lückenlos persistierten* Präfix definieren; spätere Events begrenzt puffern oder Lücken explizit anfordern. Gleiche `(workspace, author, seq)` mit anderem Inhalt als Konflikt behandeln, nicht als idempotentes Duplikat. **Einschätzung; T-002 Store-API, ARCHITECTURE §5.4.**
+
+- **major — Deterministischer Fold ist gefordert, aber nicht definiert.** Per-Autor-Reihenfolge allein bestimmt weder konkurrierende Änderungen noch die Behandlung von Events vor `MemberAdded`. Wanduhren lösen das nicht zuverlässig. **Empfehlung:** Agentenbesitz eindeutig an Autoren binden; Membership als gesonderten Owner-kontrollierten Verlauf auswerten. Konflikt-, Vorläufer- und verspätete Event-Regeln vor T-002 festlegen und mit entsprechenden Permutationen testen. **Einschätzung.**
+
+- **major — Catch-up/live und Ressourcenverbrauch haben offene Übergänge.** Zwischen Head-Erfassung und Live-Abonnement können Events verloren gehen. 256 KiB pro Frame begrenzt weder Speicherwarteschlangen noch dauerhaftes Log-Wachstum. **Empfehlung:** Persistenz als Quelle verwenden und ab einem Cursor lückenlos weiterlesen; Wiederholungen deduplizieren. Zusätzlich Queue-, Batch-, String-, Autoren- und Speicherkontingente sowie Read-Deadlines definieren. **Einschätzung.**
+
+- **major — Postcards stabiles Format garantiert keine Schema-Kompatibilität.** Enum-Discriminants sind Teil des Formats; Änderungen am Rust-Enum können die Bedeutung ändern. Eine Version innerhalb eines bereits inkompatiblen Frames hilft zu spät. **Empfehlung:** Wire-Typen von Domain-/IPC-Typen trennen, v1 einfrieren, Golden-Bytes testen und Versionsprüfung vor variabler Payload-Dekodierung ermöglichen. [Postcard-Dokumentation](https://docs.rs/postcard/1.1.3/postcard/)
+
+- **major — Revocation muss jetzt vorbereitet werden.** ROADMAP nennt M2, ARCHITECTURE §4 dagegen M3. Unklar sind historische Zugriffsrechte, verspätete Offline-Events und bestehende Verbindungen. **Empfehlung:** Jetzt Membership-Version/Epoch und zukünftige Widerrufsprüfung vorsehen. Später Widerruf auf neue und bestehende Verbindungen anwenden. Bereits replizierte Daten lassen sich dadurch nicht zurückholen; Datenschutzänderungen löschen ebenfalls keine alten Kopien. **Einschätzung.**
+
+## 4. Claude-Code-/Codex-Hooks und Unix-Socket
+
+**Verifiziert:** Beide Produkte dokumentieren JSON-Command-Hooks und Async-Ausführung. Codex unterstützt `hooks.json` mit Vertrauensprüfung. Die Architektur ist damit grundsätzlich realisierbar. Bei Codex lautet der kanonische Shell-Matcher **`Bash`**, auch für `exec_command`; die Tabelle mit „shell“ sollte korrigiert werden. [Codex Hooks](https://learn.chatgpt.com/docs/hooks), [Claude Code Hooks](https://code.claude.com/docs/en/hooks)
+
+- **major — Async-Hooks sind kein geordnetes, verlustfreies Eventlog.** Codex erlaubt unterschiedliche Abschlussreihenfolgen und beendet ausstehende Hooks beim Session-Ende. Claude kann Async-Hooks beim `-p`-Teardown abbrechen. **Empfehlung:** Session-/Turn-/Tool-IDs zur Korrelation und Deduplizierung verwenden; verspätete Ereignisse berücksichtigen. Nach fehlenden Abschlussereignissen „unbekannt/veraltet“ anzeigen. `Stop` bedeutet Turn-Ende, `PostModelRequest failed` kann einen anschließend erfolgreichen Retry betreffen. **Verifiziertes Laufzeitverhalten; Zustandsregeln sind Empfehlung.** [Codex Hooks](https://learn.chatgpt.com/docs/hooks), [Claude Code Hooks](https://code.claude.com/docs/en/hooks)
+
+- **major — UID-Prüfung beweist keine Agent-Herkunft.** Jeder Prozess desselben Benutzers kann grundsätzlich senden. Die Maßnahme schützt gegen andere lokale Benutzer, nicht gegen einen gleichberechtigten lokalen Prozess. **Empfehlung:** SECURITY entsprechend einschränken; „verified“ als beobachteten Hook-Befund definieren. Zusätzlich Server-UID im Hook prüfen, Socket-Lifecycle absichern und Peer-Credentials über einen sicheren Wrapper mit dem `no unsafe`-Gebot vereinbaren. **Einschätzung.**
+
+- **major — Datenschutzfilter und Inferenz benötigen eine gemeinsame Feldspezifikation.** Tests/Merges sollen aus Commands, Reviews teilweise aus Prompts erkannt werden; der Hook entfernt solche Rohfelder bereits vor dem Adapter. **Empfehlung:** Entweder lokal im Hook zu festen Kategorien reduzieren oder genau definierte sensible Felder ausschließlich über den lokalen Socket verarbeiten. Beliebige Labels, Fehlermeldungen und Provenance-Strings ebenfalls begrenzen. Für stdin, Socket-Connect und Write eigene Deadlines implementieren: Async allein garantiert keine 50 ms. **Einschätzung; ARCHITECTURE §7.**
+
+## 5. T-001–T-003 und MVP-Reihenfolge
+
+| Schwere | Konkretes Problem | Empfehlung |
+|---|---|---|
+| **major** | T-002 fixiert das Schema vor Klärung von Autorisierung, Heads und Fold-Regeln. | Kurze Protokollentscheidung davor abschließen; diese Punkte nicht als Implementierungswahl offenlassen. |
+| **major** | T-004 soll `invite/join` liefern, obwohl Pairing erst T-005 implementiert und von T-004 abhängt. | T-004 auf CLI-Grundgerüst und Testharness beschränken; funktionierendes Invite/Join nach T-005 abnehmen. |
+| **major** | Reale Netzvalidierung kommt erst nach Playground und Onboarding. | Bereits nach T-003 Direct/Relay auf zwei Netzen prüfen; nach T-005/T-006 headless Pairing, Catch-up, Disconnect und Sleep/Wake validieren. T-012 bleibt abschließende Produktabnahme. |
+| **major** | App und Headless-Node könnten gleichzeitig dieselbe Identity, Datenbank und denselben Socket verwenden. | Einen aktiven Prozess pro Datenverzeichnis erzwingen; isolierte Testprofile vorsehen. Workspace-/Endpoint-Lifecycle explizit festlegen. |
+| **major** | Keychain-Fallback ist nur durch eine Log-Warnung abgesichert. | „Schlüssel fehlt“ von „Keychain gesperrt/fehlerhaft“ unterscheiden. Bei bestehender Identity keine Ersatzidentity erzeugen; Dateifallback bewusst aktivieren. |
+| **minor** | G-1 verlangt Betrieb vor externer Verteilung, die Umsetzung steht aber unter M2. | Eigenen Release-Task mit Verantwortlichem, Kostenentscheidung, Relay-Ausfalltest und Prüfung der ausgelieferten Konfiguration anlegen. |
+
+**T-001 kann beginnen.** Vor T-002 sollten Event-Vertrauen und Konsistenzregeln feststehen. T-003 ist umsetzbar, sobald die Tests öffentliche Discovery ausschließen und ausgewählte Pfade statt bloß vorhandener Pfade prüfen.

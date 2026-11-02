@@ -6,7 +6,8 @@ Status: v1 (2026-11-02). Any change that weakens a guarantee here needs the owne
 
 1. Application data between Meshyard peers is always end-to-end encrypted and mutually
    authenticated (QUIC + TLS 1.3 with raw Ed25519 public keys, via iroh).
-2. Only devices that completed pairing for a workspace can open `sync/1` or `ping/1` streams.
+2. Only devices that completed pairing for a workspace get application frames decoded or processed
+   on `sync/1`/`ping/1`, and only for workspaces they were paired into (PROTOCOL §6).
 3. In **Strict P2P**, the endpoint has no relay configured — project/agent data cannot traverse
    relay infrastructure. If no direct path exists, the connection fails and the UI says so.
 4. In **P2P Auto**, relaying is possible, is always visible per peer ("Relayed via <host>"), and
@@ -36,7 +37,8 @@ Relay policy (owner decision, 2026-11-02):
 - Before Meshyard is distributed to external users, Auto mode switches to **self-hosted iroh
   relays in Switzerland/EU** (`RelayMode::Custom`), at least two for redundancy, with minimal
   logging. This is release gate **G-1** in `ROADMAP.md`.
-- Relays store nothing; they forward encrypted packets. In Auto, the first packets of a connection
+- Our relay configuration is designed without persistent storage; relays only forward encrypted
+  packets. For public operators (n0) storage/logging is governed by their policies, not by us. In Auto, the first packets of a connection
   may travel via the relay before the path upgrades to direct; the UI always shows the actual
   path ("Direct P2P" / "Encrypted relay").
 - Self-hosting pkarr/DNS discovery as well removes n0 from the control plane entirely (M2).
@@ -56,9 +58,10 @@ The settings screen shows which relay operator is in use.
 |---|---|
 | Network attacker reads/modifies traffic | QUIC/TLS 1.3, keys pinned to EndpointId |
 | Stranger connects to my device | ALPN + allowlist check before any app frame is processed |
-| Leaked invite link | single use, 15 min expiry, token stored as hash, **SAS confirmation** on both sides |
+| Leaked invite link | single use, 15 min expiry, token stored as hash, atomic reservation to one joiner, transcript-bound **SAS confirmation** on both sides; a link can't weaken local Strict mode silently |
+| Peer forges events for others / fake membership | signed events, owner key anchored in WorkspaceId, per-body authorization, author must equal connection peer (MVP) |
 | Malicious peer sends huge/garbage frames | max frame size, bounded batches, schema validation, per-peer rate limits, version check |
-| Local process injects fake agent events | Unix socket in `0700` dir, `0600`, peer-UID check |
+| Other OS user injects fake agent events | Unix socket in `0700` dir, `0600`, peer-UID check. **Does not** protect against other processes of the same user — documented limitation |
 | Secrets leak into logs or shared events | allowlisted field extraction in `meshyard-hook`; `SharingPolicy` filter; `tracing` redaction layer; tests asserting no prompt/command text in shared payloads |
 | Device key theft from disk | key in macOS Keychain; fallback file `0600`; never in SQLite, logs, or IPC |
 | Hook installer damages agent config | show exact diff, explicit approval, backup, idempotent, uninstall path |

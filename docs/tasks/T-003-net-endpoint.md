@@ -1,6 +1,7 @@
 # T-003 — Network endpoint, modes, diagnostics
 
 Status: ready (after T-002) · Owner: Codex · Reviewer: Claude
+Revised 2026-11-02 after Codex review. Normative: `docs/PROTOCOL.md` §5–6 (framing, admission, limits).
 
 ## Objective
 A `MeshNode` in `meshyard-net` that binds an iroh endpoint in P2P Auto or Strict P2P mode,
@@ -20,18 +21,28 @@ routes ALPNs, enforces the member allowlist, and reports honest path diagnostics
 - `ping/1`: request/response with timestamps; returns RTT and path snapshot.
 - `PeerDiagnostics { endpoint_id, path: Direct|Relayed{relay_url}|None, rtt, last_error, last_seen }`
   and `NodeDiagnostics { mode, home_relay, direct_addrs, peers }`, updated from `paths_stream()`.
+  `path` is derived from the **selected** path only (`is_selected() && is_ip()` → Direct), copied
+  out of the borrowed snapshot. Semantics: local send path, not a guarantee about every received byte.
 - Mode switch = close endpoint and rebind; never mutate mode in place.
-- Error type `NetError` with user-facing advice strings (e.g. Strict + unreachable).
+- Error type `NetError` with user-facing advice strings that separate **observation** ("no direct
+  path within 10 s") from **suspected cause** ("likely: both peers behind NAT without port mapping").
+- Two-stage admission per PROTOCOL §6 (device admission before decoding any frame; workspace
+  admission via `Hello` is wired in T-006). Disable 0-RTT. Per-device connection/stream limits.
+- Test endpoints MUST be built without public discovery (no `presets::N0`/staging in tests: build
+  the endpoint manually with no address lookup, explicit local relay map, explicit addresses).
 
 ## Tests (two separate suites, both required)
 - **direct suite**: two in-process endpoints, relay disabled, connected via explicit direct
   addresses; assert path is IP, ping works, non-allowlisted peer is rejected without the handler
   reading data.
-- **relay suite**: local relay from iroh's `test-utils` (or `iroh-relay` dev server); Auto-mode
-  endpoints connected via relay-only address; assert diagnostics report `Relayed` at least
-  initially, and data flows.
+- **relay suite**: local relay from iroh's `test-utils` (or `iroh-relay` dev server); endpoints
+  connected via relay-only address **with direct IP paths prevented in a controlled way** (e.g.
+  iroh test transport utilities / IP transports disabled on one side — find the 1.0 mechanism and
+  document it); assert selected path is relay and data flows. If no reliable mechanism exists,
+  stop and report instead of writing a flaky test.
 - **strict suite**: Strict-mode endpoint has no relay configured (assert on config/home relay
-  = none); connecting to a peer known only by relay URL fails with the Strict advice error.
+  = none); connecting to a peer known only by relay URL fails with the Strict advice error, with
+  address caches and other lookup sources excluded.
 - Tests must not depend on public internet; mark any optional internet test `#[ignore]`.
 
 ## Acceptance criteria

@@ -1,43 +1,59 @@
-# T-002 — Core types, local store, device identity
+# T-002 — Core types, wire v1, local store, device identity
 
 Status: ready (after T-001) · Owner: Codex · Reviewer: Claude
+Revised 2026-11-02 after the Codex architecture review. **Normative reference: `docs/PROTOCOL.md`
+§§1–5 and §10.** Where this spec is silent, PROTOCOL.md decides.
 
 ## Objective
-Domain model + persistence + identity that every later layer builds on.
+Domain model, frozen wire format v1, signed events, persistence and identity that every later
+layer builds on.
 
 ## Scope
 ### meshyard-core (no I/O dependencies)
-- Types from `ARCHITECTURE.md §6`: `WorkspaceId`, `DeviceId` (wraps 32-byte public key; do not
-  depend on iroh here — convert in `meshyard-net`), `Workspace`, `Member`, `Mode {Auto, Strict}`,
-  `Event { author, seq, ts_ms, kind }`, `EventKind`, `ActivityState`, `Provenance`,
-  `ToolCategory`, `AgentKind {ClaudeCode, Codex, Other(String)}`.
-- `fold(events) -> DerivedState` (members, agents with current state) — deterministic regardless of
-  interleaving across authors given per-author order. Property test with `proptest`.
-- `SharingPolicy` with `filter(&EventKind) -> Option<EventKind>`; default policy per
-  `SECURITY.md §5`. Unit tests proving free-text fields are dropped unless explicitly allowed.
-- Serde derive for all wire types; `ts-rs` export for UI-facing types into
-  `app/src/ipc/generated/` (generation via a test or build step; document how to regenerate).
+- Domain types: `WorkspaceId`, `DeviceId` (32-byte public key; no iroh dependency here),
+  `Genesis`, `Workspace`, `Member`, `Mode {Auto, Strict}`, `ActivityState`, `Provenance`
+  (`Verified{source: HookEvent}` / `Inferred{rule: RuleId}` — enums, no free text),
+  `ToolCategory`, `AgentKind`.
+- `wire::v1`: `EventHeader`, `EventBody`, `SignedEvent`, frame header (`MSHY` magic, version, type,
+  len) — **separate from domain and IPC types**, with conversion functions. Golden-bytes tests for
+  every wire enum/struct (fixed bytes checked into tests).
+- Signing/verification via a `Signer`/`Verifier` trait (implementation with `ed25519-dalek` or
+  the key type iroh uses — pick one, justify it); domain-separated message per PROTOCOL §2.
+- `WorkspaceId` derivation from `Genesis` per PROTOCOL §1.
+- `fold(genesis, accepted_events) -> DerivedState` implementing PROTOCOL §4: membership first,
+  authorization rules per body, agent ownership `(author, agent_local_id)`, pending-membership
+  holding. Property test (`proptest`): any cross-author interleaving respecting per-author order
+  folds to identical state.
+- String caps + control-char stripping per PROTOCOL §4.
+- `SharingPolicy::filter` (default per `SECURITY.md §5`) applied when *creating* own events.
+- `ts-rs` export for UI-facing domain types (not wire types) into `app/src/ipc/generated/`;
+  document the regeneration command.
 
 ### meshyard-store
-- `Store::open(path)` with WAL mode, `rusqlite_migration` migrations.
-- Tables: `workspace`, `members`, `peers` (endpoint_id, display_name, last_seen, last_path),
-  `events` (workspace_id, author, seq, ts_ms, kind_json, PRIMARY KEY(workspace_id, author, seq)),
-  `invites` (token_hash, expires_at, used_at).
-- API: `append_own(kind) -> Event` (assigns next seq atomically), `insert_remote(event)`
-  (idempotent, rejects gaps? → store but mark; document choice), `heads()`,
-  `events_after(author, seq, limit)`.
-- Store runs on a dedicated thread; async callers use a channel-based handle (no blocking in tokio
-  worker threads).
+- `Store::open(data_dir)`, WAL, `rusqlite_migration`.
+- Tables: `workspaces` (id, genesis_blob), `events` (workspace, author, seq, signed_blob, PK
+  (workspace, author, seq)), `pending_events` (bounded per PROTOCOL §3), `peers`, `pairings`
+  (state machine columns for PROTOCOL §7; logic comes in T-005), `meta`.
+- API: `append_own(workspace, body, signer) -> SignedEvent` (atomic next seq), `insert_remote(ev)
+  -> Inserted | Duplicate | Pending | Equivocation | Rejected(reason)` (verifies signature),
+  `contiguous_heads(workspace)`, `events_after(workspace, author, seq, limit)`.
+- Dedicated DB thread + channel handle for async callers.
 
-### Identity
-- `DeviceKeyStore` trait; `KeychainKeyStore` (service `computer.meshyard.device`, account =
-  workspace-independent "device") and `FileKeyStore` (0600, used in tests and as fallback with a
-  logged warning). Secret key bytes never appear in `Debug`/logs.
+### Identity & process model (PROTOCOL §10)
+- `DeviceKeyStore` trait; `KeychainKeyStore` (service `computer.meshyard.device`) and
+  `FileKeyStore` (0600). Distinguish `NotFound` from `Unavailable/Locked`; on `Unavailable` with an
+  existing identity → error, never a replacement key. File store only when explicitly selected.
+- Data-dir lock file (exclusive) → second process on the same data dir fails clearly.
+- Secret key bytes never in `Debug`/logs.
 
 ## Acceptance criteria
-- [ ] Unit + property tests pass; `npm run check` green.
-- [ ] Test: two stores with shuffled-but-per-author-ordered event sets fold to identical state.
-- [ ] Test: default `SharingPolicy` never emits prompt/command/file-path text.
-- [ ] Test: `FileKeyStore` creates files with mode 0600; `Debug` of key type prints no key bytes.
-- [ ] Keychain path tested manually on macOS (report honestly; may prompt the user).
-- [ ] Report in `docs/reports/T-002.md`.
+- [ ] Golden-bytes tests for all v1 wire types.
+- [ ] Signature tests: tampered header/body rejected; wrong domain separator rejected.
+- [ ] Store tests: gap → `Pending`, gap filled → contiguous head advances; same seq different
+      payload → `Equivocation` (first kept); identical → `Duplicate`.
+- [ ] Fold tests: non-owner `MemberAdded` ignored; `AgentState` for an agent owned by another
+      author ignored; events of not-yet-member held then applied after `MemberAdded`; property test.
+- [ ] Default `SharingPolicy` never emits prompt/command/path text (test).
+- [ ] `FileKeyStore` file mode 0600; `Debug` prints no key bytes; lock file prevents 2nd open.
+- [ ] Keychain path tested manually on macOS — report honestly (may prompt the user).
+- [ ] `npm run check` green; report in `docs/reports/T-002.md`.
