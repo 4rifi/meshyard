@@ -1,7 +1,9 @@
-# Meshyard — Protocol Specification v1 (normative)
+# Meshyard — Protocol Specification v1.1 (normative)
 
-Status: v1 draft (2026-11-02), owner: Claude (architect). Resolves the blocker/major findings of
-the Codex architecture review (`docs/reviews/codex-architecture-2026-11-02.md`). Where this file
+Status: v1.1 (2026-11-02), owner: Claude (architect). v1.1 adds ADR-009 (sender-only sync,
+owner-only invitations) and ADR-010 (exact signed bytes, closed v1, fold of owner events, string
+validation stage), resolving Knower questions KQ-001 and KQ-004 (`docs/knowledge/OPEN_QUESTIONS.md`).
+v1 resolved the blocker/major findings of the Codex architecture review (`docs/reviews/codex-architecture-2026-11-02.md`). Where this file
 and `ARCHITECTURE.md` disagree, **this file wins**.
 
 Keywords MUST / MUST NOT / SHOULD as in RFC 2119.
@@ -9,28 +11,49 @@ Keywords MUST / MUST NOT / SHOULD as in RFC 2119.
 ## 1. Keys and identifiers
 
 - **Device key**: Ed25519 (= iroh `SecretKey`). `DeviceId` = 32-byte public key.
-- **Workspace genesis**: on creation the owner device writes a `Genesis` record
-  `{ v:1, owner: DeviceId, name, mode, created_ms, nonce: [u8;16] }`, signed by the owner.
-  `WorkspaceId = BLAKE3("meshyard-ws-v1" || canonical(Genesis))[..16]`.
+- **Workspace genesis** (v1.1, ADR-010): on creation the owner device builds
+  `wire::v1::GenesisV1` with fields in exactly this order:
+  `v: u8 = 1`, `owner: [u8; 32]`, `name: String` (≤ 64 bytes UTF-8), `mode: ModeV1`
+  (`Auto` = variant 0, `Strict` = variant 1), `created_ms: u64`, `nonce: [u8; 16]`.
+  - `genesis_bytes := postcard::to_stdvec(&GenesisV1)`.
+  - `SignedGenesisV1 { genesis_bytes: Vec<u8>, sig: [u8; 64] }`, where `sig` is the owner's
+    Ed25519 signature over `b"meshyard-genesis-v1" || genesis_bytes`.
+  - `WorkspaceId := BLAKE3(b"meshyard-ws-v1" || genesis_bytes)[..16]`.
+  - The raw `genesis_bytes` are stored and transmitted as received. Verification and id
+    derivation always use those raw bytes; implementations MUST NOT re-encode a decoded
+    `GenesisV1` for verification. Decoding MUST consume all bytes (trailing bytes → reject).
+  - `owner` in the decoded genesis MUST equal the signing key.
   The owner key is therefore anchored in the workspace id; it cannot be changed in v1.
-- Every device holds the genesis record for each workspace it belongs to and verifies
-  `WorkspaceId` against it.
+- Every device holds the `SignedGenesisV1` for each workspace it belongs to and verifies the
+  signature and `WorkspaceId` against it.
 
 ## 2. Signed events
 
 ```
-SignedEvent {
-  header: EventHeader { v: u8 = 1, workspace: WorkspaceId, author: DeviceId, seq: u64 (from 1),
-                        ts_ms: u64, membership_epoch: u32 },
-  body:   EventBody (v1 enum, see §4),
-  sig:    Ed25519 signature over  "meshyard-ev-v1" || wire(header) || wire(body)
+EventHeaderV1 { v: u8 = 1, workspace: [u8; 16], author: [u8; 32], seq: u64 (from 1),
+                ts_ms: u64, membership_epoch: u32 }
+EventBodyV1   (closed v1 enum, see §4)
+
+SignedEventV1 {
+  signed: Vec<u8>,   // = postcard(EventHeaderV1) || postcard(EventBodyV1), concatenated
+  sig:    [u8; 64],  // Ed25519 by header.author over  b"meshyard-ev-v1" || signed
 }
 ```
+- **Receive order (v1.1, ADR-010)**, all steps MUST run in this order:
+  1. Decode only the outer `SignedEventV1` frame.
+  2. Decode `EventHeaderV1` from the front of `signed` (`postcard::take_from_bytes`) to learn
+     `author`; verify `sig` over `b"meshyard-ev-v1" || signed` with that key. Failure → reject.
+  3. Decode `EventBodyV1` from the remainder; the remainder after the body MUST be empty
+     (trailing bytes → reject; truncated → reject).
+  4. Equivocation/duplicate check by comparing the stored and received `signed` bytes.
+  5. Field validation (§4a). Failure → `Rejected(InvalidField)`.
+  6. Store the received `SignedEventV1` bytes unchanged.
+  Received signed bytes are never modified, normalized or re-encoded at any step.
 - Signatures MUST be verified on receipt, independent of who delivered the event.
 - **MVP forwarding rule:** a device MUST only accept events whose `author` equals the
   authenticated remote `DeviceId` of the connection (no third-party forwarding). Signatures make
   M2 forwarding possible without a protocol break.
-- `(workspace, author, seq)` with a different signed payload than the stored one = **equivocation**:
+- `(workspace, author, seq)` with different `signed` bytes than the stored ones = **equivocation**:
   reject, keep the first, mark the author `equivocated` in diagnostics, alert the user. It is not an
   idempotent duplicate. Identical payload = duplicate, ignored.
 - `ts_ms` is informational (UI) only; it MUST NOT decide ordering.
@@ -56,24 +79,52 @@ SignedEvent {
 
 - Agent identity is `(author, agent_local_id)` → only the owning device can change its agents.
   There are no cross-author conflicts on agent state by construction.
-- **Membership is evaluated first**: fold the owner's log (membership events only), then fold
-  every other author's log in `seq` order. Events from an author who is not (yet) a member at the
-  time of fold are held as *pending-membership* (bounded like §3) and re-evaluated when membership
+- **Fold phase 1 — membership** (v1.1): the genesis seeds `genesis.owner` as a member with role
+  `Owner` at epoch 0. Then the owner's `MemberAdded`/`MemberRemoved` events are applied in `seq`
+  order; each changes the epoch by +1. `MemberAdded` naming the owner itself is a no-op
+  (no epoch change). Membership bodies authored by anyone else are ignored.
+- **Fold phase 2 — ordinary events** (v1.1): `ProfileUpdated`, `AgentRegistered`, `AgentState`,
+  `AgentGone` are folded for **every member, including the owner**, per author in `seq` order.
+  The owner's log is thus read in both phases: membership bodies in phase 1, ordinary bodies in
+  phase 2.
+- Membership is evaluated first: fold phase 1 completely, then phase 2. Phase-2 events from an
+  author who is not (yet) a member at the time of fold are held as *pending-membership* (bounded like §3) and re-evaluated when membership
   changes; they are never applied speculatively.
 - `membership_epoch` in a header = the epoch the author had seen when writing. In v1 it is
   recorded only; M2 revocation rejects events with an epoch ≥ removal epoch from removed devices.
 - Provenance: `Verified { source: HookEvent (enum, not free text) }` |
   `Inferred { rule: RuleId (enum) }`. No free-text provenance.
-- All strings: UTF-8, length-capped as above, control characters stripped.
+- All strings: see §4a (v1.1) — senders sanitize before signing, receivers validate and reject.
+### 4a. String fields: sanitize on create, reject on receive (v1.1, ADR-010)
+
+- **Sender side** (before signing, when creating an own event or genesis): remove all Unicode
+  general-category `Cc` control characters, then truncate to the byte cap at a UTF-8 character
+  boundary. The signed bytes contain only the sanitized value.
+- **Receiver side** (after signature verification, before storing; §2 step 5): a string field
+  that is not valid UTF-8, exceeds its byte cap, or contains any `Cc` character → the event is
+  `Rejected(InvalidField)`; the peer is flagged `protocol_violation` in diagnostics. The receiver
+  never sanitizes or rewrites signed data.
+- The resulting gap in that author's log is intentional: a conforming sender never produces such
+  an event, so later events of that author stay pending (§3) and are not folded.
+- UI layers additionally escape all strings at render time.
+
+### 4b. Fold purity
+
 - Fold MUST be a pure function of (genesis, set of accepted events). Property test: any
   interleaving across authors that respects per-author order yields identical state.
 
 ## 5. Wire format
 
 - Wire types live in `meshyard-core::wire::v1` and are **separate from domain and IPC types**.
-  v1 types are frozen once T-002 is reviewed; changes require `v2` types.
-- Encoding: `postcard` 1.x. Enum variant order is part of the format → each wire enum has a golden
-  bytes test; adding a variant only at the end; never reorder or remove.
+- **v1 is closed** (v1.1, ADR-010): once T-002 is reviewed, no v1 type, field, field order,
+  variant, or variant discriminant changes, and **no variants are added** to v1 enums. Any change
+  requires `wire_version = 2` types in `wire::v2`, negotiated in `Hello` (both sides list the
+  versions they support; the highest common version is used; no common version → error frame
+  `UNSUPPORTED_VERSION` and close).
+- Encoding: `postcard` 1.x. Enum variant order is part of the format → each wire struct and enum
+  variant has a golden-bytes test.
+- Deferred to M2 (not v1): storing events whose body variant is unknown, to keep per-author
+  contiguity across versions.
 - **Framing** on every stream: `magic "MSHY" (4) | wire_version u8 | frame_type u8 | len u32 BE | payload`.
   Version and type are checked **before** decoding the payload. `len ≤ 256 KiB`.
 - Read deadlines: handshake frames 10 s, idle stream 120 s (keepalive via ping/datagram 30 s).
@@ -94,8 +145,13 @@ Two-stage admission:
 
 ## 7. Pairing (`pair/1`) — persistent state machine
 
+**Invitation authority (v1.1, ADR-009):** in v1 only `genesis.owner` can create invites, so the
+inviter is always the owner. Non-owner members cannot invite (the UI hides the action, the node
+refuses). Delegated invitations are M2.
+
 Invite ticket `meshyard://join/<base32(postcard(Ticket))>`:
-`Ticket { v:1, genesis (signed), inviter: EndpointAddr, invite_id: [u8;16], token: [u8;32], expires_ms }`.
+`Ticket { v:1, genesis: SignedGenesisV1, inviter: EndpointAddr, invite_id: [u8;16], token: [u8;32], expires_ms }`.
+The joiner MUST verify the genesis signature and that `inviter` id == `genesis.owner`.
 Tickets MUST NOT appear in logs, error messages, CLI argument lists (CLI reads from stdin or a
 file), crash reports, or telemetry. Default expiry 15 min, single use.
 
@@ -110,8 +166,12 @@ Open ──(expiry)──► Expired
 - Messages: `JoinRequest { invite_id, token, joiner_profile, joiner_nonce: [u8;16] }` →
   `JoinChallenge { inviter_nonce: [u8;16] }` → both compute SAS → UI confirm →
   `Confirm { transcript_hash }` from **both** sides (order-independent) → inviter sends
-  `Welcome { genesis, member_events_so_far }` → done. Membership and allowlist become active only
+  `Welcome { genesis: SignedGenesisV1 }` → done. Membership and allowlist become active only
   after `Completed` is persisted.
+- (v1.1, ADR-009) `Welcome` carries **no** membership or other events. `MemberAdded(J)` and the
+  rest of the owner's log reach J through a normal `sync/1` session right after pairing: this is
+  the owner sending its own log, consistent with §8. J admits the owner because the owner is a
+  member by genesis (§4 phase 1); the owner admits J once `Completed` is persisted.
 - **Transcript**: `T = BLAKE3("meshyard-pair-v1" || workspace_id || mode || protocol_version ||
   inviter_id || joiner_id || invite_id || inviter_nonce || joiner_nonce)`.
   `Confirm.transcript_hash` MUST equal the local `T` (detects any mismatch).
@@ -129,8 +189,11 @@ Open ──(expiry)──► Expired
 ## 8. Sync (`sync/1`)
 
 1. Exchange `Hello` (both directions).
-2. **Cursor-based catch-up**: for each author A in the union of heads, the side with more events
-   streams `events_after(A, remote_head[A])` from the **store** in batches (≤ 256 events / 256 KiB).
+2. **Cursor-based catch-up, sender-only** (v1.1, ADR-009): each side streams **only its own
+   log**: `events_after(self, remote_head[self])` from the **store** in batches
+   (≤ 256 events / 256 KiB). `Hello.heads` may list other authors for diagnostics only; those
+   events are never requested from or served to anyone but their author (third-party forwarding
+   is M2). Consequence: an offline author's events are unavailable until that author connects.
 3. **Live phase** reuses the same cursor: a local "new event" notification only *wakes* the
    per-connection sender, which reads from the store after its cursor. No separate in-memory push
    path → no gap between catch-up and live; receivers dedupe by `(author, seq)`.

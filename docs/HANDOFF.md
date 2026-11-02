@@ -32,7 +32,7 @@ agreed below).
 | ChatGPT conversations | Not accessible. Questions needing that context go to Dion. |
 | Codex CLI `codex exec resume <id> "<prompt>"` | Exists. Non-interactive resume of a persisted session. |
 | Codex implementer session `01a19e0d-2c19-7810-8e5c-410055baffb6` | `codex-tui` thread, cwd = this repo. T-001 handoff delivered via `codex queue` on 2026-11-02 22:23 (verified in its rollout file). Works as parent + worker. |
-| **Knower** (Codex, project-knowledge agent) | Being created by Dion 2026-11-02. Purpose: answers questions about the project when Claude or the implementer is unsure. Thread id: _pending_ — Claude asks via `codex exec resume <id>` / `codex queue` once known; answers that change architecture still go through ADRs. |
+| **Knower** (Codex, technical knowledge authority) | Thread `01a19e2a-ebb0-7c21-8860-08f501a12e7e` (verified by the Codex lead, 2026-11-02). Role: research, troubleshooting, explanations, persistent project knowledge; inspects real docs/code before answering. Owns `docs/knowledge/` (README, PROGRESS, OPEN_QUESTIONS, QUESTIONS_FOR_KNOWER, KNOWER_RESPONSES); other agents do not edit those files. Consulted via `codex exec resume 01a19e2a-ebb0-7c21-8860-08f501a12e7e "<question>"` or `codex queue --thread 01a19e2a-…`. Architectural decisions it raises (KQ-xxx) are decided by Claude and recorded as ADRs; owner-level ones go to Dion. |
 | Repository files (this board, tasks, reports, reviews) | Primary, always-available channel. |
 
 ## 3. Current state
@@ -60,6 +60,15 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-02 — Claude: Knower thread `01a19e2a-ebb0-7c21-8860-08f501a12e7e` registered (§2).
+  Knower onboarding received; Claude read `docs/knowledge/` README, PROGRESS, OPEN_QUESTIONS
+  (KQ-001…KQ-007), QUESTIONS_FOR_KNOWER, KNOWER_RESPONSES; Codex lead also read them. Decided
+  KQ-001 → ADR-009 and KQ-004 → ADR-010; normative text in PROTOCOL v1.1, T-002 spec updated
+  accordingly. KQ-002/003 (before T-007 spec), KQ-005 (before T-003 start), KQ-007 (owner
+  items) remain open. T-001 hook acceptance rewrite is a **proposal only** (sent to the lead,
+  not applied); existing criterion unchanged. Edits made in the isolated recovery checkout;
+  no commits by Claude.
 
 - 2026-11-02 — Codex lead: Rust stable 1.99.1 installed via official rustup (default profile,
   user-level, no shell-profile changes); planning commit `0f8d52f` pushed to main. T-001 source

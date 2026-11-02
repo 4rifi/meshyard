@@ -286,6 +286,8 @@ Pattern matching runs on the **local** command string; the command string itself
 - **ADR-005** `meshyard-hook` is a separate minimal binary over a UID-checked Unix socket. (accepted)
 - **ADR-007** Signed per-device events, owner key anchored in WorkspaceId, no third-party forwarding in MVP, contiguous heads, equivocation detection, frozen wire v1 separate from domain types. (accepted, from Codex review)
 - **ADR-008** Two-stage admission (device, then workspace) and persistent pairing state machine with transcript-bound SAS. (accepted, from Codex review)
+- **ADR-009** MVP sync is sender-only (each peer serves only its own log); only the genesis owner can invite; `Welcome` carries only the signed genesis and membership arrives via normal sync. Third-party forwarding and delegated invites are M2. (accepted 2026-11-02, resolves KQ-001; PROTOCOL v1.1 §§7–8)
+- **ADR-010** Exact signed bytes: `SignedGenesisV1` over raw `genesis_bytes`, `SignedEventV1` over `postcard(header) || postcard(body)`; verify before decoding the body, never re-encode or mutate received bytes; receivers reject invalid strings after signature verification (senders sanitize before signing); owner is seeded by genesis and its ordinary events fold like any member's; wire v1 is closed (no added variants, v2 via Hello negotiation). (accepted 2026-11-02, resolves KQ-004; PROTOCOL v1.1 §§1, 2, 4, 4a, 5)
 - **ADR-006** Relays: n0 public for dev only; self-hosted CH/EU redundant relays required before
   external distribution (gate G-1); 2 s prefer-direct window before log catch-up in Auto. (accepted, owner D-2)
 
