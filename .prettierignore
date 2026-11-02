@@ -1,0 +1,10 @@
+Cargo.lock
+package-lock.json
+target/
+node_modules/
+app/dist/
+app/src-tauri/gen/
+app/src-tauri/icons/
+docs/
+AGENTS.md
+CLAUDE.md

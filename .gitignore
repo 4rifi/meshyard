@@ -1,0 +1,11 @@
+/target/
+node_modules/
+/app/dist/
+/app/src-tauri/gen/
+.DS_Store
+*.sqlite
+*.sqlite-*
+*.db-wal
+*.db-shm
+/app-data/
+*.log
