@@ -286,4 +286,61 @@ Pattern matching runs on the **local** command string; the command string itself
 
 ## 11. Pinned versions
 
-Filled in by Codex during T-001 (crate/npm name → exact version, date verified).
+Updated by Codex, pending review (T-001, verified 2026-11-02 UTC).
+
+Selection policy: newest compatible non-prerelease, non-deprecated/non-yanked registry release
+published before 2026-10-19 UTC (at least two weeks old). TypeScript stays below 6.1 to satisfy
+the pinned typescript-eslint peer range. Newer stable releases are listed separately so
+these pins are not mistaken for the latest published version. Exact direct versions are pinned;
+transitive resolution is recorded by generated `Cargo.lock` and `package-lock.json`.
+
+| Registry / package | Pinned version | Published (UTC) | Latest stable at verification | Use |
+|---|---|---|---|---|
+| [@tauri-apps/cli](https://registry.npmjs.org/@tauri-apps/cli) (npm) | `2.12.3` | 2026-10-14 | `2.12.4` | Active scaffold dependency |
+| [@tauri-apps/api](https://registry.npmjs.org/@tauri-apps/api) (npm) | `2.12.4` | 2026-10-14 | `2.12.4` | Active scaffold dependency |
+| [react](https://registry.npmjs.org/react) (npm) | `19.3.1` | 2026-10-14 | `19.3.1` | Active scaffold dependency |
+| [react-dom](https://registry.npmjs.org/react-dom) (npm) | `19.3.1` | 2026-10-14 | `19.3.1` | Active scaffold dependency |
+| [vite](https://registry.npmjs.org/vite) (npm) | `8.3.4` | 2026-10-08 | `8.3.5` | Active scaffold dependency |
+| [@vitejs/plugin-react](https://registry.npmjs.org/@vitejs/plugin-react) (npm) | `6.1.2` | 2026-10-05 | `6.2.1` | Active scaffold dependency |
+| [typescript](https://registry.npmjs.org/typescript) (npm) | `6.0.3` | 2026-04-16 | `7.0.2` | Active; latest compatible with typescript-eslint (<6.1) |
+| [pixi.js](https://registry.npmjs.org/pixi.js) (npm) | `8.22.0` | 2026-10-01 | `8.22.0` | Active scaffold dependency |
+| [eslint](https://registry.npmjs.org/eslint) (npm) | `10.13.0` | 2026-10-16 | `10.14.0` | Active scaffold dependency |
+| [@eslint/js](https://registry.npmjs.org/@eslint/js) (npm) | `10.0.1` | 2026-02-06 | `10.0.1` | Active scaffold dependency |
+| [typescript-eslint](https://registry.npmjs.org/typescript-eslint) (npm) | `8.71.2` | 2026-10-12 | `8.72.1` | Active scaffold dependency |
+| [eslint-plugin-react-hooks](https://registry.npmjs.org/eslint-plugin-react-hooks) (npm) | `7.1.1` | 2026-04-17 | `7.1.1` | Active scaffold dependency |
+| [eslint-plugin-react-refresh](https://registry.npmjs.org/eslint-plugin-react-refresh) (npm) | `0.5.7` | 2026-09-14 | `0.5.7` | Active scaffold dependency |
+| [globals](https://registry.npmjs.org/globals) (npm) | `17.13.0` | 2026-10-01 | `17.14.0` | Active scaffold dependency |
+| [prettier](https://registry.npmjs.org/prettier) (npm) | `3.9.10` | 2026-10-10 | `3.9.10` | Active scaffold dependency |
+| [vitest](https://registry.npmjs.org/vitest) (npm) | `5.0.5` | 2026-10-15 | `5.1.0` | Active scaffold dependency |
+| [@types/react](https://registry.npmjs.org/@types/react) (npm) | `19.3.0` | 2026-09-09 | `19.3.0` | Active scaffold dependency |
+| [@types/react-dom](https://registry.npmjs.org/@types/react-dom) (npm) | `19.3.0` | 2026-09-09 | `19.3.0` | Active scaffold dependency |
+| [@types/node](https://registry.npmjs.org/@types/node) (npm) | `26.6.5` | 2026-10-09 | `26.6.6` | Active scaffold dependency |
+| [tauri](https://crates.io/api/v1/crates/tauri) (crate) | `2.12.4` | 2026-10-14 | `2.12.5` | Active scaffold dependency |
+| [tauri-build](https://crates.io/api/v1/crates/tauri-build) (crate) | `2.7.3` | 2026-10-14 | `2.7.4` | Active scaffold dependency |
+| [iroh](https://crates.io/api/v1/crates/iroh) (crate) | `1.3.0` | 2026-09-28 | `1.4.1` | Active scaffold dependency |
+| [rusqlite](https://crates.io/api/v1/crates/rusqlite) (crate) | `0.40.2` | 2026-08-08 | `0.41.1` | Reserved workspace pin; not activated |
+| [tokio](https://crates.io/api/v1/crates/tokio) (crate) | `1.53.3` | 2026-10-13 | `1.54.1` | Reserved workspace pin; not activated |
+| [tracing](https://crates.io/api/v1/crates/tracing) (crate) | `0.1.44` | 2025-12-18 | `0.1.44` | Active scaffold dependency |
+| [ts-rs](https://crates.io/api/v1/crates/ts-rs) (crate) | `12.0.1` | 2026-01-31 | `12.0.1` | Reserved workspace pin; not activated |
+| [serde](https://crates.io/api/v1/crates/serde) (crate) | `1.0.229` | 2026-07-18 | `1.0.229` | Reserved workspace pin; not activated |
+| [serde_json](https://crates.io/api/v1/crates/serde_json) (crate) | `1.0.154` | 2026-10-11 | `1.0.154` | Reserved workspace pin; not activated |
+| [thiserror](https://crates.io/api/v1/crates/thiserror) (crate) | `2.0.21` | 2026-09-23 | `2.0.21` | Reserved workspace pin; not activated |
+
+Rust stable is pinned to `1.99.1` (compiler commit date 2026-10-13, rustup release metadata
+2026-10-15, verified locally). Edition 2024 and workspace resolver 2 are used. `meshyard-hook`
+has **no dependencies**; serde is reserved until T-007. SQLite, async runtime, error derives,
+and IPC generation are intentionally not activated merely to exercise future dependencies.
+
+`iroh = 1.3.0` is configured with default features disabled and `tls-ring` enabled; the scaffold only
+re-exports `EndpointId` and never constructs an endpoint. Tauri uses `wry` and `compression`
+without default features, plugins, or IPC permissions. The JS API dependency is pinned as
+specified, but no IPC is called yet. Root npm scripts own frontend checks and Tauri CLI invocation.
+
+Runtime security configuration: production CSP denies connections, frames, workers, objects,
+and forms; scripts/styles/images/fonts are local only. Dev-only CSP adds loopback Vite HMR
+and inline Vite React refresh scripts. Pixi draws once without a ticker, external assets, or
+network requests. Async disposal is guarded across React StrictMode mount/unmount races.
+
+Primary implementation references: [Tauri CSP](https://v2.tauri.app/security/csp/),
+[Tauri configuration](https://v2.tauri.app/reference/config/),
+[Pixi Application lifecycle](https://pixijs.com/8.x/guides/components/application).

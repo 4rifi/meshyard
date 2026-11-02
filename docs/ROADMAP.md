@@ -7,7 +7,7 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 
 | ID | Task | Depends on | Status |
 |---|---|---|---|
-| T-001 | Repo scaffold: Cargo workspace, Tauri 2 app, React/TS/Vite, lint/typecheck/test scripts, pinned versions | — | ready |
+| T-001 | Repo scaffold: Cargo workspace, Tauri 2 app, React/TS/Vite, lint/typecheck/test scripts, pinned versions | — | in-progress |
 | T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | ready |
 | T-003 | `meshyard-net` endpoint: Auto/Strict modes, ALPN routing, allowlist, path diagnostics; direct + relay test suites | T-002 | ready |
 | T-004 | `meshyard-node` headless CLI (create workspace, invite, join, status, tail) | T-003 | todo |

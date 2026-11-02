@@ -36,16 +36,15 @@ agreed below).
 
 ## 3. Current state
 
-- Repo: empty `main` (no commits), remote `github.com/4rifi/meshyard`.
-- Planning docs v1 written by Claude (PRODUCT, ARCHITECTURE, SECURITY, ROADMAP, this file,
-  T-001..T-003 specs). Not committed.
-- Toolchain: Node v26.7, npm, bun 1.3, Xcode present. Rust not installed — Codex installs it in T-001 step 0.
+- Planning baseline: `0f8d52f` on `main`, committed and pushed by parent.
+- Active branch: `t-001-scaffold`; source `148b730`, report `7cf63b2`; lead developer publishes the branch.
+- Toolchain verified: Rust/cargo 1.99.1 (parent installed via official rustup), Node 26.7.0, npm 11.19.0; Xcode present.
 
 ## 4. Task board
 
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
-| T-001 scaffold | ready | Codex | step 0: install Rust; first commit docs on main |
+| T-001 scaffold | in-progress | Codex | Scaffold committed; full Rust/native validation blocked by disk space; first-launch latency over budget; see docs/reports/T-001.md |
 | T-002 core/store/identity | ready | Codex | after T-001 |
 | T-003 net endpoint | ready | Codex | after T-002 |
 
@@ -60,6 +59,20 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-02 — Codex lead: Rust stable 1.99.1 installed via official rustup (default profile,
+  user-level, no shell-profile changes); planning commit `0f8d52f` pushed to main. T-001 source
+  and report committed on t-001-scaffold. Partial target/debug artifacts removed after ENOSPC;
+  release hook and evidence retained. Need 8–10 GB free or an external build location to finish
+  validation. Owner explicitly permits T-002 after T-001 reaches review; this overrides the
+  general done-dependency for that continuation, but T-001 has not yet reached review.
+
+- 2026-11-02 — Codex, T-001 recovery: generated both lockfiles; npm ci, frontend checks/build,
+  Rust formatting, three small-library tests, focused Clippy and release hook build passed.
+  Full check/native build stopped at the low-disk safeguard; native dev compilation also
+  reported ENOSPC in objc2. Vite served HTTP 200 and was stopped; native window/visual check
+  pending. First hook invocation was 442.322 ms (warm median 2.122 ms), so the <20 ms criterion
+  is not met for all measured runs. Keep in-progress; see docs/reports/T-001.md. T-002 untouched.
 
 - 2026-11-02 — Claude: owner decisions D-1..D-4 recorded; ADR-006 (relay phases, prefer-direct
   window); reviewer channel via read-only `codex exec` established.
