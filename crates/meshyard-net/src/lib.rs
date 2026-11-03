@@ -422,10 +422,10 @@ impl MeshNode {
                 .net_report_config(NetReportConfig::minimal());
         } else {
             // Measure only configured relays, including relays without QUIC discovery.
-            builder = builder.net_report_config(NetReportConfig {
-                https_probes: true,
-                captive_portal_check: false,
-            });
+            let mut report = NetReportConfig::minimal();
+            report.https_probes = true;
+            report.captive_portal_check = false;
+            builder = builder.net_report_config(report);
         }
         builder = builder
             .portmapper_config(PortmapperConfig::Disabled)
