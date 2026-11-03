@@ -50,9 +50,11 @@ No prior task status, review decision or owner decision is changed by this path-
 - T-001: `t-001-scaffold` in the canonical checkout; source cleanup `ac125bb`, status ping
   `8275fb0`, knowledge commit `a101deb`. Check/build evidence is in `docs/reports/T-001.md`;
   review remains open for native visual acceptance and the original first-start <20 ms criterion.
-- T-002: `t-002-core-store-identity`, implementation/fix report `9889c7b`, in
-  `/Volumes/MeshyardProjects/meshyard-worktrees/t-002-core-store-identity`. Full check passed as reported;
-  final-source independent audit timed out and remains pending. See that branch's report/status.
+- T-002: active branch `t-002-core-store-identity` at
+  `/Volumes/MeshyardProjects/meshyard-worktrees/t-002-core-store-identity`.
+  Code fixes are accepted by Claude; wire v1 is frozen. The task remains **review** until
+  Dion's native Keychain roundtrip passes; no merge or T-003 is authorized. See the active
+  branch's review/report; historical branch-specific implementation notes below are superseded.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
@@ -72,7 +74,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
-| T-002 core/store/identity | ready | Codex | after T-001; **revised** — normative spec now `docs/PROTOCOL.md` |
+| T-002 core/store/identity | review | Dion → Claude | Code accepted on active T-002 branch; awaiting real native Keychain pass, then Claude records done; merge after T-001 |
 | T-003 net endpoint | ready | Codex | after T-002; revised test requirements (no public discovery, selected path) |
 
 ## 5. Open decisions
@@ -86,6 +88,13 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: Claude's re-review is confirmed complete (read-only run
+  `d6837df0-8a3b-45a4-8805-2db0b8db3780`). All three code fixes accepted; wire v1 frozen;
+  no code blockers. T-002 stays review until Dion's real native Keychain pass; T-001 still
+  needs recorded L1 and explicit merge instruction. Owner-status question pending; no evidence
+  assumed from elapsed time. Published review `21fbf2f`; updated T-001 commands `d76f2c1`.
+  No merge/T-003; KQ-009 is the remaining separate architect prerequisite before T-003.
 
 - 2026-11-03 — Codex lead: inspected the completed projects migration and actual offline
   check (exit 0; 55 Rust + lock child, 3 Vitest). Active checkout is now

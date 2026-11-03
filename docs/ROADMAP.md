@@ -8,7 +8,7 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | T-001 | Repo scaffold: Cargo workspace, Tauri 2 app, React/TS/Vite, lint/typecheck/test scripts, pinned versions | — | review (native retest and first-launch latency open) |
-| T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | ready |
+| T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | review (code accepted on t-002-core-store-identity; native Keychain pass pending) |
 | T-003 | `meshyard-net` endpoint: Auto/Strict modes, ALPN routing, allowlist, path diagnostics; direct + relay test suites | T-002 | ready |
 | T-003b | Field test 1: two Macs on different networks, direct + relay + strict via `meshyard-node ping` (manual, results logged honestly) | T-004 | todo |
 | T-004 | `meshyard-node` headless CLI skeleton + test harness (`--data-dir` profiles, `create`, `status`, `ping`, `tail`); `invite`/`join` wired after T-005 | T-003 | todo |
