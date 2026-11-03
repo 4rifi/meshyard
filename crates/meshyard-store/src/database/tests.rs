@@ -152,9 +152,10 @@ fn signature_work_is_constant_after_5000_actual_owner_events_and_reopen() {
     let mut db = open(&path, &count);
     assert_eq!(
         count.get(),
-        0,
-        "completed backfill must never rescan history on reopen"
+        1,
+        "reopen verifies genesis once, never the completed event history"
     );
+    count.set(0);
     assert_eq!(db.current_epoch(w).unwrap(), 1);
     assert!(db.confirmed_author(w, member.device_id()).unwrap());
     assert!(!db.confirmed_author(w, unknown.device_id()).unwrap());
@@ -251,7 +252,11 @@ fn legacy_backfill_precedes_cleanup_and_persists_removal_and_gap_semantics() {
     drop(conn);
     let count = Rc::new(Cell::new(0));
     let db = open(&path, &count);
-    assert_eq!(count.get(), 7, "one genesis plus six owner events, once");
+    assert_eq!(
+        count.get(),
+        2058,
+        "one genesis plus all 2057 contiguous events, once"
+    );
     let state = fold(&g, &events).unwrap();
     assert_eq!(db.current_epoch(w).unwrap(), state.epoch);
     assert_eq!(state.epoch, 3);
@@ -270,7 +275,12 @@ fn legacy_backfill_precedes_cleanup_and_persists_removal_and_gap_semantics() {
     drop(db);
     count.set(0);
     let mut db = open(&path, &count);
-    assert_eq!(count.get(), 0);
+    assert_eq!(
+        count.get(),
+        1,
+        "only the cached genesis is reverified on reopen"
+    );
+    count.set(0);
     assert_eq!(db.current_epoch(w).unwrap(), 3);
     assert_eq!(member_row(&db, w, established.device_id()), Some((1, true)));
     assert_eq!(
@@ -688,3 +698,6 @@ fn oversized_outer_envelope_is_already_guarded_and_cannot_stall_pagination() {
             .is_empty()
     );
 }
+
+#[path = "projection_tests.rs"]
+mod projection_tests;

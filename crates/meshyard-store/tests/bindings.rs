@@ -152,12 +152,13 @@ async fn binding_is_explicit_own_kind_unique_local_and_persistent() {
         rusqlite::params![[9u8; 16].as_slice(), w.0.as_slice()],
     )
     .unwrap();
-    assert!(matches!(
+    assert_eq!(
         store
             .agent_binding(w, AgentKind::ClaudeCode, own.clone())
-            .await,
-        Err(StoreError::InvalidBinding)
-    ));
+            .await
+            .unwrap(),
+        None
+    );
     drop(sql);
     store.close().await.unwrap();
 }
@@ -171,7 +172,7 @@ async fn migration_adds_local_bindings_without_guessing_existing_agents() {
     store.close().await.unwrap();
     // Reconstruct the previous schema version, retaining real signed workspace/registration.
     let sql = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
-    sql.execute_batch("DROP TABLE agent_bindings; PRAGMA user_version=2;")
+    sql.execute_batch("DROP TABLE agent_bindings; DROP TRIGGER count_contiguous_insert; DROP TRIGGER count_contiguous_delete; DROP TABLE projection_counts; DROP TABLE agent_projection; DROP TABLE profile_projection; ALTER TABLE members DROP COLUMN added_name; DELETE FROM meta WHERE key LIKE 'projection_v1:%'; PRAGMA user_version=2;")
         .unwrap();
     drop(sql);
     let store = Store::open(dir.path()).unwrap();

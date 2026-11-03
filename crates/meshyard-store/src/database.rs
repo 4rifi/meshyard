@@ -1,4 +1,5 @@
-use crate::StoreError;
+use crate::{StoreError, WorkspaceSnapshot};
+mod projection;
 use meshyard_core::{wire::v1::*, *};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use rusqlite_migration::{M, Migrations};
@@ -29,6 +30,7 @@ pub struct Diagnostics {
 pub(crate) struct Database {
     conn: Connection,
     verifier: Box<dyn Verifier>,
+    genesis_cache: BTreeMap<WorkspaceId, Genesis>,
 }
 fn migrations() -> Migrations<'static> {
     Migrations::new(vec![M::up("
@@ -43,6 +45,19 @@ fn migrations() -> Migrations<'static> {
         CREATE TABLE members (workspace BLOB NOT NULL REFERENCES membership_state(workspace), device BLOB NOT NULL CHECK(length(device)=32), epoch_added INTEGER NOT NULL CHECK(epoch_added BETWEEN 0 AND 4294967295), removed INTEGER NOT NULL CHECK(removed IN (0,1)), PRIMARY KEY(workspace,device));
     "), M::up("
         CREATE TABLE agent_bindings (workspace BLOB NOT NULL REFERENCES workspaces(id), kind INTEGER NOT NULL CHECK(kind IN (0,1,2)), agent_local_id BLOB NOT NULL CHECK(length(agent_local_id)=16), PRIMARY KEY(workspace,kind));
+    "), M::up("
+        ALTER TABLE members ADD COLUMN added_name TEXT NOT NULL DEFAULT '';
+        CREATE TABLE agent_projection (workspace BLOB NOT NULL REFERENCES workspaces(id), author BLOB NOT NULL, local_id BLOB NOT NULL CHECK(length(local_id)=16), kind INTEGER NOT NULL CHECK(kind IN (0,1,2)), value BLOB NOT NULL, last_state_ts_ms BLOB, PRIMARY KEY(workspace,author,local_id));
+        CREATE INDEX agent_projection_kind ON agent_projection(workspace,author,kind);
+        CREATE TABLE profile_projection (workspace BLOB NOT NULL REFERENCES workspaces(id), author BLOB NOT NULL, display_name TEXT NOT NULL, avatar INTEGER NOT NULL, PRIMARY KEY(workspace,author));
+        CREATE TABLE projection_counts (workspace BLOB PRIMARY KEY REFERENCES workspaces(id), event_count INTEGER NOT NULL CHECK(event_count>=0));
+        INSERT INTO projection_counts SELECT id,(SELECT COUNT(*) FROM events WHERE workspace=id) FROM workspaces;
+        CREATE TRIGGER count_contiguous_insert AFTER INSERT ON events BEGIN
+            UPDATE projection_counts SET event_count=event_count+1 WHERE workspace=NEW.workspace;
+        END;
+        CREATE TRIGGER count_contiguous_delete AFTER DELETE ON events BEGIN
+            UPDATE projection_counts SET event_count=event_count-1 WHERE workspace=OLD.workspace;
+        END;
     ")])
 }
 fn binding_kind(kind: AgentKind) -> i32 {
@@ -69,6 +84,25 @@ impl Database {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
         Self::open_with_verifier(path, Box::new(Ed25519Verifier))
     }
+    #[cfg(feature = "test-support")]
+    pub fn open_counted(
+        path: &Path,
+        count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    ) -> Result<Self, StoreError> {
+        struct Counted(std::sync::Arc<std::sync::atomic::AtomicUsize>);
+        impl Verifier for Counted {
+            fn verify(
+                &self,
+                author: DeviceId,
+                message: &[u8],
+                signature: &[u8; 64],
+            ) -> Result<(), CryptoError> {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ed25519Verifier.verify(author, message, signature)
+            }
+        }
+        Self::open_with_verifier(path, Box::new(Counted(count)))
+    }
     // Private injection lets tests count real strict verification without bypassing it.
     fn open_with_verifier(path: &Path, verifier: Box<dyn Verifier>) -> Result<Self, StoreError> {
         // Only the canonical directory retained by DataDirLock reaches this API.
@@ -90,10 +124,15 @@ impl Database {
         migrations()
             .to_latest(&mut conn)
             .map_err(|_| StoreError::Migration)?;
-        let db = Self { conn, verifier };
+        let mut db = Self {
+            conn,
+            verifier,
+            genesis_cache: BTreeMap::new(),
+        };
+        db.load_genesis()?;
         // Backfill must precede quota cleanup: historical grants protect removed
-        // members too. A missing state row is the durable, retryable backfill marker.
-        db.backfill_membership()?;
+        // members too. The meta marker commits atomically with both derived phases.
+        db.backfill_projections()?;
         db.discard_oversized_unconfirmed()?;
         Ok(db)
     }
@@ -156,29 +195,15 @@ impl Database {
         let state = fold(&genesis, &events).map_err(|_| StoreError::Database)?;
         Ok((genesis, state))
     }
-    fn own_agent(
-        &self,
-        workspace: WorkspaceId,
-        local_id: [u8; 16],
-        own: DeviceId,
-    ) -> Result<Agent, StoreError> {
-        let (_, state) = self.workspace_state(workspace)?;
-        if !state.members.contains_key(&own) {
-            return Err(StoreError::InvalidBinding);
-        }
-        state
-            .agents
-            .get(&(own, local_id))
-            .cloned()
-            .ok_or(StoreError::InvalidBinding)
-    }
     pub fn bind_own_agent(
         &self,
         workspace: WorkspaceId,
         local_id: [u8; 16],
         own: DeviceId,
     ) -> Result<(), StoreError> {
-        let agent = self.own_agent(workspace, local_id, own)?;
+        let agent = self
+            .own_agent(workspace, local_id, own)?
+            .ok_or(StoreError::InvalidBinding)?;
         self.conn.execute(
             "INSERT INTO agent_bindings(workspace,kind,agent_local_id) VALUES(?1,?2,?3) ON CONFLICT(workspace,kind) DO UPDATE SET agent_local_id=excluded.agent_local_id",
             params![workspace.0.as_slice(), binding_kind(agent.kind), local_id.as_slice()],
@@ -191,16 +216,19 @@ impl Database {
         local_id: [u8; 16],
         own: DeviceId,
     ) -> Result<(), StoreError> {
-        let agent = self.own_agent(workspace, local_id, own)?;
-        let (_, state) = self.workspace_state(workspace)?;
-        if state
-            .agents
-            .values()
-            .filter(|a| a.author == own && a.kind == agent.kind)
-            .count()
-            == 1
-            && self.agent_binding(workspace, agent.kind, own)?.is_none()
-        {
+        let agent = self
+            .own_agent(workspace, local_id, own)?
+            .ok_or(StoreError::InvalidBinding)?;
+        let count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM agent_projection WHERE workspace=?1 AND author=?2 AND kind=?3",
+            params![
+                workspace.0.as_slice(),
+                own.0.as_slice(),
+                binding_kind(agent.kind)
+            ],
+            |row| row.get(0),
+        )?;
+        if count == 1 && self.agent_binding(workspace, agent.kind, own)?.is_none() {
             self.bind_own_agent(workspace, local_id, own)?;
         }
         Ok(())
@@ -211,23 +239,18 @@ impl Database {
         kind: AgentKind,
         own: DeviceId,
     ) -> Result<Option<[u8; 16]>, StoreError> {
-        let raw: Option<Vec<u8>> = self
-            .conn
-            .query_row(
-                "SELECT agent_local_id FROM agent_bindings WHERE workspace=?1 AND kind=?2",
-                params![workspace.0.as_slice(), binding_kind(kind)],
-                |row| row.get(0),
-            )
-            .optional()?;
-        raw.map(|bytes| {
-            let id = bytes.try_into().map_err(|_| StoreError::InvalidBinding)?;
-            let agent = self.own_agent(workspace, id, own)?;
-            if agent.kind != kind {
-                return Err(StoreError::InvalidBinding);
-            }
-            Ok(id)
-        })
-        .transpose()
+        self.check_projection(workspace)?;
+        let mut query = self.conn.prepare(
+            "SELECT a.author,a.local_id,a.kind,a.value FROM agent_bindings b JOIN agent_projection a ON a.workspace=b.workspace AND a.local_id=b.agent_local_id AND a.kind=b.kind AND a.author=?3 JOIN members m ON m.workspace=a.workspace AND m.device=a.author AND m.removed=0 WHERE b.workspace=?1 AND b.kind=?2",
+        )?;
+        let mut rows = query.query(params![
+            workspace.0.as_slice(),
+            binding_kind(kind),
+            own.0.as_slice()
+        ])?;
+        rows.next()?
+            .map(|row| projection::agent_row(row).map(|a| a.local_id))
+            .transpose()
     }
     fn seed_membership(&self, workspace: WorkspaceId, owner: DeviceId) -> Result<(), StoreError> {
         self.conn.execute(
@@ -238,48 +261,6 @@ impl Database {
             "INSERT INTO members(workspace,device,epoch_added,removed) VALUES(?1,?2,0,0)",
             params![workspace.0.as_slice(), owner.0.as_slice()],
         )?;
-        Ok(())
-    }
-    fn backfill_membership(&self) -> Result<(), StoreError> {
-        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
-        let mut workspaces = self.conn.prepare(
-            "SELECT id,genesis_blob FROM workspaces WHERE id NOT IN (SELECT workspace FROM membership_state)",
-        )?;
-        let rows = workspaces.query_map([], |row| {
-            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
-        })?;
-        for row in rows {
-            let (id, raw) = row?;
-            let (workspace, genesis) =
-                verify_genesis(&decode_genesis(&raw)?, self.verifier.as_ref())?;
-            if id != workspace.0 {
-                return Err(StoreError::Database);
-            }
-            self.seed_membership(workspace, genesis.owner)?;
-            let mut query = self.conn.prepare(
-                "SELECT seq,signed_blob FROM events WHERE workspace=?1 AND author=?2 ORDER BY seq",
-            )?;
-            let owner_rows = query.query_map(
-                params![workspace.0.as_slice(), genesis.owner.0.as_slice()],
-                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?)),
-            )?;
-            let mut expected = 1u64;
-            for row in owner_rows {
-                let (seq, raw) = row?;
-                let event = verify_and_decode(&decode_signed_event(&raw)?, self.verifier.as_ref())?;
-                event.validate_received()?;
-                if event.workspace != workspace
-                    || event.author != genesis.owner
-                    || event.seq != expected
-                    || sql_seq(event.seq)? != seq
-                {
-                    return Err(StoreError::Database);
-                }
-                self.apply_contiguous_membership(&event)?;
-                expected = expected.checked_add(1).ok_or(StoreError::SequenceRange)?;
-            }
-        }
-        transaction.commit()?;
         Ok(())
     }
     fn owner(&self, workspace: WorkspaceId) -> Result<DeviceId, StoreError> {
@@ -326,8 +307,11 @@ impl Database {
                 params![event.workspace.0.as_slice(), device.0.as_slice()],
             )?;
         } else {
-            self.conn.execute("INSERT INTO members(workspace,device,epoch_added,removed) VALUES(?1,?2,?3,0) ON CONFLICT(workspace,device) DO UPDATE SET removed=0",
-                params![event.workspace.0.as_slice(), device.0.as_slice(), epoch])?;
+            let EventBody::MemberAdded { display_name, .. } = &event.body else {
+                return Err(StoreError::Database);
+            };
+            self.conn.execute("INSERT INTO members(workspace,device,epoch_added,removed,added_name) VALUES(?1,?2,?3,0,?4) ON CONFLICT(workspace,device) DO UPDATE SET removed=0,added_name=excluded.added_name",
+                params![event.workspace.0.as_slice(), device.0.as_slice(), epoch, display_name])?;
         }
         Ok(())
     }
@@ -349,7 +333,12 @@ impl Database {
             let workspace = WorkspaceId(workspace.try_into().map_err(|_| StoreError::Database)?);
             let author = DeviceId(author.try_into().map_err(|_| StoreError::Database)?);
             if !self.confirmed_author(workspace, author)? {
-                for table in ["events", "pending_events"] {
+                for table in [
+                    "events",
+                    "pending_events",
+                    "agent_projection",
+                    "profile_projection",
+                ] {
                     self.conn.execute(
                         &format!("DELETE FROM {table} WHERE workspace=?1 AND author=?2"),
                         params![workspace.0.as_slice(), author.0.as_slice()],
@@ -383,7 +372,13 @@ impl Database {
             params![id.0.as_slice(), raw],
         )?;
         self.seed_membership(id, genesis.owner)?;
+        self.conn.execute(
+            "INSERT INTO projection_counts VALUES(?1,0)",
+            [id.0.as_slice()],
+        )?;
+        self.mark_projection(id)?;
         transaction.commit()?;
+        self.genesis_cache.insert(id, genesis);
         Ok(id)
     }
     pub fn genesis(&self, workspace: WorkspaceId) -> Result<Vec<u8>, StoreError> {
@@ -397,7 +392,10 @@ impl Database {
             .ok_or(StoreError::UnknownWorkspace)
     }
     fn check_workspace(&self, workspace: WorkspaceId) -> Result<(), StoreError> {
-        self.genesis(workspace).map(|_| ())
+        self.genesis_cache
+            .get(&workspace)
+            .map(|_| ())
+            .ok_or(StoreError::UnknownWorkspace)
     }
     fn head(&self, workspace: WorkspaceId, author: DeviceId) -> Result<u64, StoreError> {
         let value: i64 = self.conn.query_row(
@@ -518,10 +516,12 @@ impl Database {
                     params![w, a],
                 )?;
                 if !confirmed {
-                    self.conn.execute(
-                        "DELETE FROM events WHERE workspace=?1 AND author=?2",
-                        params![w, a],
-                    )?;
+                    for table in ["events", "agent_projection", "profile_projection"] {
+                        self.conn.execute(
+                            &format!("DELETE FROM {table} WHERE workspace=?1 AND author=?2"),
+                            params![w, a],
+                        )?;
+                    }
                 }
                 return Ok(InsertOutcome::Rejected(RejectReason::PendingOverflow));
             }
@@ -542,6 +542,7 @@ impl Database {
             params![w, a, seq, raw],
         )?;
         self.apply_contiguous_membership(&event)?;
+        self.apply_contiguous_projection(&event)?;
         let mut next = seq;
         while let Some(candidate) = next.checked_add(1) {
             let pending: Option<Vec<u8>> = self.conn.query_row(
@@ -565,6 +566,7 @@ impl Database {
                 params![w, a, candidate, raw],
             )?;
             self.apply_contiguous_membership(&promoted)?;
+            self.apply_contiguous_projection(&promoted)?;
             self.conn.execute(
                 "DELETE FROM pending_events WHERE workspace=?1 AND author=?2 AND seq=?3",
                 params![w, a, candidate],

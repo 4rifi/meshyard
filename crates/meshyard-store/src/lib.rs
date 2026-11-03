@@ -44,6 +44,16 @@ impl From<rusqlite::Error> for StoreError {
     }
 }
 
+/// Membership-filtered durable projection. Historical verification is reserved for audit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkspaceSnapshot {
+    pub genesis: Genesis,
+    pub epoch: u32,
+    pub members: Vec<Member>,
+    pub agents: Vec<Agent>,
+    pub agent_state_ts: BTreeMap<(DeviceId, [u8; 16]), u64>,
+}
+
 type Job = Box<dyn FnOnce(&mut database::Database) + Send>;
 enum Command {
     Run(Job),
@@ -58,6 +68,22 @@ impl Store {
     /// Initial filesystem/open/migration work is synchronous. Async runtimes may call
     /// `open_async`; all handle operations below use a bounded nonblocking channel.
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, StoreError> {
+        Self::open_with(data_dir, database::Database::open)
+    }
+    /// Strict verification instrumentation for downstream regression tests only.
+    #[cfg(feature = "test-support")]
+    pub fn open_counted(
+        data_dir: impl AsRef<Path>,
+        count: Arc<std::sync::atomic::AtomicUsize>,
+    ) -> Result<Self, StoreError> {
+        Self::open_with(data_dir, move |path| {
+            database::Database::open_counted(path, count)
+        })
+    }
+    fn open_with(
+        data_dir: impl AsRef<Path>,
+        open: impl FnOnce(&Path) -> Result<database::Database, StoreError> + Send + 'static,
+    ) -> Result<Self, StoreError> {
         let lock = process_lock::DataDirLock::acquire(data_dir.as_ref())?;
         let directory = lock.directory().to_owned();
         let path = directory.join("meshyard.sqlite");
@@ -66,7 +92,7 @@ impl Store {
         std::thread::Builder::new()
             .name("meshyard-db".into())
             .spawn(move || {
-                let mut db = match database::Database::open(&path) {
+                let mut db = match open(&path) {
                     Ok(db) => db,
                     Err(error) => {
                         let _ = ready_tx.send(Err(error));
@@ -166,6 +192,21 @@ impl Store {
         workspace: WorkspaceId,
     ) -> Result<(Genesis, DerivedState), StoreError> {
         self.call(move |db| db.workspace_state(workspace)).await
+    }
+    pub async fn workspace_snapshot(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<WorkspaceSnapshot, StoreError> {
+        self.call(move |db| db.workspace_snapshot(workspace)).await
+    }
+    pub async fn own_agent(
+        &self,
+        workspace: WorkspaceId,
+        own: DeviceId,
+        local_id: [u8; 16],
+    ) -> Result<Option<Agent>, StoreError> {
+        self.call(move |db| db.own_agent(workspace, local_id, own))
+            .await
     }
     pub async fn genesis(&self, workspace: WorkspaceId) -> Result<Vec<u8>, StoreError> {
         self.call(move |db| db.genesis(workspace)).await
