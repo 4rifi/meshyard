@@ -28,10 +28,18 @@ routes ALPNs, enforces the member allowlist, and reports honest path diagnostics
 - **Strict = no n0 services (ADR-011, 2026-11-03):** do not use `presets::N0DisableRelay` if it
   still enables n0 DNS/pkarr; build the Strict endpoint with `RelayMode::Disabled` and **no
   address lookup/publishing**. Verify the exact builder API in pinned iroh 1.3.0 and report it.
-- **Port mapping:** enable iroh's port mapper (UPnP/NAT-PMP/PCP) in both modes if the pinned
-  iroh offers it; expose the result (`port_mapping: Unavailable|Mapped{external}|Disabled`) in
-  `NodeDiagnostics`. If iroh 1.3.0 has no port mapper, report it — do not add another crate
-  without justification.
+- **Strict builder (KQ-009, verified API):** `Endpoint::builder(presets::Minimal)` +
+  `.relay_mode(RelayMode::Disabled)` + `.clear_address_lookup()` + `NetReportConfig::minimal()`.
+  Never `N0DisableRelay`. Do not await `endpoint.online()` in Strict (relay-only readiness).
+  Test asserts `endpoint.address_lookup()?.is_empty()`.
+- **Port mapping (KQ-009 decision, ADR-012):** Meshyard owns one mapper: direct dependency
+  `portmapper = "=0.19.3"` (same upstream code iroh uses), iroh's internal mapper disabled. A small
+  `meshyard-net/src/portmap.rs` sets the client's UDP local port from the bound IPv4 socket,
+  watches `watch_external_address()`, and calls `Endpoint::add_external_addr` /
+  `remove_external_addr` on change, expiry, network change and shutdown. Diagnostics:
+  `port_mapping: Disabled | Probing | Mapped { external } | NotObserved { after_secs }` —
+  `NotObserved` is an observation ("no mapping within 10 s"), never stated as router refusal.
+  Behind a trait so tests inject mapping events; no test touches a real router.
 - `NodeDiagnostics.direct_addrs` must be complete enough to build an invite ticket for Strict.
 - Relay configuration is a build/config input, never a hardcoded default in Strict code paths;
   a `strict-only` cargo feature (or equivalent config switch) makes Auto unavailable for tester
