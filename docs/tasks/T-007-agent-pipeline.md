@@ -1,7 +1,9 @@
 # T-007 — Claude Code agent pipeline
 
 Status: ready (part a) · Owner: Codex (lane B) · Reviewer: Claude · Written 2026-11-03
-Normative: PROTOCOL §9 as amended below (KQ-002, KQ-003); ADR-004, ADR-005; SECURITY sharing defaults.
+Normative: **PROTOCOL §9 v1.2** (2026-11-03 clarification: envelope, budget, hook-side command
+classification and socket check, correlation IDs, staleness); ADR-004, ADR-005; SECURITY sharing
+defaults. Where this file and PROTOCOL §9 differ, PROTOCOL wins.
 
 ## Split
 - **T-007a (start now, stacked on `c93fbe2`, branch `t-007a-hook-normalizer`)**: `meshyard-hook`
@@ -12,34 +14,51 @@ Normative: PROTOCOL §9 as amended below (KQ-002, KQ-003); ADR-004, ADR-005; SEC
 
 ## Decisions (resolve KQ-002 / KQ-003, 2026-11-03)
 - **KQ-002 single deadline:** the hook has one end-to-end budget of **150 ms** from process start:
-  stdin read ≤ 100 ms (stop at EOF or 64 KiB), connect ≤ 20 ms, write ≤ 20 ms, then exit. On any
+  stdin read ≤ 100 ms (stop at EOF; over 1 MiB → drop), connect ≤ 20 ms, write ≤ 20 ms, then exit. On any
   timeout/error: drop the event, exit 0, print nothing (never block or fail the agent). Empty stdin
   exits immediately. ARCHITECTURE §7.1 "50 ms" summary is superseded. The unchanged T-001 criterion
   (start + exit < 20 ms with empty stdin) is verified here, measured from USB and from the installed
   app on the internal disk (T-013); report both, first run and warm p95.
-- **KQ-003 outcome evidence:** ingest messages carry only bounded enums, never output/error text:
+- **KQ-003 outcome evidence:** outcome data is only ever bounded enums, never output/error text:
   `tool_outcome: Success | Failure | Unknown`, `request_status: Ok | Failed | Unknown`. A value other
-  than `Unknown` is allowed only where a captured, scrubbed fixture from a named CLI version shows a
-  structured field that determines it; everything else maps to `Unknown`. States derived from
-  `Unknown` outcomes are `Inferred`, never `Verified`.
+  than `Unknown` needs a captured, scrubbed fixture from a named CLI version with a structured field
+  that determines it. **Not part of the T-007a envelope:** no T-007a rule consumes them (Fixing and
+  Codex error are not in scope), so they are added only together with their consuming rule.
 
-## T-007a scope
-- `crates/meshyard-hook/src/main.rs`: std + serde/serde_json only. Reads stdin, extracts the
-  allowlist (`hook_event_name`, `session_id`, `tool_name`→category, outcome enums, cwd **hash** only),
-  writes one length-prefixed JSON message to `$MESHYARD_SOCKET` (UID check happens server-side in
-  T-007b). Unknown fields ignored.
-- `crates/meshyard-agents/src/{ingest,normalize,state}.rs`: message type, `normalize(msg) ->
-  Option<NormalizedEvent>`, state machine per PROTOCOL §9 (correlation by session, staleness → Idle
-  after 60 s, Finished on Stop), producing `(ActivityState, Provenance, Option<ToolCategory>)`.
-  Pure functions + an injectable clock.
+## T-007a scope (all rules: PROTOCOL §9 v1.2)
+- `crates/meshyard-hook/src/main.rs`: std + serde/serde_json only. `--socket <abs path>` argument;
+  reads stdin (1 MiB cap); forwards only the 7 `HookEvent` names; maps `tool_name` → tool category;
+  for shell tools classifies `tool_input.command` (first 4 KiB) into `command_class`
+  `test | git_merge | other` **in the hook** and drops the string; validates correlation IDs
+  (`session_id` required; `turn_id`, `tool_use_id`, `agent_id` optional; 1–128 bytes
+  `[A-Za-z0-9._:-]`); hook-side socket owner check (socket type, parent dir `0700`, same owner);
+  writes one newline-terminated JSON envelope ≤ 1 KiB. No cwd, no hash of cwd, no outcome fields.
+- `crates/meshyard-agents/src/{ingest,state}.rs`: envelope type parsed into the existing
+  `meshyard-core` `HookEvent`/`ToolCategory` (no duplicate enums except the local `CommandClass`);
+  state machine per the PROTOCOL §9 v1.2 table: per-session tracking (≤ 32 sessions), turn starts
+  only with `UserPromptSubmit`, ended-turn drop (≤ 16 turn ids), duplicate drop (≤ 64 per session),
+  Finished → Idle `Inferred{TurnEnded}` after 60 s, producing `(ActivityState, Provenance,
+  Option<ToolCategory>)`. Pure functions + an injectable clock.
+- **Staleness is not in the state machine and is never emitted.** It is local derived view
+  metadata: T-007b adds `stale: bool` to `AgentView`, computed by the app when the last
+  `AgentState` is not Idle/Finished and older than 10 min (local receive time); the UI shows
+  "Unknown (no events for 10 min)" with the last state dimmed. Same rule for remote agents later.
+  T-007a provides only a pure helper `is_stale(last_state, last_seen, now) -> bool` with tests,
+  called by T-007b.
 - Fixtures `crates/meshyard-agents/tests/fixtures/claude-code-<version>/*.json`: scrubbed real payloads
   (no prompt text, commands, paths, file contents). If no live capture is authorized, use payloads
   from the official hook documentation and label them `doc-derived`; never claim a live capture.
 
 ## Acceptance (T-007a)
-- Golden tests: each fixture → expected state/provenance; unknown event → no state change.
-- Hook binary tests: empty stdin, malformed JSON, 1 MiB stdin, absent socket, blocked socket —
-  each exits 0 within the budget (measured in-test with generous CI margin; real timings in report).
-- Privacy test: no fixture string from prompt/command/path fields appears in any produced message.
+- Golden tests: each fixture → expected state/provenance per the PROTOCOL §9 v1.2 table; unknown or
+  non-forwarded event → no state change; late tool event after Stop ignored; ended `turn_id` ignored;
+  duplicate `(event, tool_use_id, agent_id)` ignored; Finished → Idle after 60 s with the fake clock.
+- Classifier table test: every listed `test`/`git_merge` form, compound commands (`cd x && cargo
+  test`, `FOO=1 npm test`), precedence `git_merge` > `test`, and lookalikes (`echo cargo test` →
+  `other`).
+- Hook binary tests: empty stdin, malformed JSON, > 1 MiB stdin, invalid/missing `session_id`,
+  absent socket, blocked socket, symlinked socket, parent dir not `0700` — each exits 0 within the
+  budget without writing where required (generous in-test margin; real timings in report).
+- Privacy test: no fixture string from prompt/command/path/cwd fields appears in any envelope.
 - `npm run check` green; files touched only `crates/meshyard-hook/**`, `crates/meshyard-agents/**`,
   their manifests, `docs/reports/T-007.md`.

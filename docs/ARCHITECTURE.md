@@ -218,11 +218,12 @@ Every shared payload passes through `SharingPolicy::filter()` before it is writt
 agent CLI ──hook (async)──► meshyard-hook ──UDS──► IngestServer ──► Adapter::normalize()
    ──► AgentEvent (raw, local only) ──► StateMachine ──► SharingPolicy ──► EventKind::AgentState
 ```
-- `meshyard-hook <agent-kind>` reads stdin JSON (cap 1 MiB), extracts an **allowlisted** subset of
-  fields, connects to `<app_data>/ingest.sock` (dir `0700`, socket `0600`), writes one line of
-  JSON, exits 0. Socket missing / app not running → exit 0 silently within 50 ms. It never
-  blocks or alters the agent (registered with `async: true`; never emits decision output).
-- Ingest server verifies peer UID (`getpeereid`) equals the current user.
+- `meshyard-hook <agent-kind> --socket <path>` reads stdin JSON (cap 1 MiB), classifies a shell
+  command in memory and drops it, checks socket ownership, writes one allowlisted JSON line to
+  `<app_data>/ingest.sock` (dir `0700`, socket `0600`), exits 0 within the single 150 ms budget.
+  It never blocks or alters the agent (registered with `async: true`; never emits decision output).
+  **Normative details (envelope, budget, classification, correlation, staleness): PROTOCOL §9 v1.2.**
+- Ingest server verifies peer UID equals the current user.
 
 ### 7.2 Adapter trait
 ```rust
@@ -235,7 +236,7 @@ trait AgentAdapter {
 }
 ```
 
-### 7.3 State mapping (initial rules; Codex verifies against real payloads in T-007/T-008)
+### 7.3 State mapping (historical design table; superseded for the MVP by PROTOCOL §9 v1.2, which maps only what frozen wire v1 can label honestly — no Reviewing/Fixing/WaitingForInput, no AgentGone, staleness local-only)
 
 | Signal | Claude Code event | Codex event | State | Provenance |
 |---|---|---|---|---|
@@ -252,7 +253,8 @@ trait AgentAdapter {
 | model/API failure | `StopFailure` | failed `PostModelRequest` followed by `Stop` without success (a single failure may be retried) | Error | verified / inferred (Codex) |
 | session ended | `SessionEnd` | `SessionEnd` | AgentGone | verified |
 
-Pattern matching runs on the **local** command string; the command string itself is never shared.
+Pattern matching runs inside `meshyard-hook` on the local command string; only the fixed
+`command_class` leaves the hook process (PROTOCOL §9 v1.2).
 
 ### 7.4 Installation
 - Claude Code: add hook entries to `~/.claude/settings.json` (user scope) or

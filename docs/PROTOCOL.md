@@ -1,6 +1,6 @@
 # Meshyard — Protocol Specification v1.1 (normative)
 
-Status: v1.1 (2026-11-02; §10 clarified 2026-11-03 for KQ-005, no wire change), owner: Claude (architect). v1.1 adds ADR-009 (sender-only sync,
+Status: v1.1 (2026-11-02; §10 clarified 2026-11-03 for KQ-005; §9 local ingest clarified as v1.2 on 2026-11-03 for KQ-002/KQ-003/T-007; no signed wire change), owner: Claude (architect). v1.1 adds ADR-009 (sender-only sync,
 owner-only invitations) and ADR-010 (exact signed bytes, closed v1, fold of owner events, string
 validation stage), resolving Knower questions KQ-001 and KQ-004 (`docs/knowledge/OPEN_QUESTIONS.md`).
 v1 resolved the blocker/major findings of the Codex architecture review (`docs/reviews/codex-architecture-2026-11-02.md`). Where this file
@@ -205,25 +205,81 @@ Open ──(expiry)──► Expired
 
 ## 9. Local agent ingest
 
-- `meshyard-hook <claude-code|codex>`: reads stdin with a 1 MiB cap and 200 ms deadline,
-  extracts allowlisted fields (`hook_event_name`, `session_id`, `turn_id`, `tool_use_id`,
-  `agent_id`, `tool_name`, and for shell tools `command` truncated to 4 KiB), connects to the
-  socket with a 50 ms connect deadline and 50 ms write deadline, writes one JSON line, exits 0.
-  Total budget ≤ 150 ms on the failure path. Prompts, tool outputs, file contents, transcript
-  paths are never forwarded.
-- Before writing, the hook checks that the socket file is owned by the current UID.
-- The app checks peer UID (safe wrapper, e.g. `nix` `LocalPeerCred` on macOS; no `unsafe` in our
-  code). This protects against **other OS users only**, not against other processes of the same
-  user; "verified" therefore means "observed via a hook-shaped message on the local socket".
-- The adapter classifies `command` in memory into fixed categories (`RuleId`), then drops it.
-  Raw command strings are never persisted, logged, or shared.
-- Async hooks may arrive out of order or not at all: the state machine correlates by
-  `session_id` / `turn_id` / `tool_use_id`, ignores stale events (older turn), and marks an agent
-  `stale` (UI: "unknown") if no event arrives for 10 min while not Idle/Finished.
-- `Stop` = turn ended (→ Finished, then Idle after 60 s). `PostModelRequest status=failed` is not
-  Error by itself (a retry may follow); Error only if the turn then ends without success
-  (`StopFailure` for Claude Code; Codex: failed request followed by `Stop` without a successful request).
-- Codex shell tool matcher name is `Bash` (also for `exec_command`).
+v1.2 clarification (2026-11-03, KQ-002/KQ-003, T-007): local ingest only; the signed wire v1 is
+unchanged and frozen. Everything below is local to one machine and never signed or shared.
+
+- **Invocation:** `meshyard-hook <claude-code|codex> --socket <absolute path>` (the installer writes
+  the path; missing/relative path → exit 0 silently). Dependencies: std + serde/serde_json only.
+- **Budget (KQ-002):** one end-to-end budget of 150 ms from process start: stdin ≤ 100 ms with a
+  **1 MiB** cap (over cap, timeout or invalid JSON → drop), connect ≤ 20 ms, write ≤ 20 ms. Any
+  failure: drop the event, print nothing, exit 0. Empty stdin exits immediately (first launch
+  < 20 ms, T-001 criterion unchanged).
+- **Forwarded events:** only the seven `HookEvent` names of `meshyard-core` (`SessionStart`,
+  `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `StopFailure`, `SessionEnd`). Any other
+  hook name → exit 0 without connecting.
+- **Socket owner check (hook side, std only):** `symlink_metadata` on the socket path must be a
+  socket (not a symlink); its parent directory must be a real directory with mode exactly `0700`
+  and the same owner UID as the socket. Since a non-root process can only reach entries inside a
+  `0700` directory it owns, this proves the socket belongs to the current user without libc. On
+  any mismatch → exit 0 without writing.
+- **Server side:** the app additionally checks peer UID (safe wrapper, no `unsafe` in our code).
+  This protects against **other OS users only**, not other processes of the same user; "verified"
+  means "observed via a hook-shaped message on the local socket".
+- **Command classification happens in the hook, at the earliest boundary.** For shell tools
+  (Claude Code `Bash`; Codex `Bash`, also for `exec_command`) the hook reads `tool_input.command`
+  (first 4 KiB only) in memory, computes `command_class`, and drops the string. Raw commands never
+  leave the hook process: not sent, persisted, logged or shared. Rule: split on `&&`, `||`, `;`,
+  `|`; per segment skip leading `cd …`, `env`, `VAR=value` tokens; the first program token (+ its
+  subcommand) decides:
+  - `git_merge`: `git merge`, `git rebase`, `git cherry-pick`, `git pull --rebase`.
+  - `test`: `cargo test`, `cargo nextest`, `npm|pnpm|yarn|bun test`, `npm|pnpm|yarn|bun run test`,
+    `npx vitest|jest`, `vitest`, `jest`, `pytest`, `go test`, `swift test`, `xcodebuild test`,
+    `make test`.
+  - precedence `git_merge` > `test` > `other`. Non-shell tools: field absent.
+- **Envelope:** exactly one newline-terminated JSON object, ≤ 1 KiB:
+  `{"v":1,"agent":"claude_code"|"codex","event":<HookEvent name>,"session_id":S,
+  "turn_id":S?,"tool_use_id":S?,"agent_id":S?,"tool":"edit"|"shell"|"read"|"web"|"other"?,
+  "command_class":"test"|"git_merge"|"other"?}`. Correlation strings: 1–128 bytes of
+  `[A-Za-z0-9._:-]`; an invalid optional ID is omitted, an invalid/missing `session_id` drops the
+  event. Tool mapping (Claude Code): Edit/Write/MultiEdit/NotebookEdit → edit, Bash → shell,
+  Read/Grep/Glob/LS → read, WebFetch/WebSearch → web, anything else → other. No prompt, tool input
+  other than the classified command, output, file content, path, cwd or transcript path is sent.
+  Tool outcome / request status enums (KQ-003) are **not** in v1 of the envelope; they are added
+  only with the rule that consumes them (Fixing, Codex error), under the KQ-003 evidence rule.
+- **State mapping within frozen wire v1** (`ActivityState`, `Provenance`, `RuleId` unchanged):
+
+  | Input | State | Provenance |
+  |---|---|---|
+  | SessionStart | Idle | Verified{SessionStart} |
+  | UserPromptSubmit | Thinking | Verified{UserPromptSubmit} |
+  | PreToolUse tool=edit | Building | Inferred{ToolEdit} |
+  | PreToolUse shell + test | Testing | Inferred{ToolShell} |
+  | PreToolUse shell + git_merge | Merging | Inferred{ToolShell} |
+  | PreToolUse shell + other | Building | Inferred{ToolShell} |
+  | PreToolUse read / web | Thinking | Inferred{ToolRead} / Inferred{ToolWeb} |
+  | PreToolUse other, PostToolUse | no change | — |
+  | Stop | Finished | Verified{Stop} |
+  | 60 s after Finished, no newer event | Idle | Inferred{TurnEnded} |
+  | StopFailure | Error | Verified{StopFailure} |
+  | SessionEnd | Idle (UI: "Session ended") | Verified{SessionEnd} |
+
+  `Reviewing`, `Fixing` and `WaitingForInput` are **not produced** in the MVP: frozen v1 has no
+  `HookEvent`/`RuleId` to label them honestly (needs wire v2).
+- **Correlation and ordering:** state is tracked per `session_id` (≤ 32 sessions per agent, LRU).
+  A turn starts only with `UserPromptSubmit`: in Idle/Finished/Error only `SessionStart`,
+  `UserPromptSubmit`, `SessionEnd` are applied; late tool events are ignored. If `turn_id` is
+  present, events of an already ended turn are ignored (≤ 16 ended turn ids per session). A
+  repeated `(event, tool_use_id, agent_id)` is ignored as a duplicate (≤ 64 per session). Subagent
+  events (`agent_id` present) count as activity of the same agent. The agent's state is the state
+  of its most recently updated session. T-007b maps adapter kind → the registered agent of that
+  kind (T-014) for `agent_local_id`.
+- **Staleness is local derived metadata, not a wire state and not an emitted event:** every viewer
+  (own and remote) marks an agent `stale` if its last `AgentState` is not Idle/Finished and is
+  older than **10 min** (local receive time). The UI shows "Unknown (no events for 10 min)" with
+  the last known state dimmed. `RuleId::Stale` stays reserved and is not emitted in the MVP.
+  This is separate from the Finished → Idle 60 s rule.
+- Codex specifics (shell matcher `Bash` also for `exec_command`, failed `PostModelRequest`
+  handling) are T-008 and follow the same rules.
 
 ## 10. Process model
 
