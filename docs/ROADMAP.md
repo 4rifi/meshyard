@@ -9,21 +9,40 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 |---|---|---|---|
 | T-001 | Repo scaffold: Cargo workspace, Tauri 2 app, React/TS/Vite, lint/typecheck/test scripts, pinned versions | — | review (native check = owner checkpoint L1; hook first-launch <20 ms criterion moved unchanged to T-007) |
 | T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | review (code accepted by Claude re-review 2026-11-03; `done` after a real native Keychain roundtrip by Dion; merge after T-001) |
-| T-003 | `meshyard-net` endpoint: Auto/Strict modes, ALPN routing, allowlist, path diagnostics; direct + relay test suites | T-002 | ready |
+| T-003 | `meshyard-net` endpoint: Auto/Strict modes, ALPN routing, allowlist, path diagnostics; direct + relay test suites | T-002 | in-progress (lane C, D-9) |
 | T-003b | Field test 1: Strict feasibility (owner checkpoint L2 on Dion's Mac: two profiles + router port-mapping check); cross-network Strict with the test partner happens in T-012. Relay paths are tested only locally (no n0 with the partner, D-7) | T-004 | todo |
 | T-004 | `meshyard-node` headless CLI skeleton + test harness (`--data-dir` profiles, `create`, `status`, `ping`, `tail`); `invite`/`join` wired after T-005 | T-003 | todo |
 | T-005 | Pairing protocol `pair/1`: ticket, single-use token, SAS, membership | T-003, T-004 | todo |
 | T-006 | Sync protocol `sync/1` per PROTOCOL §8: Hello/workspace admission, cursor-based catch-up + live, reconnect supervisor, prefer-direct window (ADR-006) | T-005 | todo |
 | T-006b | Field test 2: headless pairing, catch-up, disconnect, sleep/wake on two networks | T-006 | todo |
-| T-007 | Agent pipeline per PROTOCOL §9: `meshyard-hook`, ingest socket, Claude Code adapter, correlation/staleness state machine, hook installer (diff + approval) | T-002 | todo |
+| T-007 | Agent pipeline per PROTOCOL §9: `meshyard-hook`, ingest socket, Claude Code adapter, correlation/staleness state machine, hook installer (diff + approval) | T-002 | in-progress (T-007a hook/normalizer started; T-007b after T-014 review) |
 | T-008 | Codex adapter (hooks.json, trust instructions) | T-007 | todo (M1 stretch) |
 | T-009 | Tauri bridge: commands/events, ts-rs types, view-model store | T-006, T-007 | todo |
 | T-010 | Playground v1: tilemap, stations, avatars, movement, inspector, list view | T-009 | todo |
 | T-011 | Onboarding + diagnostics UI: create workspace, connect agent, invite (link + QR), join, SAS, peer status | T-009 | todo |
 | T-012 | System validation: two-node scripted test, `docs/VALIDATION.md` real-device protocol, results log, field test with the test partner (same LAN first, then different networks) | T-010, T-011, T-013 | todo |
+| T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | review |
 | T-013 | Tester DMG: `aarch64-apple-darwin`, ad-hoc signed, stable id `ch.arifi.meshyard`, `meshyard://join` deep link, bundled `meshyard-hook`, Strict-only profile + bundle check for relay/n0 hosts, `docs/TESTER-GUIDE.md` (German) | T-011 | todo |
 
 Parallelizable: T-007 can run alongside T-003…T-006 (separate worktree).
+
+**Active lanes (D-9, 2026-11-03)** — all stacked on `t-002-core-store-identity` @ `c93fbe2`,
+reviewed lanes merge into `m1-integration` (normal merge commits); `main` receives t-001, t-002,
+then `m1-integration` once the T-001/T-002 owner gates close (D-6 unchanged):
+
+| Lane | Task | Branch | Owns |
+|---|---|---|---|
+| A (priority) | T-014 local workspace slice | `t-014-local-workspace-slice` | `app/**`, store read API |
+| B | T-007a hook + normalizer | `t-007a-hook-normalizer` | `crates/meshyard-hook`, `crates/meshyard-agents` |
+| C (when A/B have capacity) | T-003 Strict endpoint | `t-003-net-endpoint` | `crates/meshyard-net` |
+
+Lanes edit only their own crate manifests; `Cargo.lock` conflicts are resolved by regenerating it
+on merge, never by hand. Next after review: T-007b (app ingest + installer) on top of T-014, then
+T-004 → T-005 → T-006, T-009/T-010/T-011 extending T-014's files.
+
+**GitHub mapping (pending `gh auth login`; issues/milestones not inspectable yet):** milestone
+`M1 Working MVP` with one issue per T-ID above (T-014, T-007a/b, T-003…T-006, T-009…T-013), label
+`lane:A|B|C`; milestone `G-1 Release gate` with T-R1. Body = link to the spec file.
 
 Delivery target (owner, 2026-11-03): the **full MVP** goes to one named test partner (Apple
 Silicon Mac) as an ad-hoc signed DMG, **Strict P2P only** (no n0 or own relays). Owner
