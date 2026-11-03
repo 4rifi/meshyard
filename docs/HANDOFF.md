@@ -84,7 +84,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
-| T-016 living yard | in-progress · **priority 1** | Codex lane A | `docs/tasks/T-016-yard-motion.md`; branch from `a859ed4`; frontend playground only |
+| T-016 living yard | review · **priority 1** | Codex lane A | `docs/tasks/T-016-yard-motion.md`; branch from `a859ed4`; frontend playground only |
 | T-007b connect Claude Code | in-progress (§1–3 backend prep) | Codex lane B | spec §6 adds connect flow + exact DTOs; frontend after T-016; install button = owner gate; live CLI capture = L4 |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
@@ -104,6 +104,15 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-016 source `c5beea9`, report `d95961e`; full check exit 0,
+  185.187 s (67 Rust plus lock child, 44 Vitest, two ignored). Parent renderer-fixture QA passes
+  six isolated timing-mode/width cases, 84 PNGs, real RAF movement + reduced-motion snaps,
+  no idle ticker or CSP/runtime/overflow errors. First shared-clock-context attempt failed and
+  remains preserved; no production change/timeout weakening. Actual frames inspected; narrow
+  tag abbreviation/heading overlap goes to Claude review. Task review, no native/reference/CLI
+  acceptance. T-007b ADR-014 projection/failure follow-up `48b41755` runs separately; next merge
+  follows source acceptance and backend-writer handoff. Real T-015 native window remains open.
 
 - 2026-11-03 — Codex lead: T-015 reviewed code `a859ed4`, review `1f9886a`, connection/motion
   planning `52382a8` committed separately and pushed (remote SHA verified). Parent actual new
