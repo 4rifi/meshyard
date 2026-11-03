@@ -1,38 +1,109 @@
 import { useEffect, useRef, useState } from 'react';
-import { mountPlaceholder } from './playground/placeholder';
+import type { AppStatus } from './ipc/generated/AppStatus';
+import type { CreateWorkspace as CreateInput } from './ipc/generated/CreateWorkspace';
+import type { RegisterAgent as RegisterInput } from './ipc/generated/RegisterAgent';
+import * as client from './ipc/client';
+import { CreateWorkspace } from './features/setup/CreateWorkspace';
+import { ErrorScreen } from './features/errors/ErrorScreen';
+import { WorkspaceScreen } from './features/workspace/WorkspaceScreen';
 
-export function App() {
-  const host = useRef<HTMLDivElement>(null);
-  const [rendererFailed, setRendererFailed] = useState(false);
-
-  useEffect(() => {
-    if (!host.current) return;
-    return mountPlaceholder(host.current, () => {
-      setRendererFailed(true);
-    });
-  }, []);
-
+type Actions = {
+  create: (input: CreateInput) => void;
+  register: (input: RegisterInput) => Promise<void>;
+  profile: (name: string) => void;
+  reload: () => void;
+};
+export function StatusScreen({
+  status,
+  busy,
+  actions,
+}: {
+  status: AppStatus;
+  busy: boolean;
+  actions: Actions;
+}) {
+  if (status === 'Setup')
+    return <CreateWorkspace busy={busy} onCreate={actions.create} />;
+  if ('Error' in status)
+    return (
+      <ErrorScreen
+        error={status.Error}
+        busy={busy}
+        onReload={actions.reload}
+        onRepair={actions.profile}
+      />
+    );
   return (
-    <main>
-      <header>
-        <p className="eyebrow">Desktop scaffold</p>
-        <h1>Meshyard</h1>
-        <p>A local space for your agents. The workspace is taking shape.</p>
-      </header>
-      <figure aria-labelledby="placeholder-description">
-        <div className="canvas-host" ref={host} aria-hidden="true" />
-        <figcaption id="placeholder-description">
-          Playground placeholder: one teal rectangle on a dark background.
-        </figcaption>
-      </figure>
-      {rendererFailed && (
-        <p role="status">
-          The graphics preview is unavailable. The placeholder is described
-          above.
-        </p>
+    <WorkspaceScreen
+      workspace={status.Ready}
+      busy={busy}
+      onRegister={actions.register}
+      onProfile={actions.profile}
+    />
+  );
+}
+export function App() {
+  const [status, setStatus] = useState<AppStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const main = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let active = true;
+    void client.appStatus().then((value) => {
+      if (active) setStatus(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const screen =
+    status === null
+      ? 'Loading'
+      : typeof status === 'string'
+        ? status
+        : 'Error' in status
+          ? status.Error
+          : `Ready:${status.Ready.id_short}`;
+  useEffect(() => {
+    main.current?.querySelector<HTMLElement>('h1')?.focus();
+  }, [screen]);
+  const run = async (action: () => Promise<AppStatus>) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    try {
+      setStatus(await action());
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <main ref={main} aria-busy={busy}>
+      {status === null ? (
+        <p role="status">Opening local workspace…</p>
+      ) : (
+        <StatusScreen
+          status={status}
+          busy={busy}
+          actions={{
+            create: (input) => {
+              void run(() => client.createWorkspace(input));
+            },
+            register: (input) => run(() => client.registerAgent(input)),
+            profile: (name) => {
+              void run(() => client.updateProfile(name));
+            },
+            reload: () => {
+              void run(client.appStatus);
+            },
+          }}
+        />
       )}
-      <p className="footnote">
-        Scaffold only. No agents or peers are connected.
+      <p className="footnote" role="status">
+        {busy
+          ? 'Saving to this device…'
+          : 'Local data · No networking or live hook in this slice'}
       </p>
     </main>
   );
