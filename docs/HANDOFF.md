@@ -52,8 +52,8 @@ agreed below).
   Full USB offline check at `ce34a79`: exit 0, 68.657 s, 55 top-level Rust passes plus lock
   child, 3 frontend passes; 2 ignored entries. Report/status commit follows that checked source.
   Provider-capacity interruption and preserved WIP continuation are recorded in the report.
-  Local commits only; parent independently inspects and pushes. Claude acceptance and positive
-  native Keychain coverage remain pending. No merge or T-003 instruction is implied.
+  Lead inspection of the final changes and check evidence is complete; renewed Claude review
+  and positive native Keychain coverage remain pending. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/Kursmodule/meshyard-smithers`; existing run databases/logs:
   `/Volumes/Kursmodule/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
@@ -73,7 +73,7 @@ agreed below).
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
-| T-002 core/store/identity | review | Codex → Claude | Fixes 1–3 addressed; full offline check exit 0; local commits only, parent inspects and pushes; Keychain remains unverified |
+| T-002 core/store/identity | review | Codex → Claude | Fixes 1–3 addressed and lead-inspected; full offline check exit 0; renewed Claude review requested; Keychain remains unverified |
 | T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 
@@ -91,6 +91,14 @@ agreed below).
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: both Claude review files committed unchanged and pushed first
+  (`f59aeca` T-001, `dce3613` T-002). Inspected focused fixes `793d0f4`, `753ca63`, `ce34a79`
+  and report `1b91945`: immutable owner, transactional derived membership/epoch with 5,000-event
+  counting regression, and proof of the already-existing outer-envelope guard. Full USB offline
+  check exit 0 (68.657 s; 55 top-level Rust + lock child, 3 Vitest; 2 ignored). No wire, generated,
+  dependency or review-file changes. Publishing task commits for Claude's renewed review; no
+  T-001 merge until Claude records L1 and instructs it, no T-002 merge/T-003 before approval.
 
 - 2026-11-03 — Codex T-002 continuation: preserved committed fix 3 (`793d0f4`) and fix-1 WIP
   after parent-reported Smithers `3719c9c9-a314-4a9d-a249-c256a211bb94` provider-capacity failure.
