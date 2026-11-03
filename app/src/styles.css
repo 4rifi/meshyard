@@ -29,6 +29,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
   background: repeating-conic-gradient(var(--ground) 0% 25%, var(--deep) 0% 50%)
     0 0 / 8px 8px;
 }
@@ -245,6 +246,12 @@ code {
   text-transform: uppercase;
 }
 .agent-tag {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-height: 27px;
   width: 36px;
   border-bottom: 2px solid var(--claude);
 }
@@ -333,7 +340,8 @@ label {
 }
 input,
 select,
-button {
+button,
+.pixel-control {
   font: inherit;
   min-height: 48px;
   max-width: 100%;
@@ -349,7 +357,8 @@ select {
   color: var(--text);
   box-shadow: inset 4px 4px 0 var(--deep);
 }
-button {
+button,
+.pixel-control {
   position: relative;
   cursor: pointer;
   margin: 16px 4px 4px 0;
@@ -365,10 +374,12 @@ button {
   font-size: 15px;
   font-weight: 700;
 }
-button:hover {
+button:hover,
+.pixel-control:hover {
   background: var(--warn);
 }
-button:active {
+button:active,
+.pixel-control:active {
   transform: translate(4px, 4px);
   box-shadow: inset 0 -4px 0 var(--wood);
 }
@@ -382,6 +393,15 @@ button:disabled {
     var(--panel) 4px 8px
   );
   box-shadow: 4px 4px 0 var(--line);
+}
+.register-shortcut {
+  grid-column: 2;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  margin: 0 0 12px;
 }
 :focus-visible {
   outline: 4px solid var(--warn);
@@ -424,6 +444,10 @@ h1:focus {
   .workspace-header {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
+  }
+  .register-shortcut {
+    grid-column: 1;
+    justify-self: start;
   }
   .workspace-header .mode {
     justify-self: start;
@@ -470,7 +494,8 @@ h1:focus {
     animation: none !important;
     transition: none !important;
   }
-  button:active {
+  button:active,
+  .pixel-control:active {
     transform: none;
   }
 }

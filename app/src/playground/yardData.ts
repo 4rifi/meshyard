@@ -42,7 +42,7 @@ export const stations = [
   { state: 'Error', label: 'Error', prop: 'alarm' },
 ] as const;
 
-export function yardPlots(agents: AgentView[]) {
+export function yardPlots(agents: AgentView[], columns: 2 | 4 = 4) {
   const groups = yardZones(agents);
   // Two distinct 16px character tiles per station and plot. Extra plots keep all
   // real agents visible without shrinking pixels or dropping crowded registries.
@@ -62,8 +62,8 @@ export function yardPlots(agents: AgentView[]) {
   const plots: Plot[] = Array.from({ length: count }, (_, page) => ({
     stations: stations.map((station, index) => ({
       ...station,
-      x: (index % 4) * 80,
-      y: Math.floor(index / 4) * 88,
+      x: (index % columns) * 80,
+      y: Math.floor(index / columns) * 96,
       agents: (
         groups.find((zone) => zone.label === activityLabel(station.state))
           ?.agents ?? []
@@ -83,8 +83,8 @@ export function yardPlots(agents: AgentView[]) {
           (_, index) => ({
             label: zone.label,
             prop: null,
-            x: (index % 4) * 80,
-            y: Math.floor(index / 4) * 88,
+            x: (index % columns) * 80,
+            y: Math.floor(index / columns) * 96,
             agents: zone.agents.slice(start + index * 2, start + index * 2 + 2),
           }),
         ),

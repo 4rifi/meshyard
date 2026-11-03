@@ -107,7 +107,7 @@ export function App() {
       <p className="footnote" role="status">
         {busy
           ? 'Saving to this device…'
-          : 'Local data · No networking or live hook in this slice'}
+          : 'Local data only · Networking and live agent status are not available yet.'}
       </p>
     </main>
   );

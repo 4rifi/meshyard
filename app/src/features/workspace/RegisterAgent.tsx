@@ -1,15 +1,16 @@
-import { useRef, useState } from 'react';
+import { useState, type RefObject } from 'react';
 import type { RegisterAgent as RegisterInput } from '../../ipc/generated/RegisterAgent';
 export function RegisterAgent({
   busy,
   onRegister,
+  labelInput,
 }: {
   busy: boolean;
+  labelInput: RefObject<HTMLInputElement | null>;
   onRegister: (input: RegisterInput) => Promise<void>;
 }) {
   const [label, setLabel] = useState('');
   const [kind, setKind] = useState<'ClaudeCode' | 'Codex'>('ClaudeCode');
-  const labelInput = useRef<HTMLInputElement>(null);
   return (
     <form
       onSubmit={(e) => {

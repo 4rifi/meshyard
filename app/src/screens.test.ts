@@ -75,6 +75,12 @@ describe('real-state screen contract', () => {
     expect(html).toContain('Register an agent to see it here.');
     expect(html).toContain('No peers. Networking is not built yet.');
     expect(html).not.toContain('placeholder');
+    expect(html).not.toContain('T-007');
+    expect(html).toContain('href="#agent-label"');
+    expect(html.match(/id="agent-label"/g)).toHaveLength(1);
+    expect(html.match(/<button[^>]*>Register agent<\/button>/g)).toHaveLength(
+      1,
+    );
   });
   it('keeps registration separate from activity/provenance in both list and yard data', () => {
     const agents = [
@@ -92,9 +98,7 @@ describe('real-state screen contract', () => {
     expect(html).toContain('No events yet');
     expect(html).not.toContain('Verified');
     expect(html).not.toContain('Idle');
-    expect(html).toContain(
-      'Live status arrives when the Claude Code hook is installed (T-007).',
-    );
+    expect(html).toContain('Live agent status is not connected yet.');
     expect(yardZones(agents)).toEqual([{ label: 'No events yet', agents }]);
   });
   it('places actual activity in its real zone and shows only supplied provenance', () => {
@@ -108,44 +112,127 @@ describe('real-state screen contract', () => {
     expect(yardZones([agent])[0]?.label).toBe('Testing');
     const html = render({ Ready: { ...workspace, agents: [agent] } });
     expect(html).toContain('Testing');
-    expect(html).toContain('Inferred · ToolShell');
+    expect(html).toContain('Inferred · Shell tool');
     expect(html).not.toContain('Verified');
-  });
-  it('keeps each real agent on a distinct tile when a station is crowded', () => {
-    const agents = Array.from({ length: 5 }, (_, index) => ({
-      id: String(index),
-      label: 'same label',
-      kind: 'ClaudeCode' as const,
-      state: null,
-      provenance: null,
-    }));
-    const plots = yardPlots(agents);
-    expect(plots).toHaveLength(3);
-    expect(
-      plots.flatMap((plot) =>
-        plot.stations.flatMap((station) => station.agents),
-      ),
-    ).toEqual(agents);
-    expect(
-      plots.every((plot) =>
-        plot.stations.every((station) => station.agents.length <= 2),
-      ),
-    ).toBe(true);
-    const future = yardPlots([
-      {
-        id: 'future',
-        label: 'future DTO state',
-        kind: 'Codex',
-        state: 'Reviewing',
-        provenance: null,
+    const verified = render({
+      Ready: {
+        ...workspace,
+        agents: [
+          {
+            ...agent,
+            state: 'Finished',
+            provenance: { Verified: { source: 'Stop' } },
+          },
+        ],
       },
-    ]);
-    expect(
-      future
-        .flatMap((plot) => plot.stations)
-        .filter((station) => station.agents.length),
-    ).toMatchObject([{ label: 'Reviewing', prop: null }]);
+    });
+    expect(verified).toContain('Verified · Stop event');
+    expect(verified).not.toContain('Inferred');
   });
+  it.each([2, 4] as const)(
+    'keeps each real agent on a distinct tile when a station is crowded (%i columns)',
+    (columns) => {
+      const agents = Array.from({ length: 5 }, (_, index) => ({
+        id: String(index),
+        label: 'same label',
+        kind: 'ClaudeCode' as const,
+        state: null,
+        provenance: null,
+      }));
+      const plots = yardPlots(agents, columns);
+      expect(plots).toHaveLength(3);
+      expect(
+        plots.flatMap((plot) =>
+          plot.stations.flatMap((station) => station.agents),
+        ),
+      ).toEqual(agents);
+      expect(
+        plots.every((plot) =>
+          plot.stations.every((station) => station.agents.length <= 2),
+        ),
+      ).toBe(true);
+      const positions = plots.flatMap((plot, page) =>
+        plot.stations.flatMap((station) =>
+          station.agents.map((agent, index) => ({
+            id: agent.id,
+            x:
+              station.x +
+              2 +
+              index * 40 +
+              (station.agents.length === 1 ? 30 : 10),
+            y: page * (8 / columns) * 96 + station.y + 46,
+          })),
+        ),
+      );
+      expect(new Set(positions.map(({ id }) => id)).size).toBe(agents.length);
+      for (const [index, position] of positions.entries()) {
+        expect(position.x).toBeGreaterThanOrEqual(0);
+        expect(position.x + 16).toBeLessThanOrEqual(columns * 80);
+        for (const other of positions.slice(index + 1)) {
+          expect(
+            Math.abs(position.x - other.x) >= 16 ||
+              Math.abs(position.y - other.y) >= 16,
+          ).toBe(true);
+        }
+      }
+      const future = yardPlots(
+        [
+          {
+            id: 'future',
+            label: 'future DTO state',
+            kind: 'Codex',
+            state: 'Reviewing',
+            provenance: null,
+          },
+        ],
+        columns,
+      );
+      expect(
+        future
+          .flatMap((plot) => plot.stations)
+          .filter((station) => station.agents.length),
+      ).toMatchObject([{ label: 'Reviewing', prop: null }]);
+    },
+  );
+  it.each([2, 4] as const)(
+    'reflows all eight stations in order within %i columns',
+    (columns) => {
+      const plot = yardPlots([], columns)[0];
+      expect(plot?.stations.map(({ label }) => label)).toEqual([
+        'Arrival',
+        'Thinking',
+        'Building',
+        'Testing',
+        'Idle',
+        'Merging',
+        'Finished',
+        'Error',
+      ]);
+      expect(plot?.stations.map(({ x, y }) => [x, y])).toEqual(
+        columns === 2
+          ? [
+              [0, 0],
+              [80, 0],
+              [0, 96],
+              [80, 96],
+              [0, 192],
+              [80, 192],
+              [0, 288],
+              [80, 288],
+            ]
+          : [
+              [0, 0],
+              [80, 0],
+              [160, 0],
+              [240, 0],
+              [0, 96],
+              [80, 96],
+              [160, 96],
+              [240, 96],
+            ],
+      );
+    },
+  );
   for (const error of Object.keys(errors) as AppError[]) {
     it(`renders actionable typed ${error} without OS details`, () => {
       const html = render({ Error: error });
