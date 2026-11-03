@@ -67,7 +67,8 @@ agreed below).
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
 | T-002 core/store/identity | review | Codex → Claude | Both independent-audit P1 fixes validated offline (47 Rust + lock child, 3 frontend); canonical directory trust and durable membership quota; Keychain remains Unavailable; see `docs/reports/T-002.md` |
-| T-003 net endpoint | ready | Codex | after T-002; revised test requirements (no public discovery, selected path) |
+| T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
+| T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 
 ## 5. Open decisions
 
@@ -77,9 +78,21 @@ agreed below).
 | D-2 | Relays for P2P Auto | n0 public relays for dev prototype with non-sensitive data only; self-hosted redundant CH/EU relays (`RelayMode::Custom`) before external distribution (gate G-1); Strict = `RelayMode::Disabled` | Dion | **decided** (ADR-006) |
 | D-3 | How Codex receives tasks | `codex queue` to session `01a19e0d…` + this board | Dion | **decided** |
 | D-4 | Commit policy for Codex | Codex may commit **and push**: initial docs commit on `main`, then one branch `t-XXX-*` per task, focused commits; no force push, no history rewrite | Dion | **decided** |
-| D-5 | License | none chosen | Dion | open |
+| D-5 | License | none chosen | Dion | open (needed before the DMG leaves Dion's Mac) |
+| D-6 | Merge to `main` | After Claude's review verdict `done`, Codex merges the task branch into `main` with a normal merge commit and pushes. Stacked branches merge in order (t-001, then t-002, …). No force push, no rebase of published branches. | Dion | **decided** 2026-11-03 |
+| D-7 | Test-partner build | Full MVP (T-001…T-013) as ad-hoc signed `aarch64` DMG, **Strict P2P only** (ADR-011, G-1 addendum), owner checkpoints L1–L5 first (ROADMAP) | Dion | **decided** 2026-11-03 |
+| D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Claude (owner-approved plan): decided KQ-005 (one active workspace/endpoint per
+  process, mode fixed by genesis) and **ADR-011** (Strict = no relay and no n0 DNS/pkarr; port
+  mapping on; tester builds Strict-only). Owner decisions D-6 (merge rule) and D-7 (full MVP
+  as Strict-only arm64 ad-hoc DMG for one test partner). ROADMAP: T-013 tester DMG, G-1
+  addendum, owner checkpoints L1–L5. T-001: native check = L1, hook latency criterion moved
+  unchanged to T-007. Updated ARCHITECTURE §5.1/§10, SECURITY §3, PROTOCOL §10, T-001/T-003
+  specs, CLAUDE.md, AGENTS.md. Edits uncommitted in the T-002 worktree; Codex commits them.
+  Sequence: T-002 final audit → Claude review T-001/T-002 → merge → T-003.
 
 - 2026-11-03 — USB-only migration completed per Dion: both task branches fetched and
   fast-forwarded from origin; T-002 now has a USB-owned worktree/Git directory. Moved Smithers

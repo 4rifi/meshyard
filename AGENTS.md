@@ -2,6 +2,15 @@
 
 Role: **Lead developer / implementer.** Claude Code is the architect and reviewer.
 
+## Team and file ownership
+- **Claude**: specs (`docs/tasks/`), reviews (`docs/reviews/`), ADRs and the normative docs.
+- **Hardworker (you)**: code, tests, `docs/reports/`, task status, sections marked
+  "updated by Codex, pending review", commits and pushes (HANDOFF D-4, merge rule D-6).
+- **Knower** (`01a19e2a-ebb0-7c21-8860-08f501a12e7e`): research and project memory; owns
+  `docs/knowledge/` — do not edit it. Ask it for hard technical questions before guessing.
+- Work only in `/Volumes/Kursmodule/meshyard` and its worktrees; source
+  `/Volumes/Kursmodule/meshyard-smithers/env.sh` before builds. Nothing on the internal disk.
+
 ## Start of every session
 1. Read `docs/HANDOFF.md` (protocol, current state, open decisions).
 2. Pick the lowest-numbered `ready` task in `docs/ROADMAP.md` whose dependencies are `done`.

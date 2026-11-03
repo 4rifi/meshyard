@@ -1,6 +1,6 @@
 # Meshyard — Protocol Specification v1.1 (normative)
 
-Status: v1.1 (2026-11-02), owner: Claude (architect). v1.1 adds ADR-009 (sender-only sync,
+Status: v1.1 (2026-11-02; §10 clarified 2026-11-03 for KQ-005, no wire change), owner: Claude (architect). v1.1 adds ADR-009 (sender-only sync,
 owner-only invitations) and ADR-010 (exact signed bytes, closed v1, fold of owner events, string
 validation stage), resolving Knower questions KQ-001 and KQ-004 (`docs/knowledge/OPEN_QUESTIONS.md`).
 v1 resolved the blocker/major findings of the Codex architecture review (`docs/reviews/codex-architecture-2026-11-02.md`). Where this file
@@ -230,6 +230,10 @@ Open ──(expiry)──► Expired
 - One running Meshyard process (app or `meshyard-node`) per data directory, enforced by an
   exclusive lock file; second instance fails with a clear error.
 - Data directory is selectable (`--data-dir` / `MESHYARD_DATA_DIR`) for isolated test profiles.
+- (KQ-005) A process has exactly one active workspace and one endpoint in the MVP. The mode is
+  bound to the genesis; there is no mode-change message. Strict endpoints use no relay and no
+  third-party address lookup (ADR-011), so `Ticket` addresses MUST include every current direct
+  address (local interfaces + port-mapped external address, if any).
 - Identity: if a device key exists but the Keychain is locked/unavailable, MUST fail with a clear
   error, never generate a replacement identity. File key store only when explicitly selected
   (`--key-store file`) or in tests.

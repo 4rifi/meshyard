@@ -23,7 +23,19 @@ routes ALPNs, enforces the member allowlist, and reports honest path diagnostics
   and `NodeDiagnostics { mode, home_relay, direct_addrs, peers }`, updated from `paths_stream()`.
   `path` is derived from the **selected** path only (`is_selected() && is_ip()` → Direct), copied
   out of the borrowed snapshot. Semantics: local send path, not a guarantee about every received byte.
-- Mode switch = close endpoint and rebind; never mutate mode in place.
+- Mode switch = close endpoint and rebind; never mutate mode in place. One active workspace and
+  one endpoint per process (KQ-005); the mode comes from that workspace's genesis.
+- **Strict = no n0 services (ADR-011, 2026-11-03):** do not use `presets::N0DisableRelay` if it
+  still enables n0 DNS/pkarr; build the Strict endpoint with `RelayMode::Disabled` and **no
+  address lookup/publishing**. Verify the exact builder API in pinned iroh 1.3.0 and report it.
+- **Port mapping:** enable iroh's port mapper (UPnP/NAT-PMP/PCP) in both modes if the pinned
+  iroh offers it; expose the result (`port_mapping: Unavailable|Mapped{external}|Disabled`) in
+  `NodeDiagnostics`. If iroh 1.3.0 has no port mapper, report it — do not add another crate
+  without justification.
+- `NodeDiagnostics.direct_addrs` must be complete enough to build an invite ticket for Strict.
+- Relay configuration is a build/config input, never a hardcoded default in Strict code paths;
+  a `strict-only` cargo feature (or equivalent config switch) makes Auto unavailable for tester
+  builds (G-1 addendum). Implement the switch now; packaging uses it in T-013.
 - Error type `NetError` with user-facing advice strings that separate **observation** ("no direct
   path within 10 s") from **suspected cause** ("likely: both peers behind NAT without port mapping").
 - Two-stage admission per PROTOCOL §6 (device admission before decoding any frame; workspace
@@ -41,7 +53,7 @@ routes ALPNs, enforces the member allowlist, and reports honest path diagnostics
   document it); assert selected path is relay and data flows. If no reliable mechanism exists,
   stop and report instead of writing a flaky test.
 - **strict suite**: Strict-mode endpoint has no relay configured (assert on config/home relay
-  = none); connecting to a peer known only by relay URL fails with the Strict advice error, with
+  = none) and no address lookup service (assert on builder/config; no DNS/pkarr task); connecting to a peer known only by relay URL fails with the Strict advice error, with
   address caches and other lookup sources excluded.
 - Tests must not depend on public internet; mark any optional internet test `#[ignore]`.
 

@@ -94,7 +94,7 @@ Dependency direction: `core` ← `store`, `net`, `agents` ← `app`, `node`. `co
 | Mode | iroh preset / config | Discovery | Data path |
 |---|---|---|---|
 | **P2P Auto** | `presets::N0` (relay mode default n0 relays, or a custom relay map if configured) | n0 DNS/pkarr: publishes EndpointId → home relay URL | Direct after hole punching; encrypted relay fallback, **UI shows "Relayed via <host>"** |
-| **Strict P2P** | `presets::N0DisableRelay` (`RelayMode::Disabled`) | n0 DNS/pkarr publishes EndpointId → **direct IP addresses** (disclosed!) | Direct only. No relay exists in the endpoint, so data cannot be relayed. Fails with a diagnosis if unreachable. |
+| **Strict P2P** (ADR-011) | `RelayMode::Disabled`, **no n0 address lookup or publishing** (no DNS/pkarr), port mapping (UPnP/NAT-PMP/PCP) enabled | None via third parties: peer addresses come from the invite ticket and are refreshed over the authenticated connection; LAN discovery only if explicitly added later | Direct only. No relay exists in the endpoint, so data cannot be relayed. Fails with a diagnosis if unreachable. |
 
 Relay phases (owner decision D-2, 2026-11-02):
 - **Dev prototype:** n0 public relays (`presets::N0`, default relay mode), **non-sensitive test
@@ -128,6 +128,14 @@ Notes:
 - Discovery can be replaced: invite tickets already carry the inviter's addresses, and a
   self-hosted relay/pkarr server can be configured (M2) for users who want zero n0 infra.
 - Each mode change rebuilds the endpoint; an endpoint never silently switches mode.
+- **Endpoint lifecycle (KQ-005, decided 2026-11-03):** in the MVP a process (app or
+  `meshyard-node`) has exactly **one active workspace** and one endpoint. The workspace mode is
+  fixed by its genesis (it is part of the WorkspaceId); changing mode means creating a new
+  workspace, never mutating an existing one. Multiple workspaces per process are M2.
+- **Tester builds (owner decision 2026-11-03):** the first build that leaves Dion's Mac is
+  Strict-only: Auto is compiled out or disabled (shown as "requires a self-hosted relay, G-1"),
+  no relay URL and no n0 DNS/pkarr host is compiled in, and a build check greps the bundle for
+  them. Auto stays in the architecture and is tested against a local relay only.
 
 ### 5.2 ALPNs (protocol ids)
 
@@ -290,6 +298,12 @@ Pattern matching runs on the **local** command string; the command string itself
 - **ADR-010** Exact signed bytes: `SignedGenesisV1` over raw `genesis_bytes`, `SignedEventV1` over `postcard(header) || postcard(body)`; verify before decoding the body, never re-encode or mutate received bytes; receivers reject invalid strings after signature verification (senders sanitize before signing); owner is seeded by genesis and its ordinary events fold like any member's; wire v1 is closed (no added variants, v2 via Hello negotiation). (accepted 2026-11-02, resolves KQ-004; PROTOCOL v1.1 §§1, 2, 4, 4a, 5)
 - **ADR-006** Relays: n0 public for dev only; self-hosted CH/EU redundant relays required before
   external distribution (gate G-1); 2 s prefer-direct window before log catch-up in Auto. (accepted, owner D-2)
+- **ADR-011** Strict P2P uses no n0 service at all: `RelayMode::Disabled` **and** no address
+  lookup/publishing (no DNS/pkarr), so a Strict device never discloses its IP addresses to n0.
+  Addresses come from the invite ticket and are exchanged over the authenticated connection;
+  iroh port mapping is enabled and its result is shown in diagnostics. One active workspace per
+  process, mode fixed by genesis (KQ-005). Tester builds are Strict-only (G-1 addendum).
+  (accepted 2026-11-03, owner chose Strict-only for the colleague test)
 
 ## 11. Pinned versions
 

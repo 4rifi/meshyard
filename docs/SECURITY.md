@@ -28,7 +28,8 @@ Status: v1 (2026-11-02). Any change that weakens a guarantee here needs the owne
 
 | Component | Operator (default) | Sees | Never sees |
 |---|---|---|---|
-| DNS/pkarr address lookup | n0 (`iroh.link`) | EndpointId (public key); home relay URL (Auto) or **direct IP addresses** (Strict) | workspace names, members, any app data |
+| DNS/pkarr address lookup | n0 (`iroh.link`) — **Auto only**; Strict uses none (ADR-011) | EndpointId (public key); home relay URL (Auto) | workspace names, members, any app data |
+| Router port mapping (Strict and Auto) | your own router (UPnP/NAT-PMP/PCP) | the UDP port Meshyard asks to open | app data |
 | Relay (Auto only) | n0 public relays (default) or self-hosted | EndpointIds of both sides, IP addresses, timing and volume of encrypted packets | plaintext of any stream |
 | STUN-like / QAD probes | relays | your public IP:port | app data |
 
@@ -42,6 +43,12 @@ Relay policy (owner decision, 2026-11-02):
   may travel via the relay before the path upgrades to direct; the UI always shows the actual
   path ("Direct P2P" / "Encrypted relay").
 - Self-hosting pkarr/DNS discovery as well removes n0 from the control plane entirely (M2).
+- **Strict P2P contacts no n0 service** (ADR-011): no relay, no DNS/pkarr. Peers learn each
+  other's addresses only from the invite ticket and the authenticated connection. The invite
+  link therefore contains the inviter's IP addresses; it is shared only with the invitee.
+- **Tester builds** (owner decision 2026-11-03): a build may go to a named test partner before
+  G-1 only if it is Strict-only (no relay URL, no n0 DNS host compiled in, Auto disabled) and a
+  build check proves it.
 
 The settings screen shows which relay operator is in use.
 

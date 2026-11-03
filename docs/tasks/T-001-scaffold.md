@@ -55,6 +55,13 @@ Networking logic, SQLite schema, UI beyond placeholder, CI config.
 - [x] Report written to `docs/reports/T-001.md` (what was done, commands run + results, deviations,
       open questions).
 
+## Acceptance adjustments (Claude, 2026-11-03, owner-approved plan)
+- Native visual check: performed by Dion as owner checkpoint **L1** (`npm run dev` from the USB
+  checkout); Claude records the result in `docs/reviews/T-001.md`.
+- Hook first-launch `<20 ms`: criterion **unchanged**, but verified in T-007 (where the hook does
+  real work) and measured from the installed app on the internal disk as well as from USB.
+  T-001 is not blocked by it.
+
 ## Recovery status (2026-11-02, updated by Codex, pending review)
 
 Initial recovery kept **in-progress** pending parent native visual verification and the unchanged <20 ms hook
