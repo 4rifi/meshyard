@@ -19,6 +19,8 @@ pub enum StoreError {
     Database,
     #[error("database migration failed")]
     Migration,
+    #[error("workspace projection exceeds 100000 events")]
+    ProjectionLimit,
     #[error("store worker is closed")]
     Closed,
     #[error("workspace not found")]
@@ -116,6 +118,17 @@ impl Store {
     /// Accepts the original outer postcard bytes; stores them without re-encoding.
     pub async fn add_workspace(&self, raw: Vec<u8>) -> Result<WorkspaceId, StoreError> {
         self.call(move |db| db.add_workspace(&raw)).await
+    }
+    /// Stored workspace IDs, in deterministic order. No active workspace is chosen implicitly.
+    pub async fn workspaces(&self) -> Result<Vec<WorkspaceId>, StoreError> {
+        self.call(|db| db.workspaces()).await
+    }
+    /// Verified contiguous history folded on the database thread, bounded to 100000 events.
+    pub async fn workspace_state(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<(Genesis, DerivedState), StoreError> {
+        self.call(move |db| db.workspace_state(workspace)).await
     }
     pub async fn genesis(&self, workspace: WorkspaceId) -> Result<Vec<u8>, StoreError> {
         self.call(move |db| db.genesis(workspace)).await

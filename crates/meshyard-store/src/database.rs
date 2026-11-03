@@ -88,6 +88,65 @@ impl Database {
         db.discard_oversized_unconfirmed()?;
         Ok(db)
     }
+    pub fn workspaces(&self) -> Result<Vec<WorkspaceId>, StoreError> {
+        let mut query = self.conn.prepare("SELECT id FROM workspaces ORDER BY id")?;
+        query
+            .query_map([], |row| row.get::<_, Vec<u8>>(0))?
+            .map(|row| {
+                let bytes = row?;
+                Ok(WorkspaceId(
+                    bytes.try_into().map_err(|_| StoreError::Database)?,
+                ))
+            })
+            .collect()
+    }
+    pub fn workspace_state(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<(Genesis, DerivedState), StoreError> {
+        let (id, genesis) = verify_genesis(
+            &decode_genesis(&self.genesis(workspace)?)?,
+            self.verifier.as_ref(),
+        )?;
+        if id != workspace {
+            return Err(StoreError::Database);
+        }
+        // The bounded subquery stops counting after the first disallowed row.
+        let count: i64 = self.conn.query_row(
+            "SELECT count(*) FROM (SELECT 1 FROM events WHERE workspace=?1 LIMIT 100001)",
+            [workspace.0.as_slice()],
+            |row| row.get(0),
+        )?;
+        if count > 100_000 {
+            return Err(StoreError::ProjectionLimit);
+        }
+        let mut query = self.conn.prepare(
+            "SELECT author,seq,signed_blob FROM events WHERE workspace=?1 ORDER BY author,seq",
+        )?;
+        let mut rows = query.query([workspace.0.as_slice()])?;
+        let mut events =
+            Vec::with_capacity(usize::try_from(count).map_err(|_| StoreError::Database)?);
+        let mut heads = BTreeMap::new();
+        while let Some(row) = rows.next()? {
+            let author: Vec<u8> = row.get(0)?;
+            let seq: i64 = row.get(1)?;
+            let raw: Vec<u8> = row.get(2)?;
+            let event = verify_and_decode(&decode_signed_event(&raw)?, self.verifier.as_ref())?;
+            event.validate_received()?;
+            let expected = heads.entry(event.author).or_insert(0u64);
+            *expected = expected.checked_add(1).ok_or(StoreError::SequenceRange)?;
+            if event.workspace != workspace
+                || event.author.0.as_slice() != author
+                || sql_seq(event.seq)? != seq
+                || event.seq != *expected
+            {
+                return Err(StoreError::Database);
+            }
+            events.push(event.into_event());
+        }
+        let state = fold(&genesis, &events).map_err(|_| StoreError::Database)?;
+        Ok((genesis, state))
+    }
     fn seed_membership(&self, workspace: WorkspaceId, owner: DeviceId) -> Result<(), StoreError> {
         self.conn.execute(
             "INSERT INTO membership_state(workspace,owner,epoch) VALUES(?1,?2,0)",

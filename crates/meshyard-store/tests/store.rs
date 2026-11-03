@@ -1141,3 +1141,102 @@ async fn owner_removal_is_flagged_without_revoking_genesis_authority() {
     }
     store.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn workspace_projection_reads_verified_contiguous_events_and_survives_reopen() {
+    let dir = support::private_tempdir();
+    let store = Store::open(dir.path()).unwrap();
+    assert!(store.workspaces().await.unwrap().is_empty());
+    assert!(matches!(
+        store.workspace_state(WorkspaceId([1; 16])).await,
+        Err(StoreError::UnknownWorkspace)
+    ));
+    let key = key();
+    let id = store
+        .add_workspace(signed_genesis(key.as_ref(), 14))
+        .await
+        .unwrap();
+    let other = store
+        .add_workspace(signed_genesis(key.as_ref(), 15))
+        .await
+        .unwrap();
+    store
+        .append_own(id, profile("owner"), key.clone())
+        .await
+        .unwrap();
+    // Gap event is signed but must not enter the projection until contiguous.
+    assert_eq!(
+        store
+            .insert_remote(remote(id, 3, profile("future"), key.as_ref()))
+            .await
+            .unwrap(),
+        InsertOutcome::Pending
+    );
+    let (genesis, folded) = store.workspace_state(id).await.unwrap();
+    assert_eq!(folded.members[&key.device_id()].display_name, "owner");
+    assert!(
+        store.workspace_state(other).await.unwrap().1.members[&key.device_id()]
+            .display_name
+            .is_empty()
+    );
+    let ids = store.workspaces().await.unwrap();
+    let mut expected = vec![id, other];
+    expected.sort();
+    assert_eq!(ids, expected);
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(store.workspaces().await.unwrap(), expected);
+    assert_eq!(store.workspace_state(id).await.unwrap(), (genesis, folded));
+    store
+        .insert_remote(remote(id, 2, profile("middle"), key.as_ref()))
+        .await
+        .unwrap();
+    assert_eq!(
+        store.workspace_state(id).await.unwrap().1.members[&key.device_id()].display_name,
+        "future"
+    );
+    // Corrupt original persisted bytes: projection fails rather than returning trusted-looking data.
+    let sql = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
+    sql.execute(
+        "UPDATE events SET signed_blob=x'00' WHERE workspace=?1 AND seq=1",
+        [id.0.as_slice()],
+    )
+    .unwrap();
+    assert!(matches!(
+        store.workspace_state(id).await,
+        Err(StoreError::Protocol(_))
+    ));
+    store.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn workspace_projection_refuses_over_limit_before_decoding_rows() {
+    let dir = support::private_tempdir();
+    let store = Store::open(dir.path()).unwrap();
+    let key = key();
+    let id = store
+        .add_workspace(signed_genesis(key.as_ref(), 16))
+        .await
+        .unwrap();
+    let sql = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
+    // Deliberately malformed bulk rows isolate the read cap from signature/fold cost.
+    sql.execute("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<100001) INSERT INTO events(workspace,author,seq,signed_blob) SELECT ?1,?2,x,x'00' FROM n", rusqlite::params![id.0.as_slice(), key.device_id().0.as_slice()]).unwrap();
+    assert!(matches!(
+        store.workspace_state(id).await,
+        Err(StoreError::ProjectionLimit)
+    ));
+    sql.execute(
+        "DELETE FROM events WHERE workspace=?1 AND seq=100001",
+        [id.0.as_slice()],
+    )
+    .unwrap();
+    // Exactly 100000 reaches verification, so it is not rejected by the cap.
+    assert!(matches!(
+        store.workspace_state(id).await,
+        Err(StoreError::Protocol(_))
+    ));
+    sql.execute("DELETE FROM events WHERE workspace=?1", [id.0.as_slice()])
+        .unwrap();
+    assert!(store.workspace_state(id).await.unwrap().1.agents.is_empty());
+    store.close().await.unwrap();
+}
