@@ -54,13 +54,19 @@ fn decode_genesis(raw: &[u8]) -> Result<SignedGenesisV1, StoreError> {
 }
 impl Database {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
-        // Data directory is private and process-locked before this is called.
-        if let Ok(metadata) = std::fs::symlink_metadata(path)
-            && (!metadata.is_file() || metadata.file_type().is_symlink())
-        {
-            return Err(StoreError::Permissions);
+        // Only the canonical directory retained by DataDirLock reaches this API.
+        // Validate existing sidecars too; SQLite creates future ones inside that
+        // private, non-substitutable directory, inheriting the database mode.
+        crate::process_lock::sqlite_file(path, true)?;
+        for suffix in ["-wal", "-shm", "-journal"] {
+            let mut sidecar = path.as_os_str().to_owned();
+            sidecar.push(suffix);
+            crate::process_lock::sqlite_file(Path::new(&sidecar), false)?;
         }
-        let mut conn = Connection::open(path)?;
+        let mut conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::default() | rusqlite::OpenFlags::SQLITE_OPEN_NOFOLLOW,
+        )?;
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", true)?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;

@@ -54,7 +54,7 @@ impl Store {
     /// `open_async`; all handle operations below use a bounded nonblocking channel.
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, StoreError> {
         let lock = process_lock::DataDirLock::acquire(data_dir.as_ref())?;
-        let path = data_dir.as_ref().join("meshyard.sqlite");
+        let path = lock.directory().join("meshyard.sqlite");
         let (sender, mut receiver) = mpsc::channel::<Command>(64);
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
         std::thread::Builder::new()

@@ -1097,6 +1097,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "exacl"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8de9e551ced9d700a31dacb8b168129640240fcd7a279a3fa4d59608b84ebcae"
+dependencies = [
+ "bitflags 2.13.2",
+ "log",
+ "scopeguard",
+ "uuid",
+]
+
+[[package]]
 name = "fallible-iterator"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2571,13 +2583,16 @@ dependencies = [
 name = "meshyard-store"
 version = "0.1.0"
 dependencies = [
+ "exacl",
  "getrandom 0.4.3",
  "keyring",
  "libc",
+ "log",
  "meshyard-core",
  "postcard",
  "rusqlite",
  "rusqlite_migration",
+ "rustix",
  "security-framework 3.7.0",
  "tempfile",
  "thiserror 2.0.21",

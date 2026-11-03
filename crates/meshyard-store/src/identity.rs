@@ -66,9 +66,10 @@ impl FileKeyStore {
 }
 impl DeviceKeyStore for FileKeyStore {
     fn load(&self) -> Result<SecretKey, IdentityError> {
-        let parent = self.parent()?;
-        // Check absence without creating anything during load.
-        match fs::symlink_metadata(&self.path) {
+        let parent = private_directory(self.parent()?).map_err(|_| IdentityError::Permissions)?;
+        let path = parent.join(self.path.file_name().ok_or(IdentityError::Permissions)?);
+        // Check leaf absence only after validating the canonical destination.
+        match fs::symlink_metadata(&path) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 return Err(IdentityError::NotFound);
             }
@@ -76,14 +77,13 @@ impl DeviceKeyStore for FileKeyStore {
             Ok(meta) if meta.file_type().is_symlink() => return Err(IdentityError::Permissions),
             _ => {}
         }
-        private_directory(parent).map_err(|_| IdentityError::Permissions)?;
         let mut options = OpenOptions::new();
         options.read(true);
         nofollow(&mut options);
         let file = options
-            .open(&self.path)
+            .open(&path)
             .map_err(|_| IdentityError::Permissions)?;
-        private_file(&file, parent).map_err(|_| IdentityError::Permissions)?;
+        private_file(&file, &path).map_err(|_| IdentityError::Permissions)?;
         let mut bytes = Zeroizing::new([0; 33]);
         let mut reader = file.take(33);
         let mut len = 0;
@@ -103,8 +103,13 @@ impl DeviceKeyStore for FileKeyStore {
         Ok(SecretKey::from_bytes(key_bytes))
     }
     fn create(&self, key: &SecretKey) -> Result<(), IdentityError> {
-        let parent = self.parent()?;
-        private_directory(parent).map_err(|_| IdentityError::Permissions)?;
+        let parent = private_directory(self.parent()?).map_err(|_| IdentityError::Permissions)?;
+        let path = parent.join(self.path.file_name().ok_or(IdentityError::Permissions)?);
+        self.create_in(key, &parent, &path)
+    }
+}
+impl FileKeyStore {
+    fn create_in(&self, key: &SecretKey, parent: &Path, path: &Path) -> Result<(), IdentityError> {
         // A complete, fsynced temporary inode is linked into place atomically with no overwrite.
         let mut nonce = [0; 16];
         getrandom::fill(&mut nonce).map_err(|_| IdentityError::Random)?;
@@ -115,10 +120,11 @@ impl DeviceKeyStore for FileKeyStore {
         nofollow(&mut options);
         let mut file = options.open(&temp).map_err(|_| IdentityError::Io)?;
         let result = (|| {
+            private_file(&file, &temp).map_err(|_| IdentityError::Permissions)?;
             key.with_secret_bytes(|bytes| file.write_all(bytes))
                 .map_err(|_| IdentityError::Io)?;
             file.sync_all().map_err(|_| IdentityError::Io)?;
-            fs::hard_link(&temp, &self.path).map_err(|error| {
+            fs::hard_link(&temp, path).map_err(|error| {
                 if error.kind() == std::io::ErrorKind::AlreadyExists {
                     IdentityError::AlreadyExists
                 } else {
@@ -238,5 +244,48 @@ mod keychain_probe {
         result?;
         cleanup?;
         Ok(())
+    }
+}
+
+#[cfg(all(test, unix))]
+mod canonical_path_tests {
+    use super::*;
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn alias_substitution_after_validation_does_not_redirect_secret_publication_or_cleanup() {
+        let root = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let real = root.path().join("real");
+        let attacker = root.path().join("attacker");
+        for base in [&real, &attacker] {
+            fs::create_dir(base).unwrap();
+            fs::create_dir(base.join("private")).unwrap();
+            fs::set_permissions(base.join("private"), fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        let alias = root.path().join("alias");
+        symlink(&real, &alias).unwrap();
+        let store = FileKeyStore::new(alias.join("private/identity"));
+        let parent = private_directory(store.parent().unwrap()).unwrap();
+        // Deterministic substitution exactly between validation and publication.
+        // The test process has the same UID; this tests canonical-path pinning,
+        // not an actual second-user exploit or 0600 file-read bypass.
+        fs::remove_file(&alias).unwrap();
+        symlink(&attacker, &alias).unwrap();
+        store
+            .create_in(
+                &SecretKey::from_bytes(&[31; 32]),
+                &parent,
+                &parent.join("identity"),
+            )
+            .unwrap();
+        assert_eq!(fs::read_dir(attacker.join("private")).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(real.join("private")).unwrap().count(), 1);
+        assert_eq!(
+            fs::read(real.join("private/identity")).unwrap(),
+            vec![31; 32]
+        );
     }
 }
