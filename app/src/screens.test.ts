@@ -8,7 +8,7 @@ import type { WorkspaceView } from './ipc/generated/WorkspaceView';
 import { yardPlots, yardZones } from './playground/yardData';
 
 // SSR verifies text/form semantics; it cannot initialize or prove native/WebGL rendering.
-vi.mock('./playground/yard', () => ({ mountYard: vi.fn() }));
+vi.mock('./playground/yard', () => ({ createYard: vi.fn() }));
 const actions = {
   create: vi.fn(),
   profile: vi.fn(),

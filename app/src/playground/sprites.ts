@@ -222,6 +222,7 @@ export function pixelSprite(
   x: number,
   y: number,
   kind?: AgentKind,
+  pose: 0 | 1 = 0,
 ): Graphics {
   const drawing = new Graphics();
   maps[prop].forEach((row, py) => {
@@ -233,7 +234,17 @@ export function pixelSprite(
             ? 'codex'
             : 'claude'
           : colours[pixel];
-      if (colour) drawing.rect(x + px, y + py, 1, 1).fill(ink[colour]);
+      if (colour)
+        drawing
+          .rect(
+            x + px,
+            y +
+              py -
+              (prop === 'agent' && pose === 1 && py >= 14 && px < 8 ? 1 : 0),
+            1,
+            1,
+          )
+          .fill(ink[colour]);
     }
   });
   return drawing;

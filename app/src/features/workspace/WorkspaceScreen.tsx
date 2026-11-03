@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { RegisterAgent as RegisterInput } from '../../ipc/generated/RegisterAgent';
-import { mountYard } from '../../playground/yard';
+import { createYard, type Yard } from '../../playground/yard';
 import { MemberList } from './MemberList';
 import { AgentList } from './AgentList';
 import { RegisterAgent } from './RegisterAgent';
@@ -17,6 +17,7 @@ export function WorkspaceScreen({
   onProfile: (name: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const yard = useRef<Yard | null>(null);
   const agentLabel = useRef<HTMLInputElement>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [name, setName] = useState(
@@ -24,10 +25,18 @@ export function WorkspaceScreen({
   );
   useEffect(() => {
     if (!host.current) return;
-    return mountYard(host.current, workspace.agents, () => {
+    const scene = createYard(host.current, () => {
       setRendererFailed(true);
     });
-  }, [workspace.agents]);
+    yard.current = scene;
+    return () => {
+      scene.destroy();
+      yard.current = null;
+    };
+  }, [workspace.id_short]);
+  useEffect(() => {
+    yard.current?.update(workspace.agents);
+  }, [workspace.id_short, workspace.agents]);
   return (
     <>
       <header className="workspace-header">
@@ -80,7 +89,7 @@ export function WorkspaceScreen({
         </p>
         <p className="yard-caption">
           <span>{workspace.agents.length} registered agents</span>
-          <span>Static view · Full names and status below</span>
+          <span>Movement follows observed state changes</span>
         </p>
         {rendererFailed && (
           <p role="status">

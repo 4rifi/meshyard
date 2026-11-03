@@ -42,13 +42,24 @@ export const stations = [
   { state: 'Error', label: 'Error', prop: 'alarm' },
 ] as const;
 
-export function yardPlots(agents: AgentView[], columns: 2 | 4 = 4) {
+export function yardPlots(
+  agents: AgentView[],
+  columns: 2 | 4 = 4,
+  slots?: ReadonlyMap<string, number>,
+  minPlots = 1,
+) {
   const groups = yardZones(agents);
   // Two distinct 16px character tiles per station and plot. Extra plots keep all
   // real agents visible without shrinking pixels or dropping crowded registries.
   const count = Math.max(
-    1,
-    ...groups.map((zone) => Math.ceil(zone.agents.length / 2)),
+    minPlots,
+    ...groups.map((zone) =>
+      Math.max(
+        ...zone.agents.map(
+          (agent, index) => Math.floor((slots?.get(agent.id) ?? index) / 2) + 1,
+        ),
+      ),
+    ),
   );
   type Plot = {
     stations: {
@@ -67,7 +78,10 @@ export function yardPlots(agents: AgentView[], columns: 2 | 4 = 4) {
       agents: (
         groups.find((zone) => zone.label === activityLabel(station.state))
           ?.agents ?? []
-      ).slice(page * 2, page * 2 + 2),
+      ).filter(
+        (agent, index) =>
+          Math.floor((slots?.get(agent.id) ?? index) / 2) === page,
+      ),
     })),
   }));
   // Preserve future DTO states as neutral plots, with their exact labels and no
@@ -76,18 +90,25 @@ export function yardPlots(agents: AgentView[], columns: 2 | 4 = 4) {
     (group) =>
       !stations.some((station) => activityLabel(station.state) === group.label),
   )) {
-    for (let start = 0; start < zone.agents.length; start += 16) {
+    const pages = Math.max(
+      ...zone.agents.map(
+        (agent, index) => Math.floor((slots?.get(agent.id) ?? index) / 2) + 1,
+      ),
+    );
+    for (let page = 0; page < pages; page += 1) {
       plots.push({
-        stations: Array.from(
-          { length: Math.ceil(Math.min(16, zone.agents.length - start) / 2) },
-          (_, index) => ({
+        stations: [
+          {
             label: zone.label,
             prop: null,
-            x: (index % columns) * 80,
-            y: Math.floor(index / columns) * 96,
-            agents: zone.agents.slice(start + index * 2, start + index * 2 + 2),
-          }),
-        ),
+            x: 0,
+            y: 0,
+            agents: zone.agents.filter(
+              (agent, index) =>
+                Math.floor((slots?.get(agent.id) ?? index) / 2) === page,
+            ),
+          },
+        ],
       });
     }
   }
