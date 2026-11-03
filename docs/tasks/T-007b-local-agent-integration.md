@@ -26,10 +26,26 @@ seeing the exact diff and pressing "Install".
 - Existing file at the socket path: remove only if `symlink_metadata` shows a socket owned by
   `rustix::process::geteuid()` (the data-dir lock guarantees no other instance); otherwise
   `IngestUnavailable`.
-- Listener: `tokio::net::UnixListener`. Each connection: `UnixStream::peer_cred()?.uid()` must equal
-  `geteuid().as_raw()` (tokio uses `getpeereid` on macOS; no `unsafe`, no new crate) else close.
-  Dependencies: app `tokio` gains features `net`, `io-util`, `time` (workspace pin `=1.53.3`
-  unchanged); `meshyard-agents` and the workspace `rustix` (`process`) added to the app.
+- Listener: `tokio::net::UnixListener`. Each connection: the peer's effective UID must equal
+  `geteuid().as_raw()` **before any byte is read**, else close. Correction 2026-11-03 (ADR-015):
+  the earlier claim "tokio uses `getpeereid` on macOS" was wrong — pinned tokio 1.53.3
+  `UnixStream::peer_cred()` (`src/net/unix/ucred.rs`, `impl_macos`) first calls
+  `getsockopt(SOL_LOCAL, LOCAL_PEEREPID)` and returns its error before calling `getpeereid`; XNU
+  returns `ENOTCONN` for `LOCAL_PEEREPID` once the peer has closed, which is exactly the one-shot
+  hook pattern (write, shutdown, exit). Peer credential lookup is therefore:
+  - **macOS:** `nix::unistd::getpeereid(&stream) -> (Uid, Gid)` (safe API over Libc `getpeereid`,
+    which uses the cached `LOCAL_PEERCRED`). Dependency: target-only
+    `[target.'cfg(target_os = "macos")'.dependencies] nix = { version = "=0.31.3",
+    default-features = false, features = ["socket", "user"] }` in the app crate; Cargo-generated lock.
+  - **other Unix:** unchanged `UnixStream::peer_cred()?.uid()`.
+  - Any lookup error or UID mismatch → close without reading; no fallback to socket file
+    owner/mode, no PID requirement, no sleep/ACK/handshake, no change to the hook binary.
+  Dependencies otherwise: app `tokio` features `net`, `io-util`, `time` (pin `=1.53.3` unchanged);
+  `meshyard-agents` and the workspace `rustix` (`process`) added to the app.
+- Rejection reasons are counted per stage for diagnostics/tests (non-secret, no payload, command or
+  path content): `peercred_error`, `uid_mismatch`, `read_io`, `eof_empty`, `timeout`, `oversize`,
+  `parse`. They may be internal or test-visible; the public `IngestView.dropped_invalid` stays the
+  sum.
 - Bounds: ≤ 8 concurrent connections (semaphore; excess closed), one line ≤ 1 KiB read within
   200 ms, then close. Parse with `meshyard-agents` ingest types; invalid → drop silently (counter only).
 - Threat boundary stays per OS user: other processes of the same user can inject events;
@@ -97,6 +113,16 @@ seeing the exact diff and pressing "Install".
    via the diff in the native app and uses Claude Code (owner gate L4). Only (c) proves real hook
    payloads reach the app; (a)/(b) never count as (c).
 7. Tests never touch the owner's real `~/.claude/settings.json` or Keychain.
+8. **Closed-peer credential (ADR-015), normal authorized shell:** (a) keep the existing regression
+   unchanged — the client writes one line, shuts down and **drops** before the server accepts (no
+   holding the peer open); it must produce the state change. (b) Live-peer positive case.
+   (c) Darwin diagnostic test on a buffered closed peer that records the **old** tokio
+   `peer_cred()` error (expected raw errno `ENOTCONN`) and the **new** `getpeereid` UID == euid; the
+   cause counts as confirmed only when this run shows it. (d) Injected credential-lookup failure and
+   injected wrong UID → rejected before read, stage counter incremented, no state change. (e) The full
+   fixture flow Thinking → Testing → Finished → Idle with the original 6 s budget and all bounds
+   tests, then one full `npm run check`. If (c) does not show the expected error, stop: keep the
+   failure gated and report — never make it pass by holding the test socket open or bypassing UID.
 
 ## 6. Connect flow and exact DTOs (addendum 2026-11-03, owner: "wie kann ich ein Agent registrieren damit es verbunden ist?")
 Status of work: backend prep §1–3 is running in `t-007b-local-agent-integration` (base `3e8ccab`).

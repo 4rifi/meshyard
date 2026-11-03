@@ -101,9 +101,17 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-7 | Test-partner build | Full MVP (T-001…T-013) as ad-hoc signed `aarch64` DMG, **Strict P2P only** (ADR-011, G-1 addendum), owner checkpoints L1–L5 first (ROADMAP) | Dion | **decided** 2026-11-03 |
 | D-9 | Stacked development while T-001/T-002 owner gates are open | Owner request 2026-11-03 ("substantial working app") → lanes A/B/C branch from `c93fbe2`; reviewed lanes merge into `m1-integration`, not `main`; if T-002 changes later, merge it into the lanes (no rebase). Gates for `main` unchanged | Claude (within D-4/D-6) | **decided** 2026-11-03 |
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
+| D-12 | macOS ingest peer credential | ADR-015: safe `nix::unistd::getpeereid` (target-only `nix =0.31.3`) instead of tokio `peer_cred()` (which needs `LOCAL_PEEREPID` and fails after the one-shot hook closes); euid check before read, all errors reject, no fallback | Claude (architect) | **decided** 2026-11-03 (cause to be confirmed by the diagnostic run) |
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
 
 ## 6. Log
+
+- 2026-11-03 — Claude: D-12/ADR-015 after the real first-envelope failure on `38da6cf` (Thinking
+  never reached, `invalid = 1`, nothing received). Pinned tokio's macOS `peer_cred()` calls
+  `LOCAL_PEEREPID` before `getpeereid` (verified in the installed source); XNU returns `ENOTCONN`
+  once the peer closed. Fix authorized in T-007b §1: macOS `nix::unistd::getpeereid` (target-only
+  `nix =0.31.3`), same euid-before-read rule, stage counters, closed-peer regression + errno
+  diagnostic. Cause not yet confirmed by a run. ADR-014 unchanged. Docs only.
 
 - 2026-11-03 — Claude: D-11/ADR-014 decided after the WIP finding that every ingest envelope,
   idle tick and status refresh re-verified and re-folded the whole log. T-007b spec now carries the

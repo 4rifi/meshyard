@@ -330,6 +330,14 @@ Pattern matching runs inside `meshyard-hook` on the local command string; only t
   decoded fields cached in the DB actor. `workspace_state` (verify + `fold`) stays only as the test
   oracle / audit path, never on app hot paths. Signed wire v1 and receive-time verification
   unchanged. (accepted 2026-11-03, architect; T-007b ingest performance)
+- **ADR-015** Ingest peer credentials on macOS use `getpeereid` via a safe, pinned, target-only
+  `nix =0.31.3` (`features = ["socket","user"]`, no default features), not tokio's `peer_cred()`.
+  Reason: pinned tokio 1.53.3 on macOS queries `LOCAL_PEEREPID` first and fails with `ENOTCONN` when
+  the one-shot hook has already closed, while Libc `getpeereid` uses the cached `LOCAL_PEERCRED`.
+  Security boundary unchanged: same-euid check before any read, all errors reject, no PID
+  requirement, no fallback, no protocol change, no `unsafe` in our code. Other Unix keeps tokio's
+  `peer_cred()`. Cause to be confirmed by the T-007b closed-peer diagnostic run. (accepted
+  2026-11-03, architect)
 
 ## 11. Pinned versions
 
