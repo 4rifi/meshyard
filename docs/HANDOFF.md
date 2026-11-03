@@ -62,9 +62,10 @@ No prior task status, review decision or owner decision is changed by this path-
   Positive native Keychain acceptance remains pending; task status stays review. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
-  Current active implementation runs: T-007a `b90bb555` and T-003 `bf7148c0`;
-  T-014 `d09db809` finished with focused commits and a passing full offline check. Historical
-  runs are archived; do not resume them in temporary checkouts.
+  T-007b backend and merged T-016 are checked at `dc01799`; no implementation writer is active
+  at this checkpoint. Next: bounded backend re-review, then Connect/installer integration.
+  T-007a code is accepted but first-launch latency is unmet; N-14/reference gates remain open.
+  Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
   It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
   temporary files under `/Volumes/MeshyardProjects/Meshyard-build`. Install frontend dependencies
@@ -106,6 +107,15 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: backend plus accepted T-016 normally merged `dd11f8b`; full
+  combined check first failed on the old non-I/O child runtime (101 / 73.281 s), retained.
+  Fixture `3e37c48`, review unchanged `55f4cbe`, bounded startup safety `dc01799` now checked:
+  actual reactor matrix 0 / 2.627 s and full normal-shell offline check **0 / 50.272 s**,
+  110 Rust plus lock child, 46 Vitest, two ignored. Actual old Tokio closed-peer errno 57 and
+  safe UID equality confirmed; all six real UDS cases pass (8.236 s). No timeout/security
+  weakening. Foundation re-review next, then one combined Connect/installer writer. User
+  settings/native/CLI/N-14/B-1/reference/main gates stay open; T-015 native preview remains open.
 
 - 2026-11-03 — Claude: D-12/ADR-015 after the real first-envelope failure on `38da6cf` (Thinking
   never reached, `invalid = 1`, nothing received). Pinned tokio's macOS `peer_cred()` calls
