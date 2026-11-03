@@ -387,3 +387,6 @@ impl Pipeline {
     }
 }
 
+#[cfg(test)]
+#[path = "ingest_tests.rs"]
+mod tests;
