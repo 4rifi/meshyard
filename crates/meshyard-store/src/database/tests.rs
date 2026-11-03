@@ -555,3 +555,136 @@ fn live_membership_agrees_with_fold_and_failed_promotion_rolls_back_diagnostics(
     assert_eq!(member_row(&db, w, owner.device_id()), Some((0, false)));
     assert!(!db.confirmed_author(w, unknown.device_id()).unwrap());
 }
+
+#[test]
+fn oversized_outer_envelope_is_already_guarded_and_cannot_stall_pagination() {
+    let dir = directory();
+    let count = Rc::new(Cell::new(0));
+    let mut db = open(&dir.path().join("meshyard.sqlite"), &count);
+    let owner = SecretKey::from_bytes(&[89; 32]);
+    let w = db.add_workspace(&genesis(&owner)).unwrap();
+    let first = raw(w, &owner, 1, profile());
+    assert_eq!(db.insert_remote(&first).unwrap(), InsertOutcome::Inserted);
+
+    let header = EventHeaderV1 {
+        v: 1,
+        workspace: w.0,
+        author: owner.device_id().0,
+        seq: 2,
+        ts_ms: 0,
+        membership_epoch: 0,
+    };
+    let header = postcard::to_stdvec(&header).unwrap();
+    let envelope = |label_len: usize| {
+        let mut signed = header.clone();
+        signed.extend(
+            postcard::to_stdvec(&EventBodyV1::ProfileUpdated {
+                display_name: "a".repeat(label_len),
+                avatar: 0,
+            })
+            .unwrap(),
+        );
+        let sig = owner.sign(&domain_message(EVENT_DOMAIN, &signed)).unwrap();
+        SignedEventV1 { signed, sig }
+    };
+    // Make the OUTER envelope exactly MAX_FRAME + 1, while its authenticated,
+    // fully decodable inner payload stays below MAX_FRAME. The large string is
+    // intentionally field-invalid; conforming v1 events are much smaller.
+    let initial_label_len = MAX_FRAME - 128;
+    let initial = postcard::to_stdvec(&envelope(initial_label_len)).unwrap();
+    let label_len = initial_label_len + MAX_FRAME + 1 - initial.len();
+    let oversized = envelope(label_len);
+    assert!(oversized.signed.len() < MAX_FRAME);
+    let verified = verify_and_decode(&oversized, &Ed25519Verifier).unwrap();
+    assert_eq!(verified.validate_received(), Err(CryptoError::InvalidField));
+    let outer = postcard::to_stdvec(&oversized).unwrap();
+    assert_eq!(outer.len(), MAX_FRAME + 1);
+    // It is a complete postcard envelope, not padding or malformed serialization.
+    assert_eq!(
+        postcard::from_bytes::<SignedEventV1>(&outer).unwrap(),
+        oversized
+    );
+    assert_eq!(decode_signed_event(&outer), Err(CryptoError::Encoding));
+    count.set(0);
+    assert_eq!(
+        db.insert_remote(&outer).unwrap(),
+        InsertOutcome::Rejected(RejectReason::Malformed)
+    );
+    assert_eq!(
+        count.get(),
+        0,
+        "outer size must reject before signature work"
+    );
+    assert_eq!(db.head(w, owner.device_id()).unwrap(), 1);
+    for table in ["events", "pending_events"] {
+        assert_eq!(
+            db.conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM {table} WHERE workspace=?1 AND author=?2 AND seq=2"
+                    ),
+                    params![w.0.as_slice(), owner.device_id().0.as_slice()],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap(),
+            0
+        );
+    }
+    assert_eq!(
+        db.events_after(w, owner.device_id(), 0, 2).unwrap(),
+        vec![first]
+    );
+
+    // The existing boundary is inclusive: an envelope exactly at MAX_FRAME
+    // reaches verification/field validation, where its large field is rejected.
+    let boundary = postcard::to_stdvec(&envelope(label_len - 1)).unwrap();
+    assert_eq!(boundary.len(), MAX_FRAME);
+    assert!(decode_signed_event(&boundary).is_ok());
+    assert_eq!(
+        db.insert_remote(&boundary).unwrap(),
+        InsertOutcome::Rejected(RejectReason::InvalidField)
+    );
+    assert_eq!(count.get(), 1);
+    assert_eq!(db.head(w, owner.device_id()).unwrap(), 1);
+    assert_eq!(
+        db.insert_remote(&raw(w, &owner, 3, profile())).unwrap(),
+        InsertOutcome::Pending
+    );
+    assert_eq!(db.head(w, owner.device_id()).unwrap(), 1);
+    assert_eq!(
+        db.insert_remote(&raw(w, &owner, 2, profile())).unwrap(),
+        InsertOutcome::Inserted
+    );
+    for seq in 4..=5 {
+        assert_eq!(
+            db.insert_remote(&raw(w, &owner, seq, profile())).unwrap(),
+            InsertOutcome::Inserted
+        );
+    }
+    let head = db.head(w, owner.device_id()).unwrap();
+    assert_eq!(head, 5);
+    let mut cursor = 0;
+    let mut page_sizes = vec![];
+    while cursor < head {
+        let page = db.events_after(w, owner.device_id(), cursor, 2).unwrap();
+        assert!(
+            !page.is_empty(),
+            "a stored conforming event must make progress"
+        );
+        assert!(page.iter().map(Vec::len).sum::<usize>() <= MAX_FRAME);
+        page_sizes.push(page.len());
+        for bytes in page {
+            let event =
+                verify_and_decode(&decode_signed_event(&bytes).unwrap(), &Ed25519Verifier).unwrap();
+            event.validate_received().unwrap();
+            assert_eq!(event.seq, cursor + 1);
+            cursor = event.seq;
+        }
+    }
+    assert_eq!(page_sizes, vec![2, 2, 1]);
+    assert!(
+        db.events_after(w, owner.device_id(), cursor, 2)
+            .unwrap()
+            .is_empty()
+    );
+}
