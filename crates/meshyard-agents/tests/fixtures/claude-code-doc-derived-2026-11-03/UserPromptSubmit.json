@@ -1,0 +1,4 @@
+{
+  "session_id": "abc123",
+  "hook_event_name": "UserPromptSubmit"
+}

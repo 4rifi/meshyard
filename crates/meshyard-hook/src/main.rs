@@ -1,3 +1,4 @@
-//! Inert scaffold. Stdin forwarding and validation belong to T-007.
-//! No input is read, logged, or forwarded yet; always exits silently.
-fn main() {}
+fn main() {
+    let started = std::time::Instant::now();
+    meshyard_hook::run(started);
+}
