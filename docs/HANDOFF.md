@@ -44,10 +44,16 @@ agreed below).
 - T-001: `t-001-scaffold` in the canonical checkout; source cleanup `ac125bb`, status ping
   `8275fb0`, knowledge commit `a101deb`. Check/build evidence is in `docs/reports/T-001.md`;
   review awaits Dion's native checkpoint L1; the original first-start <20 ms criterion is now T-007.
-- T-002: `t-002-core-store-identity`, implementation/fix report `9889c7b`, in
-  `/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity`. Full check passed as reported;
-  final-source independent audit at `866fcf3` returned zero blockers; fresh USB full check exit 0.
-  Claude acceptance and positive native Keychain coverage remain pending. See that branch's report.
+  Its merge still awaits Claude-recorded Dion L1 evidence and an instruction to proceed.
+- T-002: `t-002-core-store-identity` in
+  `/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity`, returned to **review**
+  after Claude's required fixes 1–3 from `dce3613`: `793d0f4` preserves owner authority,
+  `753ca63` persists derived membership/epoch, `ce34a79` proves the existing outer-frame guard.
+  Full USB offline check at `ce34a79`: exit 0, 68.657 s, 55 top-level Rust passes plus lock
+  child, 3 frontend passes; 2 ignored entries. Report/status commit follows that checked source.
+  Provider-capacity interruption and preserved WIP continuation are recorded in the report.
+  Local commits only; parent independently inspects and pushes. Claude acceptance and positive
+  native Keychain coverage remain pending. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/Kursmodule/meshyard-smithers`; existing run databases/logs:
   `/Volumes/Kursmodule/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
@@ -67,7 +73,7 @@ agreed below).
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
-| T-002 core/store/identity | in-progress | Codex | Addressing Claude review fixes 1–3 from dce3613; local commits only, parent inspects and pushes; Keychain remains unverified |
+| T-002 core/store/identity | review | Codex → Claude | Fixes 1–3 addressed; full offline check exit 0; local commits only, parent inspects and pushes; Keychain remains unverified |
 | T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 
@@ -85,6 +91,21 @@ agreed below).
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex T-002 continuation: preserved committed fix 3 (`793d0f4`) and fix-1 WIP
+  after parent-reported Smithers `3719c9c9-a314-4a9d-a249-c256a211bb94` provider-capacity failure.
+  Completed fix 1 (`753ca63`): append-only migration, transactional derived membership/epoch,
+  one-time verified backfill before cleanup, 5,000-event constant-signature-work regression,
+  promotion/removal/reopen/SQL/overflow rollback coverage. Fix 2 (`ce34a79`) is already guarded:
+  actual outer MAX_FRAME+1 envelope rejected before verification; normal pagination progresses.
+  Targeted core/store suite exit 0 (11.675 s), full offline npm check exit 0 (68.657 s),
+  55 top-level Rust passes + lock child, 3 frontend passes, 2 ignored entries. Evidence:
+  `/Volumes/Kursmodule/Meshyard-build/orchestration/t002-claude-fixes-continuation-20261103T074000Z`.
+  Report includes the earlier unsuccessful fixture compile and infrastructure interruption.
+  Returned T-002 to review, never done. No push, merge, model change, agent contact/spawn,
+  dependencies/wire/generated changes, GUI/Keychain/network probe or T-003. Parent reviews/pushes;
+  Claude decides acceptance. T-001 merge awaits Claude-recorded Dion L1 and instruction;
+  manual Keychain remains Dion's isolated Terminal probe, unverified by this worker.
 
 - 2026-11-03 — Codex lead: committed/pushed Claude's nine planning doc edits unchanged as
   `866fcf3`. Bounded USB-only final-source audit `8ea3d48a-9858-4d97-905a-5a2487ef30b7`
