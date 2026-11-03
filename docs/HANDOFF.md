@@ -82,7 +82,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
-| T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
+| T-014 local workspace slice | changes-requested | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
@@ -101,6 +101,16 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: published T-014 `6aca159` (approved planning merged normally;
+  source identical to checked `026ff54`), remote SHA verified. Claude exact-head review
+  `61abebd8-e4a5-465c-89d6-22d9570b471a` is active. Replaced only the verified original
+  scaffold run with T-014 `npm run dev`, explicit fresh USB file-key profile. Build 20.72 s;
+  launcher 99939, own Vite 1420 PID 180, native PID 193; HTTP 200 and onscreen window metadata
+  confirmed. No native action/Keychain/owner acceptance claimed. Screen-capture preflight false:
+  no screenshot or permission bypass. New window left open; owner creation/registration test
+  question pending. Evidence: `Meshyard-build/T014-owner-start-20261103T191327Z`. T-007a and
+  T-003 continue independently; main gates unchanged.
 
 - 2026-11-03 — Codex lead: T-014 implementation run
   `d09db809-77d6-40eb-bc82-28d508976880` finished; focused commits `e375076`, `9b6bd95`,
