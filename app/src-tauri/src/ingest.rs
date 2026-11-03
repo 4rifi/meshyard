@@ -43,6 +43,22 @@ pub(crate) struct IngestStatus {
     pub(crate) storage_errors: AtomicU32,
     pub(crate) active_readers: AtomicU32,
     pub(crate) received: AtomicU32,
+    #[cfg(test)]
+    trace: TestTrace,
+}
+/// Bounded scheduling context for test failures only; no payloads or production logging.
+#[cfg(test)]
+#[derive(Default)]
+struct TestTrace {
+    ticks: AtomicU32,
+    flushes: AtomicU32,
+    received_ms: std::sync::atomic::AtomicU64,
+    tick_ms: std::sync::atomic::AtomicU64,
+    flush_ms: std::sync::atomic::AtomicU64,
+}
+#[cfg(test)]
+fn test_millis(clock: &dyn Clock) -> u64 {
+    u64::try_from(clock.now().as_millis()).unwrap_or(u64::MAX)
 }
 fn count(counter: &AtomicU32) {
     let _ = counter.try_update(Ordering::Relaxed, Ordering::Relaxed, |n| {
@@ -221,6 +237,8 @@ async fn serve(
                     Some(Ok(Some(input))) => {
                         let Some(core) = core.upgrade() else { break; };
                         if let Ok(app) = core.lock().await.as_mut() {
+                            #[cfg(test)]
+                            status.trace.received_ms.store(test_millis(pipeline.clock.as_ref()), Ordering::Relaxed);
                             if pipeline.receive(app, input, &status).await.is_err() { count(&status.storage_errors); }
                             count(&status.received);
                         }
@@ -229,11 +247,19 @@ async fn serve(
                 }
             }
             _ = tick.tick() => {
+                #[cfg(test)] {
+                    count(&status.trace.ticks);
+                    status.trace.tick_ms.store(test_millis(pipeline.clock.as_ref()), Ordering::Relaxed);
+                }
                 let Some(core) = core.upgrade() else { break; };
                 if let Ok(app) = core.lock().await.as_mut()
                     && pipeline.tick(app).await.is_err() { count(&status.storage_errors); }
             }
             _ = flush.tick() => {
+                #[cfg(test)] {
+                    count(&status.trace.flushes);
+                    status.trace.flush_ms.store(test_millis(pipeline.clock.as_ref()), Ordering::Relaxed);
+                }
                 let Some(core) = core.upgrade() else { break; };
                 if let Ok(app) = core.lock().await.as_mut()
                     && pipeline.flush(app).await.is_err() { count(&status.storage_errors); }
@@ -357,10 +383,10 @@ impl Pipeline {
             {
                 continue;
             }
-            let (_, state) = core.store.workspace_state(workspace).await?;
-            let agent = state
-                .agents
-                .get(&(core.signer.device_id(), id))
+            let agent = core
+                .store
+                .own_agent(workspace, core.signer.device_id(), id)
+                .await?
                 .ok_or(StoreError::InvalidBinding)?;
             if (agent.state, agent.provenance, agent.tool) != (change.0, Some(change.1), change.2) {
                 core.store

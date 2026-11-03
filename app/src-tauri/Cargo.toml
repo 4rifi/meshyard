@@ -29,5 +29,6 @@ postcard.workspace = true
 getrandom.workspace = true
 
 [dev-dependencies]
+meshyard-store = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
 rusqlite.workspace = true

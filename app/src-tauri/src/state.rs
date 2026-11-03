@@ -63,8 +63,8 @@ impl AppState {
                 .map_err(identity_error)?,
             );
             if let Some(id) = workspace {
-                let (_, state) = store.workspace_state(id).await.map_err(storage_error)?;
-                if !state.members.contains_key(&signer.device_id()) {
+                let state = store.workspace_snapshot(id).await.map_err(storage_error)?;
+                if !state.members.iter().any(|m| m.device == signer.device_id()) {
                     return Err(AppError::IdentityMismatch);
                 }
             }
@@ -142,30 +142,32 @@ impl AppCore {
         let Some(id) = self.workspace else {
             return Ok(AppStatus::Setup);
         };
-        let (genesis, state) = self
+        let state = self
             .store
-            .workspace_state(id)
+            .workspace_snapshot(id)
             .await
             .map_err(storage_error)?;
+        let genesis = &state.genesis;
         let device = self.signer.device_id();
         // Genesis may have persisted while the first profile append failed. Never hide this
         // behind a success view, including after reopening; update_profile can repair it.
         if genesis.owner == device
             && state
                 .members
-                .get(&device)
+                .iter()
+                .find(|m| m.device == device)
                 .is_some_and(|m| m.display_name.is_empty())
         {
             return Err(AppError::PartialCreate);
         }
         Ok(AppStatus::Ready(WorkspaceView {
             id_short: short(&id.0),
-            name: genesis.name,
+            name: genesis.name.clone(),
             mode: genesis.mode,
             device_short: short(&device.0),
             members: state
                 .members
-                .into_values()
+                .into_iter()
                 .map(|m| MemberView {
                     device_short: short(&m.device.0),
                     display_name: m.display_name,
@@ -175,7 +177,7 @@ impl AppCore {
                 .collect(),
             agents: state
                 .agents
-                .into_values()
+                .into_iter()
                 .map(|a| AgentView {
                     id: format!("{}:{}", hex(&a.author.0), hex(&a.local_id)),
                     kind: a.kind,
