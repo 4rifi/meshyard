@@ -62,8 +62,9 @@ No prior task status, review decision or owner decision is changed by this path-
   Positive native Keychain acceptance remains pending; task status stays review. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
-  No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
-  archived; do not resume them in temporary checkouts.
+  Current active implementation runs: T-007a `b90bb555` and T-003 `bf7148c0`;
+  T-014 `d09db809` finished with focused commits and a passing full offline check. Historical
+  runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
   It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
   temporary files under `/Volumes/MeshyardProjects/Meshyard-build`. Install frontend dependencies
@@ -80,9 +81,9 @@ No prior task status, review decision or owner decision is changed by this path-
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
-| T-003 net endpoint | ready | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
-| T-014 local workspace slice | in-progress | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
-| T-007a hook/normalizer | in-progress | Codex lane B | Clean run interrupted for a bounded normative-spec clarification; resumes after Claude resolves it; no app ingest/installer yet |
+| T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
+| T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
+| T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -100,6 +101,19 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-014 implementation run
+  `d09db809-77d6-40eb-bc82-28d508976880` finished; focused commits `e375076`, `9b6bd95`,
+  `026ff54`, report `2d04a7e`. Full `CARGO_NET_OFFLINE=true npm run check` exit 0, 56.65 s:
+  65 top-level Rust passes plus existing lock child, 26 frontend passes, 2 ignored Rust entries;
+  separate regression reopens the same real USB file-key profile in two fresh test processes.
+  No native UI/IPC/ACL/Keychain/owner acceptance is inferred. Next: source/visual inspection,
+  exact-head Claude review and a runnable owner window. T-007a corrected run
+  `b90bb555-c91f-40aa-92e5-7f1bdc663a42` and T-003
+  `bf7148c0-8b41-4fa7-a95f-713332507b12` remain active in separate owned worktrees.
+  Claude's local-ingest clarification and explicit effective-UID correction were committed
+  unchanged as `386a107` / `0cdb5d8`, pushed and remote-verified. Planning docs will be merged
+  into clean task branches normally; main/native gates remain unchanged. No knowledge edits.
 
 - 2026-11-03 — Codex lead: committed Claude's six delivery-planning files unchanged as
   `415c69c` and pushed; remote SHA verified. D-9 now authorizes stacked implementation while
