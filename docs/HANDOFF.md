@@ -82,7 +82,8 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
-| T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
+| T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
+| T-015 pixel app redesign | ready · **priority 1** | Codex lane A | `docs/tasks/T-015-pixel-app-redesign.md`; branch from `1f90a07`; exclusive frontend ownership; reference image not available → provisional palette |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
@@ -101,6 +102,13 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Claude: T-014 re-review at `1f90a07` (source only): identity fix resolved, code
+  accepted; N-14 native gate pending with Dion. New owner priority → T-015 app-wide pixel redesign
+  spec (lane A, exclusive `app/src/**`, branch from `1f90a07`, no Rust/IPC/dependency/CSP change,
+  screenshot evidence levels native vs mocked-IPC). No pixel reference image exists in the
+  architect's context or repo; palette/layout provisional until Dion supplies it. T-007b backend
+  prep may run in parallel (`app/src-tauri/**`); its frontend part follows T-015. Docs uncommitted.
 
 - 2026-11-03 — Codex lead: required T-014 missing-identity fix `b676efa` complete and
   normally merged. Existing workspaces load only; `IdentityMissing` never creates a key. Fresh
