@@ -355,3 +355,79 @@ network requests. Async disposal is guarded across React StrictMode mount/unmoun
 Primary implementation references: [Tauri CSP](https://v2.tauri.app/security/csp/),
 [Tauri configuration](https://v2.tauri.app/reference/config/),
 [Pixi Application lifecycle](https://pixijs.com/8.x/guides/components/application).
+
+### T-002 additions — updated by Codex, pending review (2026-11-03)
+
+The T-001 table above records scaffold-time activation. T-002 activates the existing exact
+`rusqlite 0.40.2` (bundled), `tokio 1.53.3` (sync/rt/macros), `serde 1.0.229`, `ts-rs 12.0.1`
+and `thiserror 2.0.21` pins without changing their versions. New exact direct pins:
+
+| Crate | Pin | Purpose / compatibility |
+|---|---|---|
+| postcard | 1.1.3 | Frozen v1 codec; default features disabled, use-std only |
+| serde-big-array | 0.5.1 | Fixed `[u8; 64]` signatures, without a vector-length prefix |
+| ed25519-dalek | 3.0.0 | Pure Signer/Verifier implementation, strict verification, zeroizing signing key; same version used by pinned iroh, with no iroh dependency in core |
+| blake3 | 1.8.7 | Raw-genesis WorkspaceId derivation |
+| rusqlite_migration | 2.6.0 | Requires rusqlite ^0.40.0; matches existing =0.40.2; MSRV 1.95 fits 1.99.1 |
+| keyring | 3.6.3 | Explicit apple-native backend on macOS; established 3.x platform API avoids the 4.x facade's default platform-store bundle |
+| security-framework | 3.7.0 | Same backend as keyring: safe create-only Keychain insertion instead of upsert, OS status classification, prompt-disabled isolated manual probe |
+| libc | 0.2.191 | O_NOFOLLOW constant only, no unsafe calls; already resolved in scaffold |
+| getrandom | 0.4.3 | OS entropy in identity layer, never in pure core |
+| zeroize | 1.9.1 | Zeroizing identity load/generation buffers; same version as dalek's resolved dependency |
+| tempfile | 3.27.0 | Dev-only isolated directories, explicitly configured 0700 |
+| proptest | 1.12.0 | Dev-only, std-only, 256 cases per property; no fork/timeout features |
+
+Authoritative registry version, publication, MSRV, feature and dependency evidence is recorded in
+`docs/reports/T002-dependencies.json`; each record includes its crates.io API source. Every pin is
+non-yanked and predates the scaffold's 2026-10-19 cutoff. See the report for selection rationale.
+Generated `Cargo.lock` records resolution; it was updated by Cargo only. No npm version changes.
+
+Implementation choices pending review:
+
+- Wire v1 owns every nested enum as well as the six body variants. Activity states follow §6;
+  agent kinds are ClaudeCode/Codex/Other, tool categories Edit/Shell/Read/Web/Other. Hook sources
+  are SessionStart/UserPromptSubmit/PreToolUse/PostToolUse/Stop/StopFailure/SessionEnd; inference
+  rules are ToolEdit/ToolShell/ToolRead/ToolWeb/TurnEnded/Stale. Membership wire role is only
+  Member (tag 0); Owner exists in the domain and is seeded by genesis. GoldenBytes pin all tags.
+  Claude should review this initial vocabulary before closing v1; future additions require v2.
+- Frame headers are fixed ten-byte network headers, not postcard structs. A caller-provided
+  ALPN-specific type allowlist is checked before payload decoding; T-002 does not invent
+  numeric assignments for future pairing/sync message types.
+- `verify_and_decode` returns `VerifiedEvent`, retaining header version separately from the
+  domain event. `validate_received` runs after database duplicate/equivocation comparison;
+  `into_event` is for already accepted projection inputs. Even the received outer postcard
+  envelope is retained unchanged. Postcard-compatible redundant integer encodings remain raw;
+  signatures, identity derivation and dedupe never use re-encoded values.
+- SQLite sequences are limited to `1..=i64::MAX`. Larger wire sequences return a typed rejection;
+  cursor overflow is a typed error. All conversions and next-sequence arithmetic are checked.
+  The single DB thread serializes jobs over a bounded 64-entry async channel. Transactions
+  provide atomic own allocation/insert and remote insertion/promotion. `open` is synchronous;
+  async callers use `open_async`. Explicit `close` releases the lock before returning.
+- `append_own` records the locally observed membership epoch and current wall-clock timestamp;
+  `append_own_with` allows explicit policy/time/epoch context. Neither timestamp decides order.
+- Private data directories are 0700; lock/identity files use no-follow opens and private inode
+  checks. File identity publishes a complete fsynced staging inode using create-only hard-link
+  insertion, never overwriting an existing entry. The persistent OS lock is released by close
+  or process exit; its filename is never deleted to acquire a lock. Scope is macOS/Unix (M5
+  covers other platforms). Protection against malicious same-user processes is not claimed.
+- Keychain production service/account are `computer.meshyard.device` / `device`. Reads use
+  keyring; insertion uses its backend's safe create-only API because keyring's setter upserts.
+  NotFound alone permits generation; Locked/Unavailable/invalid/permission failures propagate.
+  File storage is explicitly constructed, never selected automatically. No secret is in SQL,
+  IPC types, Debug or error details. No runtime logging is introduced by this task.
+- SharingPolicy's default drops every free-text task label, preserves deliberate agent labels,
+  and carries only structured fields otherwise. Explicit task-label opt-in is a caller's claim
+  of Meshyard user entry or field-level permission; arbitrary text cannot be inspected to prove
+  it secret-free. Adapter allowlist/source enforcement belongs to T-007, not a text classifier.
+- Fold inputs are one workspace's unique accepted contiguous event set. Unknown authors are
+  not projected; their ordinary-event holding is capped at 1024 events / 1 MiB per author
+  (conservative wire-size accounting). Overflow is reported and discards that holding; future
+  sync handles re-request. The accepted log remains the projection source when membership
+  arrives. Store pending-gap limits count the actual received outer bytes.
+- Regenerate the 14 UI-domain-only bindings from the repository root with
+  `npm run bindings:generate` (offline cargo example + deterministic Prettier). Wire, signing
+  keys and signed byte envelopes are never exported. No IPC transport is connected in T-002.
+  Scaffold `version()` helpers remain only because the unchanged T-001 bridge still uses them.
+
+Manual boundary: the isolated Keychain probe returned `Unavailable`; no successful macOS
+Keychain roundtrip is claimed. T-001 native/first-launch acceptance remains open independently.

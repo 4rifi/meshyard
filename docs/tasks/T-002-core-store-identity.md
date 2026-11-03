@@ -1,6 +1,6 @@
 # T-002 — Core types, wire v1, local store, device identity
 
-Status: ready (after T-001) · Owner: Codex · Reviewer: Claude
+Status: review (owner exception: T-001 review; Keychain manual acceptance unverified) · Owner: Codex · Reviewer: Claude
 Revised 2026-11-02 after the Codex architecture review; updated for PROTOCOL v1.1 (ADR-009,
 ADR-010). **Normative reference: `docs/PROTOCOL.md` v1.1 §§1–5 and §10.** Where this spec is
 silent, PROTOCOL.md decides.
@@ -69,22 +69,23 @@ layer builds on.
 - Secret key bytes never in `Debug`/logs.
 
 ## Acceptance criteria
-- [ ] Golden-bytes tests for `GenesisV1`, `SignedGenesisV1`, `EventHeaderV1`, every
+- [x] Golden-bytes tests for `GenesisV1`, `SignedGenesisV1`, `EventHeaderV1`, every
       `EventBodyV1` variant, `ModeV1`, and the frame header.
-- [ ] Signature tests: tampered header/body rejected; wrong domain separator rejected (genesis
+- [x] Signature tests: tampered header/body rejected; wrong domain separator rejected (genesis
       and event); trailing bytes after body rejected; truncated `signed` rejected; genesis whose
       decoded `owner` ≠ signing key rejected; verification never re-encodes (test with stored raw
       bytes).
-- [ ] Store tests: gap → `Pending`, gap filled → contiguous head advances; same seq different
+- [x] Store tests: gap → `Pending`, gap filled → contiguous head advances; same seq different
       payload → `Equivocation` (first kept); identical → `Duplicate`.
-- [ ] Fold tests: owner's own `ProfileUpdated`/`AgentRegistered`/`AgentState` applied;
+- [x] Fold tests: owner's own `ProfileUpdated`/`AgentRegistered`/`AgentState` applied;
       `MemberAdded(owner)` is a no-op (no epoch change); non-owner `MemberAdded` ignored;
       `AgentState` for an agent owned by another author ignored; events of not-yet-member held
       then applied after `MemberAdded`; property test.
-- [ ] Receive-validation tests: event with a `Cc` character, over-cap string, or invalid UTF-8
+- [x] Receive-validation tests: event with a `Cc` character, over-cap string, or invalid UTF-8
       → `Rejected(InvalidField)`, not stored, later events of that author stay `Pending`;
       sender-side `sanitize_for_signing` output always passes `validate_received`.
-- [ ] Default `SharingPolicy` never emits prompt/command/path text (test).
-- [ ] `FileKeyStore` file mode 0600; `Debug` prints no key bytes; lock file prevents 2nd open.
-- [ ] Keychain path tested manually on macOS — report honestly (may prompt the user).
-- [ ] `npm run check` green; report in `docs/reports/T-002.md`.
+- [x] Default `SharingPolicy` never emits prompt/command/path text (test).
+- [x] `FileKeyStore` file mode 0600; `Debug` prints no key bytes; lock file prevents 2nd open.
+- [ ] Keychain path tested manually on macOS — isolated probe attempted, returned Unavailable;
+      successful create/read/delete remains unverified (see `docs/reports/T002.md`).
+- [x] `npm run check` green; report in `docs/reports/T002.md`.

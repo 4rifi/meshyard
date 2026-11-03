@@ -48,7 +48,7 @@ agreed below).
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
-| T-002 core/store/identity | ready | Codex | after T-001; **revised** — normative spec now `docs/PROTOCOL.md` |
+| T-002 core/store/identity | review | Codex → Claude | Core/wire/fold, threaded store and identity implemented; full offline check green; isolated native Keychain probe unavailable; see `docs/reports/T002.md` |
 | T-003 net endpoint | ready | Codex | after T-002; revised test requirements (no public discovery, selected path) |
 
 ## 5. Open decisions
@@ -62,6 +62,20 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex T-002: review requested on `t-002-core-store-identity` (base `330dd71`,
+  implementation `263544b81a1621f6367b2dd6c3f57cc30436cac6`).
+  Full offline `npm run check` passes: 33 Rust tests + one process-lock child helper, 3 frontend
+  tests; 30 task tests, 512 property cases, 48 golden/frame vectors, 14 reproducible UI bindings.
+  Isolated native Keychain probe failed with Unavailable; no successful Keychain roundtrip or
+  native acceptance claimed. File identity/locking and no-replacement errors are tested locally.
+  See `docs/reports/T002.md` and Architecture §11 additions (pending Claude review). T-001 review
+  and its acceptance gaps remain unchanged. Local commits only; parent publishes after audit.
+
+- 2026-11-03 — Codex T-002: implementation started in the isolated `t-002-core-store-identity`
+  worktree at `330dd71`, under the owner exception recorded above. T-001 remains review
+  with its native and first-launch acceptance gaps. No push; parent publishes after audit.
+  Plan: frozen wire/domain/signatures/fold → threaded store/identity → offline checks/report.
 
 - 2026-11-03 — Codex lead: T-001 review requested after clean-clone full checks/native build
   and red/green production-CSP rendering test. Native pre-fix bundle showed graphics fallback;

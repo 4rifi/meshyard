@@ -1,0 +1,1657 @@
+{
+  "verified_on": "2026-11-03",
+  "selection_cutoff": "2026-10-19",
+  "records": [
+    {
+      "name": "postcard",
+      "version": "1.1.3",
+      "source": "https://crates.io/api/v1/crates/postcard",
+      "created_at": "2025-07-24T15:55:57.238442Z",
+      "rust_version": null,
+      "yanked": false,
+      "features": {
+        "alloc": [
+          "serde/alloc",
+          "embedded-io-04?/alloc",
+          "embedded-io-06?/alloc"
+        ],
+        "core-num-saturating": [],
+        "crc": [
+          "dep:crc"
+        ],
+        "default": [
+          "heapless-cas"
+        ],
+        "defmt": [
+          "dep:defmt"
+        ],
+        "embedded-io": [
+          "dep:embedded-io-04"
+        ],
+        "embedded-io-04": [
+          "dep:embedded-io-04"
+        ],
+        "embedded-io-06": [
+          "dep:embedded-io-06"
+        ],
+        "experimental-derive": [
+          "postcard-derive"
+        ],
+        "heapless": [
+          "dep:heapless"
+        ],
+        "heapless-cas": [
+          "heapless",
+          "dep:heapless",
+          "heapless/cas"
+        ],
+        "nalgebra-v0_33": [
+          "nalgebra_v0_33"
+        ],
+        "paste": [],
+        "postcard-derive": [
+          "dep:postcard-derive"
+        ],
+        "use-crc": [
+          "crc"
+        ],
+        "use-defmt": [
+          "defmt"
+        ],
+        "use-std": [
+          "serde/std",
+          "alloc"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "cobs",
+          "requirement": "^0.3.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "serde",
+          "requirement": "^1.0.100",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "crc",
+          "requirement": "^3.0.1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "defmt",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "embedded-io",
+          "requirement": "^0.4",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "embedded-io",
+          "requirement": "^0.6",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "heapless",
+          "requirement": "^0.7.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "nalgebra",
+          "requirement": "^0.33.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "postcard-derive",
+          "requirement": "^0.2.0",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "serde-big-array",
+      "version": "0.5.1",
+      "source": "https://crates.io/api/v1/crates/serde-big-array",
+      "created_at": "2023-03-04T20:38:29.574008Z",
+      "rust_version": null,
+      "yanked": false,
+      "features": {},
+      "normal_dependencies": [
+        {
+          "name": "serde",
+          "requirement": "^1.0",
+          "optional": false,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "ed25519-dalek",
+      "version": "3.0.0",
+      "source": "https://crates.io/api/v1/crates/ed25519-dalek",
+      "created_at": "2026-07-06T16:23:09.992366Z",
+      "rust_version": "1.85",
+      "yanked": false,
+      "features": {
+        "alloc": [
+          "curve25519-dalek/alloc",
+          "ed25519/alloc",
+          "signature/alloc",
+          "serde?/alloc",
+          "zeroize?/alloc"
+        ],
+        "batch": [
+          "alloc",
+          "dep:keccak",
+          "rand_core",
+          "strobe-rs"
+        ],
+        "default": [
+          "fast",
+          "zeroize"
+        ],
+        "digest": [
+          "signature/digest"
+        ],
+        "fast": [
+          "curve25519-dalek/precomputed-tables"
+        ],
+        "hazmat": [],
+        "legacy_compatibility": [
+          "curve25519-dalek/legacy_compatibility"
+        ],
+        "pem": [
+          "alloc",
+          "ed25519/pem",
+          "pkcs8"
+        ],
+        "pkcs8": [
+          "ed25519/pkcs8"
+        ],
+        "rand_core": [
+          "dep:rand_core",
+          "curve25519-dalek/rand_core",
+          "signature/rand_core"
+        ],
+        "serde": [
+          "dep:serde",
+          "ed25519/serde"
+        ],
+        "zeroize": [
+          "dep:zeroize",
+          "curve25519-dalek/zeroize"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "curve25519-dalek",
+          "requirement": "^5.0.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "ed25519",
+          "requirement": "^3",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "sha2",
+          "requirement": "^0.11",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "subtle",
+          "requirement": "^2.3.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "keccak",
+          "requirement": "^0.2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "rand_core",
+          "requirement": "^0.10",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "serde",
+          "requirement": "^1.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "signature",
+          "requirement": "^3",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "strobe-rs",
+          "requirement": "^0.13",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "zeroize",
+          "requirement": "^1.5",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "blake3",
+      "version": "1.8.7",
+      "source": "https://crates.io/api/v1/crates/blake3",
+      "created_at": "2026-08-20T09:09:56.903547Z",
+      "rust_version": null,
+      "yanked": false,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "digest": [
+          "dep:digest"
+        ],
+        "mmap": [
+          "std",
+          "dep:memmap2"
+        ],
+        "neon": [],
+        "no_avx2": [],
+        "no_avx512": [],
+        "no_neon": [],
+        "no_sse2": [],
+        "no_sse41": [],
+        "prefer_intrinsics": [],
+        "pure": [],
+        "rayon": [
+          "dep:rayon-core"
+        ],
+        "std": [
+          "constant_time_eq/std"
+        ],
+        "traits-preview": [
+          "dep:digest"
+        ],
+        "wasm32_simd": [],
+        "zeroize": [
+          "dep:zeroize",
+          "arrayvec/zeroize"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "arrayvec",
+          "requirement": "^0.7.4",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "cfg-if",
+          "requirement": "^1.0.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "constant_time_eq",
+          "requirement": "^0.4.2",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "cpufeatures",
+          "requirement": "^0.3.0",
+          "optional": false,
+          "target": "cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))"
+        },
+        {
+          "name": "digest",
+          "requirement": "^0.11.2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "memmap2",
+          "requirement": "^0.9",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "rayon-core",
+          "requirement": "^1.12.1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "serde",
+          "requirement": "^1.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "zeroize",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "rusqlite_migration",
+      "version": "2.6.0",
+      "source": "https://crates.io/api/v1/crates/rusqlite_migration",
+      "created_at": "2026-05-28T21:30:15.161675Z",
+      "rust_version": "1.95",
+      "yanked": false,
+      "features": {
+        "default": [],
+        "from-directory": [
+          "dep:include_dir"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "log",
+          "requirement": "^0.4",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "rusqlite",
+          "requirement": "^0.40.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "include_dir",
+          "requirement": "^0.7.4",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "keyring",
+      "version": "3.6.3",
+      "source": "https://crates.io/api/v1/crates/keyring",
+      "created_at": "2025-07-27T04:50:05.479097Z",
+      "rust_version": "1.75",
+      "yanked": false,
+      "features": {
+        "apple-native": [
+          "dep:security-framework"
+        ],
+        "async-io": [
+          "zbus?/async-io"
+        ],
+        "async-secret-service": [
+          "dep:secret-service",
+          "dep:zbus"
+        ],
+        "crypto-openssl": [
+          "dbus-secret-service?/crypto-openssl",
+          "secret-service?/crypto-openssl"
+        ],
+        "crypto-rust": [
+          "dbus-secret-service?/crypto-rust",
+          "secret-service?/crypto-rust"
+        ],
+        "linux-native": [
+          "dep:linux-keyutils"
+        ],
+        "linux-native-async-persistent": [
+          "linux-native",
+          "async-secret-service"
+        ],
+        "linux-native-sync-persistent": [
+          "linux-native",
+          "sync-secret-service"
+        ],
+        "sync-secret-service": [
+          "dep:dbus-secret-service"
+        ],
+        "tokio": [
+          "zbus?/tokio"
+        ],
+        "vendored": [
+          "dbus-secret-service?/vendored",
+          "openssl?/vendored"
+        ],
+        "windows-native": [
+          "dep:windows-sys",
+          "dep:byteorder"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "log",
+          "requirement": "^0.4.22",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "zeroize",
+          "requirement": "^1.8.1",
+          "optional": false,
+          "target": "cfg(target_os = \"windows\")"
+        },
+        {
+          "name": "byteorder",
+          "requirement": "^1.2",
+          "optional": true,
+          "target": "cfg(target_os = \"windows\")"
+        },
+        {
+          "name": "dbus-secret-service",
+          "requirement": "^4.0.1",
+          "optional": true,
+          "target": "cfg(target_os = \"freebsd\")"
+        },
+        {
+          "name": "dbus-secret-service",
+          "requirement": "^4.0.0-rc.1",
+          "optional": true,
+          "target": "cfg(target_os = \"openbsd\")"
+        },
+        {
+          "name": "dbus-secret-service",
+          "requirement": "^4.0.0-rc.2",
+          "optional": true,
+          "target": "cfg(target_os = \"linux\")"
+        },
+        {
+          "name": "linux-keyutils",
+          "requirement": "^0.2",
+          "optional": true,
+          "target": "cfg(target_os = \"linux\")"
+        },
+        {
+          "name": "openssl",
+          "requirement": "^0.10.66",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "secret-service",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"freebsd\")"
+        },
+        {
+          "name": "secret-service",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"openbsd\")"
+        },
+        {
+          "name": "secret-service",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"linux\")"
+        },
+        {
+          "name": "security-framework",
+          "requirement": "^2",
+          "optional": true,
+          "target": "cfg(target_os = \"ios\")"
+        },
+        {
+          "name": "security-framework",
+          "requirement": "^3",
+          "optional": true,
+          "target": "cfg(target_os = \"macos\")"
+        },
+        {
+          "name": "windows-sys",
+          "requirement": "^0.60",
+          "optional": true,
+          "target": "cfg(target_os = \"windows\")"
+        },
+        {
+          "name": "zbus",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"openbsd\")"
+        },
+        {
+          "name": "zbus",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"freebsd\")"
+        },
+        {
+          "name": "zbus",
+          "requirement": "^4",
+          "optional": true,
+          "target": "cfg(target_os = \"linux\")"
+        }
+      ]
+    },
+    {
+      "name": "security-framework",
+      "version": "3.7.0",
+      "source": "https://crates.io/api/v1/crates/security-framework",
+      "created_at": "2026-02-20T00:28:54.024219Z",
+      "rust_version": "1.85",
+      "yanked": false,
+      "features": {
+        "OSX_10_12": [],
+        "OSX_10_13": [],
+        "OSX_10_14": [],
+        "OSX_10_15": [
+          "security-framework-sys/OSX_10_15"
+        ],
+        "alpn": [],
+        "default": [
+          "OSX_10_14",
+          "alpn",
+          "session-tickets"
+        ],
+        "job-bless": [],
+        "macos-12": [
+          "security-framework-sys/macos-12"
+        ],
+        "nightly": [],
+        "session-tickets": [],
+        "sync-keychain": [
+          "OSX_10_13"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "bitflags",
+          "requirement": "^2.11",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "core-foundation",
+          "requirement": "^0.10",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "core-foundation-sys",
+          "requirement": "^0.8.6",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.139",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "security-framework-sys",
+          "requirement": "^2.17",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "log",
+          "requirement": "^0.4.20",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "libc",
+      "version": "0.2.191",
+      "source": "https://crates.io/api/v1/crates/libc",
+      "created_at": "2026-10-16T22:56:46.041660Z",
+      "rust_version": "1.65",
+      "yanked": false,
+      "features": {
+        "align": [],
+        "const-extern-fn": [],
+        "default": [
+          "std"
+        ],
+        "extra_traits": [],
+        "rustc-dep-of-std": [
+          "align",
+          "rustc-std-workspace-core"
+        ],
+        "std": [],
+        "use_std": [
+          "std"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "rustc-std-workspace-core",
+          "requirement": "^1.0.1",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "getrandom",
+      "version": "0.4.3",
+      "source": "https://crates.io/api/v1/crates/getrandom",
+      "created_at": "2026-06-17T18:01:59.979552Z",
+      "rust_version": "1.85",
+      "yanked": false,
+      "features": {
+        "std": [],
+        "sys_rng": [
+          "dep:rand_core"
+        ],
+        "wasm_js": [
+          "dep:wasm-bindgen",
+          "dep:js-sys"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "cfg-if",
+          "requirement": "^1",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(all(any(target_os = \"linux\", target_os = \"android\"), not(any(all(target_os = \"linux\", target_env = \"\"), getrandom_backend = \"custom\", getrandom_backend = \"linux_raw\", getrandom_backend = \"rdrand\", getrandom_backend = \"rndr\"))))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(target_os = \"vxworks\")"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(any(target_os = \"haiku\", target_os = \"redox\", target_os = \"nto\", target_os = \"aix\"))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(any(target_os = \"ios\", target_os = \"visionos\", target_os = \"watchos\", target_os = \"tvos\"))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(any(target_os = \"macos\", target_os = \"openbsd\", target_os = \"vita\", target_os = \"emscripten\"))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(target_os = \"netbsd\")"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(target_os = \"solaris\")"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.154",
+          "optional": false,
+          "target": "cfg(any(target_os = \"dragonfly\", target_os = \"freebsd\", target_os = \"hurd\", target_os = \"illumos\", target_os = \"cygwin\", all(target_os = \"horizon\", target_arch = \"arm\")))"
+        },
+        {
+          "name": "r-efi",
+          "requirement": "^6",
+          "optional": false,
+          "target": "cfg(all(target_os = \"uefi\", getrandom_backend = \"efi_rng\"))"
+        },
+        {
+          "name": "js-sys",
+          "requirement": "^0.3.77",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", any(target_os = \"unknown\", target_os = \"none\"), target_feature = \"atomics\"))"
+        },
+        {
+          "name": "rand_core",
+          "requirement": "^0.10.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "wasm-bindgen",
+          "requirement": "^0.2.98",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", any(target_os = \"unknown\", target_os = \"none\")))"
+        }
+      ]
+    },
+    {
+      "name": "zeroize",
+      "version": "1.9.1",
+      "source": "https://crates.io/api/v1/crates/zeroize",
+      "created_at": "2026-10-06T17:49:21.148259Z",
+      "rust_version": "1.85",
+      "yanked": false,
+      "features": {
+        "aarch64": [],
+        "alloc": [],
+        "default": [
+          "alloc"
+        ],
+        "derive": [
+          "zeroize_derive"
+        ],
+        "simd": [],
+        "std": [
+          "alloc"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "serde",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "zeroize_derive",
+          "requirement": "^1.5",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "tempfile",
+      "version": "3.27.0",
+      "source": "https://crates.io/api/v1/crates/tempfile",
+      "created_at": "2026-03-11T00:20:04.812840Z",
+      "rust_version": "1.63",
+      "yanked": false,
+      "features": {
+        "default": [
+          "getrandom"
+        ],
+        "nightly": []
+      },
+      "normal_dependencies": [
+        {
+          "name": "fastrand",
+          "requirement": "^2.1.1",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "once_cell",
+          "requirement": "^1.19.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "rustix",
+          "requirement": "^1.1.4",
+          "optional": false,
+          "target": "cfg(any(unix, target_os = \"wasi\"))"
+        },
+        {
+          "name": "windows-sys",
+          "requirement": ">=0.52, <0.62",
+          "optional": false,
+          "target": "cfg(windows)"
+        },
+        {
+          "name": "getrandom",
+          "requirement": ">=0.3.0, <0.5",
+          "optional": true,
+          "target": "cfg(any(unix, windows, target_os = \"wasi\"))"
+        }
+      ]
+    },
+    {
+      "name": "proptest",
+      "version": "1.12.0",
+      "source": "https://crates.io/api/v1/crates/proptest",
+      "created_at": "2026-10-10T18:18:05.623491Z",
+      "rust_version": "1.88",
+      "yanked": false,
+      "features": {
+        "alloc": [],
+        "atomic64bit": [],
+        "attr-macro": [
+          "proptest-macro"
+        ],
+        "bit-set": [
+          "dep:bit-set",
+          "dep:bit-vec"
+        ],
+        "default": [
+          "std",
+          "fork",
+          "timeout",
+          "bit-set"
+        ],
+        "default-code-coverage": [
+          "std",
+          "fork",
+          "timeout",
+          "bit-set"
+        ],
+        "f16": [],
+        "fork": [
+          "std",
+          "rusty-fork",
+          "tempfile"
+        ],
+        "handle-panics": [
+          "std"
+        ],
+        "hardware-rng": [
+          "x86"
+        ],
+        "no_std": [
+          "num-traits/libm"
+        ],
+        "std": [
+          "rand/std",
+          "rand/sys_rng",
+          "regex-syntax",
+          "num-traits/std"
+        ],
+        "timeout": [
+          "fork",
+          "rusty-fork/timeout"
+        ],
+        "unstable": [
+          "f16"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "bitflags",
+          "requirement": "^2.10",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "chacha20",
+          "requirement": "^0.10",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "core_detect",
+          "requirement": "^1.0.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "num-traits",
+          "requirement": "^0.2.15",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "rand",
+          "requirement": "^0.10",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "rand_xorshift",
+          "requirement": "^0.5",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "unarray",
+          "requirement": "^0.1.4",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "bit-set",
+          "requirement": "^0.11",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "bit-vec",
+          "requirement": "^0.10",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "proptest-macro",
+          "requirement": "^0.6.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "regex-syntax",
+          "requirement": "^0.8",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "rusty-fork",
+          "requirement": "^0.3.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "tempfile",
+          "requirement": "^3.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "x86",
+          "requirement": "^0.52.0",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "rusqlite",
+      "version": "0.40.2",
+      "source": "https://crates.io/api/v1/crates/rusqlite",
+      "created_at": "2026-08-08T14:21:52.570893Z",
+      "rust_version": null,
+      "yanked": false,
+      "features": {
+        "array": [
+          "vtab",
+          "pointer"
+        ],
+        "backup": [],
+        "blob": [],
+        "buildtime_bindgen": [
+          "libsqlite3-sys?/buildtime_bindgen",
+          "sqlite-wasm-rs?/bindgen"
+        ],
+        "bundled": [
+          "libsqlite3-sys?/bundled",
+          "modern_sqlite"
+        ],
+        "bundled-full": [
+          "modern-full",
+          "bundled"
+        ],
+        "bundled-sqlcipher": [
+          "libsqlite3-sys?/bundled-sqlcipher",
+          "bundled"
+        ],
+        "bundled-sqlcipher-vendored-openssl": [
+          "libsqlite3-sys?/bundled-sqlcipher-vendored-openssl",
+          "bundled-sqlcipher"
+        ],
+        "bundled-windows": [
+          "libsqlite3-sys?/bundled-windows"
+        ],
+        "cache": [
+          "hashlink"
+        ],
+        "collation": [],
+        "column_decltype": [],
+        "column_metadata": [
+          "libsqlite3-sys?/column_metadata"
+        ],
+        "csvtab": [
+          "csv",
+          "vtab"
+        ],
+        "default": [
+          "cache",
+          "ffi-sqlite-wasm-rs"
+        ],
+        "extra_check": [],
+        "fallible_uint": [],
+        "ffi-sqlite-wasm-rs": [
+          "dep:sqlite-wasm-rs"
+        ],
+        "functions": [],
+        "hooks": [],
+        "i128_blob": [],
+        "in_gecko": [
+          "modern_sqlite",
+          "libsqlite3-sys?/in_gecko"
+        ],
+        "limits": [],
+        "load_extension": [],
+        "loadable_extension": [
+          "libsqlite3-sys?/loadable_extension"
+        ],
+        "modern-full": [
+          "array",
+          "backup",
+          "blob",
+          "modern_sqlite",
+          "chrono",
+          "collation",
+          "column_metadata",
+          "column_decltype",
+          "csvtab",
+          "extra_check",
+          "functions",
+          "hooks",
+          "i128_blob",
+          "jiff",
+          "limits",
+          "load_extension",
+          "serde_json",
+          "serialize",
+          "series",
+          "time",
+          "trace",
+          "unlock_notify",
+          "url",
+          "uuid",
+          "vtab",
+          "window"
+        ],
+        "modern_sqlite": [
+          "libsqlite3-sys?/bundled_bindings"
+        ],
+        "pointer": [],
+        "preupdate_hook": [
+          "libsqlite3-sys?/preupdate_hook",
+          "hooks"
+        ],
+        "serialize": [],
+        "series": [
+          "vtab"
+        ],
+        "session": [
+          "libsqlite3-sys?/session",
+          "hooks"
+        ],
+        "sqlcipher": [
+          "libsqlite3-sys?/sqlcipher"
+        ],
+        "trace": [],
+        "unlock_notify": [
+          "libsqlite3-sys?/unlock_notify"
+        ],
+        "vtab": [],
+        "wasm32-wasi-vfs": [
+          "libsqlite3-sys?/wasm32-wasi-vfs"
+        ],
+        "window": [
+          "functions"
+        ],
+        "with-asan": [
+          "libsqlite3-sys?/with-asan"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "bitflags",
+          "requirement": "^2.6.0",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "fallible-iterator",
+          "requirement": "^0.3",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "fallible-streaming-iterator",
+          "requirement": "^0.1",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "libsqlite3-sys",
+          "requirement": "^0.38.2",
+          "optional": false,
+          "target": "cfg(not(all(target_family = \"wasm\", target_os = \"unknown\")))"
+        },
+        {
+          "name": "smallvec",
+          "requirement": "^1.6.1",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "chrono",
+          "requirement": "^0.4.42",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "chrono",
+          "requirement": "^0.4.42",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        },
+        {
+          "name": "csv",
+          "requirement": "^1.1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "hashlink",
+          "requirement": "^0.12",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "jiff",
+          "requirement": "^0.2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "jiff",
+          "requirement": "^0.2",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        },
+        {
+          "name": "libsqlite3-sys",
+          "requirement": "^0.38.1",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        },
+        {
+          "name": "rusqlite-macros",
+          "requirement": "^0.4.3",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "serde_json",
+          "requirement": "^1.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "sqlite-wasm-rs",
+          "requirement": "^0.5.1",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        },
+        {
+          "name": "time",
+          "requirement": "^0.3.47",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "time",
+          "requirement": "^0.3.47",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        },
+        {
+          "name": "url",
+          "requirement": "^2.1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "uuid",
+          "requirement": "^1.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "uuid",
+          "requirement": "^1.0",
+          "optional": true,
+          "target": "cfg(all(target_family = \"wasm\", target_os = \"unknown\"))"
+        }
+      ]
+    },
+    {
+      "name": "tokio",
+      "version": "1.53.3",
+      "source": "https://crates.io/api/v1/crates/tokio",
+      "created_at": "2026-10-13T20:51:46.498182Z",
+      "rust_version": "1.71",
+      "yanked": false,
+      "features": {
+        "default": [],
+        "fs": [],
+        "full": [
+          "fs",
+          "io-util",
+          "io-std",
+          "macros",
+          "net",
+          "parking_lot",
+          "process",
+          "rt",
+          "rt-multi-thread",
+          "signal",
+          "sync",
+          "time"
+        ],
+        "io-std": [],
+        "io-uring": [
+          "dep:io-uring",
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "dep:slab"
+        ],
+        "io-util": [
+          "bytes"
+        ],
+        "macros": [
+          "tokio-macros"
+        ],
+        "net": [
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "mio/net",
+          "socket2",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_Security",
+          "windows-sys/Win32_Storage_FileSystem",
+          "windows-sys/Win32_System_Pipes",
+          "windows-sys/Win32_System_SystemServices"
+        ],
+        "process": [
+          "bytes",
+          "libc",
+          "mio/os-poll",
+          "mio/os-ext",
+          "mio/net",
+          "signal-hook-registry",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_System_Threading",
+          "windows-sys/Win32_System_WindowsProgramming"
+        ],
+        "rt": [],
+        "rt-multi-thread": [
+          "rt"
+        ],
+        "schedule-latency": [],
+        "signal": [
+          "libc",
+          "mio/os-poll",
+          "mio/net",
+          "mio/os-ext",
+          "signal-hook-registry",
+          "windows-sys/Win32_Foundation",
+          "windows-sys/Win32_System_Console"
+        ],
+        "sync": [],
+        "taskdump": [
+          "dep:backtrace"
+        ],
+        "test-util": [
+          "rt",
+          "sync",
+          "time"
+        ],
+        "time": []
+      },
+      "normal_dependencies": [
+        {
+          "name": "pin-project-lite",
+          "requirement": "^0.2.11",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "backtrace",
+          "requirement": "^0.3.58",
+          "optional": true,
+          "target": "cfg(all(tokio_unstable, target_os = \"linux\"))"
+        },
+        {
+          "name": "bytes",
+          "requirement": "^1.2.1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "io-uring",
+          "requirement": "^0.7.11",
+          "optional": true,
+          "target": "cfg(all(tokio_unstable, target_os = \"linux\"))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.168",
+          "optional": true,
+          "target": "cfg(unix)"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.168",
+          "optional": true,
+          "target": "cfg(all(tokio_unstable, target_os = \"linux\"))"
+        },
+        {
+          "name": "libc",
+          "requirement": "^0.2.168",
+          "optional": true,
+          "target": "cfg(target_os = \"wasi\")"
+        },
+        {
+          "name": "mio",
+          "requirement": "^1.2.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "mio",
+          "requirement": "^1.2.0",
+          "optional": true,
+          "target": "cfg(all(tokio_unstable, target_os = \"linux\"))"
+        },
+        {
+          "name": "parking_lot",
+          "requirement": "^0.12.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "signal-hook-registry",
+          "requirement": "^1.1.1",
+          "optional": true,
+          "target": "cfg(unix)"
+        },
+        {
+          "name": "slab",
+          "requirement": "^0.4.9",
+          "optional": true,
+          "target": "cfg(all(tokio_unstable, target_os = \"linux\"))"
+        },
+        {
+          "name": "socket2",
+          "requirement": "^0.6.3",
+          "optional": true,
+          "target": "cfg(any(not(target_family = \"wasm\"), all(target_os = \"wasi\", not(target_env = \"p1\"))))"
+        },
+        {
+          "name": "tokio-macros",
+          "requirement": "~2.7.0",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "tracing",
+          "requirement": "^0.1.29",
+          "optional": true,
+          "target": "cfg(tokio_unstable)"
+        },
+        {
+          "name": "windows-sys",
+          "requirement": "^0.61",
+          "optional": true,
+          "target": "cfg(windows)"
+        }
+      ]
+    },
+    {
+      "name": "ts-rs",
+      "version": "12.0.1",
+      "source": "https://crates.io/api/v1/crates/ts-rs",
+      "created_at": "2026-01-31T19:05:25.017774Z",
+      "rust_version": "1.78.0",
+      "yanked": false,
+      "features": {
+        "arrayvec-impl": [
+          "arrayvec"
+        ],
+        "bigdecimal-impl": [
+          "bigdecimal"
+        ],
+        "bson-uuid-impl": [
+          "bson"
+        ],
+        "bytes-impl": [
+          "bytes"
+        ],
+        "chrono-impl": [
+          "chrono"
+        ],
+        "default": [
+          "serde-compat"
+        ],
+        "format": [
+          "dprint-plugin-typescript"
+        ],
+        "heapless-impl": [
+          "heapless"
+        ],
+        "indexmap-impl": [
+          "indexmap"
+        ],
+        "jiff-impl": [
+          "jiff"
+        ],
+        "no-serde-warnings": [
+          "ts-rs-macros/no-serde-warnings"
+        ],
+        "ordered-float-impl": [
+          "ordered-float"
+        ],
+        "semver-impl": [
+          "semver"
+        ],
+        "serde-compat": [
+          "ts-rs-macros/serde-compat"
+        ],
+        "serde-json-impl": [
+          "serde_json"
+        ],
+        "smol_str-impl": [
+          "smol_str"
+        ],
+        "tokio-impl": [
+          "tokio"
+        ],
+        "url-impl": [
+          "url"
+        ],
+        "uuid-impl": [
+          "uuid"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "thiserror",
+          "requirement": "^2",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "ts-rs-macros",
+          "requirement": "=12.0.1",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "arrayvec",
+          "requirement": ">=0.6, <0.8",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "bigdecimal",
+          "requirement": ">=0.0.13, <0.5",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "bson",
+          "requirement": "^2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "bytes",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "chrono",
+          "requirement": "^0.4",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "dprint-plugin-typescript",
+          "requirement": "=0.95",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "heapless",
+          "requirement": ">=0.7, <0.9",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "indexmap",
+          "requirement": "^2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "jiff",
+          "requirement": "^0.2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "ordered-float",
+          "requirement": ">=3, <6",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "semver",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "serde_json",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "smol_str",
+          "requirement": "^0.3",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "tokio",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "url",
+          "requirement": "^2",
+          "optional": true,
+          "target": null
+        },
+        {
+          "name": "uuid",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "serde",
+      "version": "1.0.229",
+      "source": "https://crates.io/api/v1/crates/serde",
+      "created_at": "2026-07-18T23:05:13.266456Z",
+      "rust_version": "1.56",
+      "yanked": false,
+      "features": {
+        "alloc": [
+          "serde_core/alloc"
+        ],
+        "default": [
+          "std"
+        ],
+        "derive": [
+          "serde_derive"
+        ],
+        "rc": [
+          "serde_core/rc"
+        ],
+        "std": [
+          "serde_core/std"
+        ],
+        "unstable": [
+          "serde_core/unstable"
+        ]
+      },
+      "normal_dependencies": [
+        {
+          "name": "serde_core",
+          "requirement": "=1.0.229",
+          "optional": false,
+          "target": null
+        },
+        {
+          "name": "serde_derive",
+          "requirement": "^1",
+          "optional": true,
+          "target": null
+        }
+      ]
+    },
+    {
+      "name": "thiserror",
+      "version": "2.0.21",
+      "source": "https://crates.io/api/v1/crates/thiserror",
+      "created_at": "2026-09-23T20:24:07.771104Z",
+      "rust_version": "1.77",
+      "yanked": false,
+      "features": {
+        "default": [
+          "std"
+        ],
+        "std": []
+      },
+      "normal_dependencies": [
+        {
+          "name": "thiserror-impl",
+          "requirement": "=2.0.21",
+          "optional": false,
+          "target": null
+        }
+      ]
+    }
+  ]
+}
