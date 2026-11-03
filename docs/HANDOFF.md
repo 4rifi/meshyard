@@ -38,14 +38,16 @@ agreed below).
 ## 3. Current state
 
 - Planning baseline: `0f8d52f` on `main`, committed and pushed by parent.
-- Active branch: `t-001-scaffold`; source `148b730`, report `7cf63b2`; lead developer publishes the branch.
+- T-001 branch: `t-001-scaffold`; CSP fix `9e31b6c`, full check and native build pass; review requested with native/first-launch acceptance open.
+- Active safe checkout: `/private/tmp/meshyard-t001-recovery-checkout`; original Documents checkout is incomplete and was not repaired or overwritten.
+- Rust toolchain, caches and build output: `/Volumes/Kursmodule/Meshyard-build` (USB APFS image must stay mounted).
 - Toolchain verified: Rust/cargo 1.99.1 (parent installed via official rustup), Node 26.7.0, npm 11.19.0; Xcode present.
 
 ## 4. Task board
 
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
-| T-001 scaffold | in-progress | Codex | Scaffold committed; full Rust/native validation blocked by disk space; first-launch latency over budget; see docs/reports/T-001.md |
+| T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
 | T-002 core/store/identity | ready | Codex | after T-001; **revised** — normative spec now `docs/PROTOCOL.md` |
 | T-003 net endpoint | ready | Codex | after T-002; revised test requirements (no public discovery, selected path) |
 
@@ -60,6 +62,13 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-001 review requested after clean-clone full checks/native build
+  and red/green production-CSP rendering test. Native pre-fix bundle showed graphics fallback;
+  repaired using Pixi static polyfills without weakening CSP. Corrected native retest is pending
+  because Computer Use denied Meshyard access. First launch 289.109 ms, warm p95 2.409 ms;
+  original criterion unchanged, owner decision pending. User explicitly permits T-002 when
+  T-001 is review and T-002 ready; a stacked task branch is allowed without marking T-001 done.
 
 - 2026-11-02 — Claude: Knower thread `01a19e2a-ebb0-7c21-8860-08f501a12e7e` registered (§2).
   Knower onboarding received; Claude read `docs/knowledge/` README, PROGRESS, OPEN_QUESTIONS
