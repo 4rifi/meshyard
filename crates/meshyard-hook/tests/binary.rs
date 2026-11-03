@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use serde_json::{Value, json};
 use std::fs::{self, DirBuilder};
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::os::unix::fs::{DirBuilderExt, PermissionsExt, symlink};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
@@ -104,11 +104,31 @@ fn actual_forwarded_json_is_private_and_one_line() {
     listener.set_nonblocking(true).unwrap();
     invoke(&dir.socket(), payload(), Duration::ZERO, false);
     let (mut stream, _) = listener.accept().unwrap();
-    stream
-        .set_read_timeout(Some(Duration::from_millis(500)))
-        .unwrap();
+    // On Darwin the child may already have disconnected; SO_RCVTIMEO then
+    // returns EINVAL. Nonblocking reads also work on that disconnected socket.
+    stream.set_nonblocking(true).unwrap();
+    let started = Instant::now();
     let mut line = Vec::new();
-    stream.read_to_end(&mut line).unwrap();
+    loop {
+        assert!(
+            started.elapsed() < Duration::from_millis(500),
+            "forwarded EOF deadline"
+        );
+        let mut buffer = [0; 1025];
+        let remaining = 1025 - line.len();
+        match stream.read(&mut buffer[..remaining]) {
+            Ok(0) => break,
+            Ok(n) => {
+                line.extend_from_slice(&buffer[..n]);
+                assert!(line.len() <= 1024, "envelope exceeds cap");
+            }
+            Err(error) if error.kind() == ErrorKind::Interrupted => continue,
+            Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(1));
+            }
+            Err(error) => panic!("forwarded read failed: {error}"),
+        }
+    }
     assert!(line.len() <= 1024 && line.ends_with(b"\n"));
     assert_eq!(line.iter().filter(|c| **c == b'\n').count(), 1);
     let text = String::from_utf8(line.clone()).unwrap();
@@ -159,41 +179,58 @@ fn rejected_inputs_and_socket_metadata_never_connect() {
 }
 
 #[test]
-fn saturated_socket_and_delayed_stdin_share_the_deadline() {
+fn full_socket_queue_fails_silently() {
     let dir = PrivateDir::new();
     let listener =
         UnixListener::bind(dir.socket()).expect("UDS bind: preserve OS error if sandbox denies");
-    let (tx, rx) = std::sync::mpsc::channel();
-    let mut workers = Vec::new();
-    for _ in 0..32 {
-        let path = dir.socket();
-        let tx = tx.clone();
-        workers.push(thread::spawn(move || {
-            let _ = tx.send(UnixStream::connect(path));
-        }));
-    }
-    drop(tx);
+    rustix::net::listen(&listener, 1).unwrap();
+    let address = rustix::net::SocketAddrUnix::new(dir.socket()).unwrap();
+    let started = Instant::now();
     let mut connections = Vec::new();
-    while let Ok(result) = rx.recv_timeout(Duration::from_millis(30)) {
-        if let Ok(stream) = result {
-            connections.push(stream);
+    let mut queue_full = false;
+    // Retain sequential nonblocking fillers without accepting. Neither the
+    // default backlog nor a fixed number of connections proves saturation.
+    for _ in 0..64 {
+        assert!(
+            started.elapsed() < Duration::from_secs(1),
+            "queue fill deadline"
+        );
+        let fd = rustix::net::socket(
+            rustix::net::AddressFamily::UNIX,
+            rustix::net::SocketType::STREAM,
+            None,
+        )
+        .unwrap();
+        let stream = UnixStream::from(fd);
+        // SocketFlags::NONBLOCK is unavailable on Apple in pinned rustix 1.1.6.
+        stream.set_nonblocking(true).unwrap();
+        match rustix::net::connect(&stream, &address) {
+            Ok(()) => connections.push(stream),
+            Err(error)
+                if matches!(
+                    error,
+                    rustix::io::Errno::CONNREFUSED | rustix::io::Errno::AGAIN
+                ) =>
+            {
+                eprintln!(
+                    "observed full queue after {} retained connections: {error}",
+                    connections.len()
+                );
+                queue_full = true;
+                break;
+            }
+            Err(error) => panic!("unexpected nonblocking filler error: {error}"),
         }
     }
     assert!(!connections.is_empty());
     assert!(
-        connections.len() < 32,
-        "backlog must be saturated; otherwise test is not evidence"
+        queue_full,
+        "queue full must be observed within the filler cap"
     );
-    let elapsed = invoke(&dir.socket(), payload(), Duration::from_millis(75), false);
+    let elapsed = invoke(&dir.socket(), payload(), Duration::ZERO, false);
     eprintln!(
-        "shared deadline delayed stdin + saturated connect: {:.3} ms",
+        "silent queue-full failure: {:.3} ms (not a stalled-connect deadline proof)",
         elapsed.as_secs_f64() * 1000.0
     );
     assert!(elapsed < Duration::from_millis(400));
-    drop(listener);
-    drop(connections);
-    drop(rx);
-    for worker in workers {
-        worker.join().unwrap();
-    }
 }

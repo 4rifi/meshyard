@@ -10,7 +10,7 @@ const DUPLICATE_LIMIT: usize = 64;
 const FINISHED_IDLE: Duration = Duration::from_secs(60);
 
 pub type StateChange = (ActivityState, Provenance, Option<ToolCategory>);
-type Duplicate = (HookEvent, Option<String>, Option<String>);
+type Duplicate = (HookEvent, String, Option<String>);
 
 struct Session {
     id: String,
@@ -133,29 +133,30 @@ impl StateMachine {
         {
             return None;
         }
-        let duplicate = (
-            input.event,
-            input.tool_use_id.clone(),
-            input.agent_id.clone(),
-        );
-        // Keep identified tool duplicates across turns, including late events without a
-        // turn ID. Unidentified lifecycle/activity keys are scoped to the turn so
-        // later real prompts are not suppressed forever when optional IDs are absent.
+        // An absent tool-use ID is not an identity. Keep identified duplicates
+        // across turns, including late events without a turn ID.
+        let duplicate = input
+            .tool_use_id
+            .as_ref()
+            .map(|id| (input.event, id.clone(), input.agent_id.clone()));
         let new_turn = input.event == HookEvent::UserPromptSubmit
             && (input.turn_id.is_none()
                 || inactive(session.state)
                 || input.turn_id != session.turn);
-        if !new_turn && session.duplicates.contains(&duplicate) {
+        if !new_turn
+            && duplicate
+                .as_ref()
+                .is_some_and(|key| session.duplicates.contains(key))
+        {
             return None;
         }
         if new_turn {
             session.end_turn();
-            session
-                .duplicates
-                .retain(|(_, tool_id, _)| tool_id.is_some());
             session.turn = input.turn_id.clone();
         }
-        remember(&mut session.duplicates, duplicate, DUPLICATE_LIMIT);
+        if let Some(duplicate) = duplicate {
+            remember(&mut session.duplicates, duplicate, DUPLICATE_LIMIT);
+        }
         let change = match input.event {
             HookEvent::SessionStart => {
                 session.end_turn();
