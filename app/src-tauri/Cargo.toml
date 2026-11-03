@@ -20,7 +20,9 @@ tauri.workspace = true
 tracing.workspace = true
 meshyard-core.workspace = true
 meshyard-store.workspace = true
-tokio.workspace = true
+tokio = { workspace = true, features = ["net", "io-util", "time"] }
+meshyard-agents.workspace = true
+rustix.workspace = true
 serde.workspace = true
 ts-rs.workspace = true
 postcard.workspace = true

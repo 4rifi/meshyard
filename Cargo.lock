@@ -2539,10 +2539,12 @@ name = "meshyard-app"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.4.3",
+ "meshyard-agents",
  "meshyard-core",
  "meshyard-store",
  "postcard",
  "rusqlite",
+ "rustix",
  "serde",
  "tauri",
  "tauri-build",

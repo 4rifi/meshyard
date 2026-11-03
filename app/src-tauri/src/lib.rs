@@ -1,5 +1,6 @@
 //! Local workspace application. No network endpoint, hook, filesystem or shell plugin.
 pub mod commands;
+mod ingest;
 pub mod state;
 pub mod view;
 use tauri::Manager;
@@ -21,6 +22,7 @@ pub fn run() -> tauri::Result<()> {
                 }
                 _ => state::AppState::failed(view::AppError::Configuration),
             };
+            tauri::async_runtime::block_on(state.attach_app(app.handle().clone()));
             app.manage(state);
             Ok(())
         })
@@ -30,5 +32,11 @@ pub fn run() -> tauri::Result<()> {
             commands::ipc::update_profile,
             commands::ipc::register_agent,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())?
+        .run(|app, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                tauri::async_runtime::block_on(app.state::<state::AppState>().shutdown());
+            }
+        });
+    Ok(())
 }

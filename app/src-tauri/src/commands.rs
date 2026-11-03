@@ -9,11 +9,15 @@ pub async fn app_status(state: &AppState) -> AppStatus {
     }
 }
 pub async fn create_workspace(state: &AppState, input: CreateWorkspace) -> AppStatus {
-    let mut guard = state.0.lock().await;
-    match guard.as_mut() {
-        Ok(core) => core.create(input).await.unwrap_or_else(AppStatus::Error),
-        Err(error) => AppStatus::Error(error.clone()),
-    }
+    let result = {
+        let mut guard = state.0.lock().await;
+        match guard.as_mut() {
+            Ok(core) => core.create(input).await.unwrap_or_else(AppStatus::Error),
+            Err(error) => AppStatus::Error(error.clone()),
+        }
+    };
+    state.start_ingest().await;
+    result
 }
 pub async fn update_profile(state: &AppState, name: String) -> AppStatus {
     let mut guard = state.0.lock().await;

@@ -1,20 +1,31 @@
 //! One store/identity per process; one mutex covers each complete read/write/view operation.
+use crate::ingest::{IngestStatus, Server};
 use crate::view::*;
 use meshyard_core::*;
 use meshyard_store::{Store, StoreError, identity::*};
 use std::{path::PathBuf, sync::Arc};
+use tauri::Emitter;
 use tokio::sync::Mutex;
 
 pub struct AppCore {
-    store: Store,
-    signer: Arc<dyn Signer>,
-    workspace: Option<WorkspaceId>,
+    pub(crate) store: Store,
+    pub(crate) signer: Arc<dyn Signer>,
+    pub(crate) workspace: Option<WorkspaceId>,
+    pub(crate) app: Option<tauri::AppHandle>,
 }
-pub struct AppState(pub(crate) Mutex<Result<AppCore, AppError>>);
+pub struct AppState(
+    pub(crate) Arc<Mutex<Result<AppCore, AppError>>>,
+    pub(crate) Mutex<Option<Server>>,
+    pub(crate) Arc<IngestStatus>,
+);
 
 impl AppState {
     pub fn failed(error: AppError) -> Self {
-        Self(Mutex::new(Err(error)))
+        Self(
+            Arc::new(Mutex::new(Err(error))),
+            Mutex::new(None),
+            Arc::default(),
+        )
     }
     pub async fn open(data_dir: PathBuf, file_key: bool) -> Self {
         if file_key {
@@ -61,22 +72,68 @@ impl AppState {
         }
         .await;
         match result {
-            Ok((signer, workspace)) => Self(Mutex::new(Ok(AppCore {
-                store,
-                signer,
-                workspace,
-            }))),
+            Ok((signer, workspace)) => {
+                let state = Self(
+                    Arc::new(Mutex::new(Ok(AppCore {
+                        store,
+                        signer,
+                        workspace,
+                        app: None,
+                    }))),
+                    Mutex::new(None),
+                    Arc::default(),
+                );
+                state.start_ingest().await;
+                state
+            }
             Err(error) => {
                 let _ = store.close().await;
                 Self::failed(error)
             }
         }
     }
-    /// Explicit shutdown for headless restart tests; native shutdown drops the store sender.
-    pub async fn close(self) -> Result<(), AppError> {
-        if let Ok(core) = self.0.into_inner() {
-            core.store.close().await.map_err(storage_error)?;
+    /// Also called after create; setup profiles without a workspace have no listener.
+    pub(crate) async fn start_ingest(&self) {
+        let mut runtime = self.1.lock().await;
+        if runtime.is_some() {
+            return;
         }
+        let guard = self.0.lock().await;
+        if let Ok(core) = guard.as_ref() {
+            if core.workspace.is_none() {
+                return;
+            }
+            *runtime = Server::start(
+                core.store.directory(),
+                Arc::downgrade(&self.0),
+                self.2.clone(),
+            );
+        }
+    }
+    pub(crate) async fn attach_app(&self, app: tauri::AppHandle) {
+        if let Ok(core) = self.0.lock().await.as_mut() {
+            core.app = Some(app);
+        }
+    }
+    /// Stop/join the listener and all bounded readers before releasing the profile lock.
+    pub async fn shutdown(&self) {
+        if let Some(server) = self.1.lock().await.take() {
+            server.stop().await;
+        }
+        self.2
+            .listening
+            .store(false, std::sync::atomic::Ordering::Relaxed);
+        if let Ok(core) = self.0.lock().await.as_mut() {
+            core.app = None;
+        }
+    }
+    pub async fn close(self) -> Result<(), AppError> {
+        self.shutdown().await;
+        let mut guard = self.0.lock().await;
+        if let Ok(core) = guard.as_ref() {
+            core.store.clone().close().await.map_err(storage_error)?;
+        }
+        *guard = Err(AppError::Storage);
         Ok(())
     }
 }
@@ -166,6 +223,7 @@ impl AppCore {
             )
             .await
             .map_err(|_| AppError::PartialCreate)?;
+        self.changed();
         self.status().await
     }
     pub(crate) async fn profile(&mut self, name: String) -> Result<AppStatus, AppError> {
@@ -182,6 +240,7 @@ impl AppCore {
             )
             .await
             .map_err(storage_error)?;
+        self.changed();
         self.status().await
     }
     pub(crate) async fn register(&mut self, input: RegisterAgent) -> Result<AppStatus, AppError> {
@@ -190,11 +249,12 @@ impl AppCore {
         if !matches!(input.kind, AgentKind::ClaudeCode | AgentKind::Codex) {
             return Err(AppError::InvalidInput);
         }
+        let agent_local_id = random_id()?;
         self.store
             .append_own(
                 id,
                 EventBody::AgentRegistered {
-                    agent_local_id: random_id()?,
+                    agent_local_id,
                     kind: input.kind,
                     label,
                 },
@@ -202,7 +262,17 @@ impl AppCore {
             )
             .await
             .map_err(storage_error)?;
+        self.changed();
+        self.store
+            .bind_first_own_agent(id, agent_local_id, self.signer.clone())
+            .await
+            .map_err(storage_error)?;
         self.status().await
+    }
+    pub(crate) fn changed(&self) {
+        if let Some(app) = &self.app {
+            let _ = app.emit("workspace-changed", ());
+        }
     }
 }
 fn text(value: &str) -> Result<String, AppError> {
