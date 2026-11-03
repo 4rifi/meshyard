@@ -83,7 +83,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
-| T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
+| T-007a hook/normalizer | review | Codex lane B | Review fixes `03d699d` validated in normal isolated-target shell; full check green; first-launch B-1 still unmet; no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -101,6 +101,14 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-007a fixes `03d699d` normally merged; actual normal-shell
+  targeted hook/agent check exit 0 (4.333 s), all four real binary/socket tests passed. Full
+  isolated-target `npm run check` exit 0 (91.575 s): 74 top-level Rust passes plus lock child,
+  3 Vitest, 2 ignored entries. B-2 resolved; B-1 first-observed <20 ms remains unmet, including
+  USB control/signing measurements. No waiver/done/live-hook acceptance. Next exact-head
+  re-review; T-015 pixel redesign is the current exclusive frontend writer on its own branch.
+  Main/native/Keychain gates remain open; owner deferred N-14 testing.
 
 - 2026-11-03 — Codex lead: T-014 implementation run
   `d09db809-77d6-40eb-bc82-28d508976880` finished; focused commits `e375076`, `9b6bd95`,
