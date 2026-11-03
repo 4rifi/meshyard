@@ -462,17 +462,14 @@ try {
           );
           const kind = page.locator('#agent-kind');
           await tabTo(kind);
-          entry.codexSelection = { beforeEnd: await kind.inputValue() };
-          await page.keyboard.press('End');
-          entry.codexSelection.afterEnd = await kind.inputValue();
-          // macOS does not reliably select the last native option with End.
-          // Open the menu, advance to its final option and commit with Enter.
-          await page.keyboard.press('Space');
-          await page.keyboard.press('ArrowDown');
-          await page.keyboard.press('Enter');
+          entry.codexSelection = { beforeTypeahead: await kind.inputValue() };
+          // Isolated Chrome control checks verified typeahead followed by Tab.
+          await page.keyboard.type('Codex');
+          entry.codexSelection.afterTypeahead = await kind.inputValue();
+          await page.keyboard.press('Tab');
           entry.codexSelection.afterKeyboard = await kind.inputValue();
           assert.equal(
-            entry.codexSelection.afterKeyboard,
+            await kind.inputValue(),
             'Codex',
             'Keyboard must select Codex before registration',
           );
