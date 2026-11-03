@@ -81,7 +81,7 @@ No prior task status, review decision or owner decision is changed by this path-
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
-| T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
+| T-003 net endpoint | review | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
@@ -102,6 +102,14 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-003 approved relay/TLS fixes normally merged from `ee76afd`;
+  normal isolated-target required loops pass **10/10 default + 10/10 strict-only**. Full check
+  exit 0 (342.104 s; 69 top-level Rust + lock child, 3 Vitest, 2 ignored). Independent parent
+  archive comparison confirms 84 original files, only TLS source changed plus provenance;
+  runtime patch is two fields, cfg(test) additions explicit. Next exact-head Claude review.
+  No router/cross-network/native acceptance, no pair/sync mutations or main merge. T-015
+  frontend visual fixes run independently; owner deferred N-14, reference image remains absent.
 
 - 2026-11-03 — Claude: T-003 review at `7eb5c58` (source only) → changes-requested. Real
   relay-suite failure (parent normal shell, exit 101) traced in pinned source to Auto's
