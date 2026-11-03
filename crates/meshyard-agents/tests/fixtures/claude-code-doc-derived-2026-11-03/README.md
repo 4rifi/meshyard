@@ -10,15 +10,15 @@ Removed prompts, commands, paths, transcript locations, output, assistant messag
 file contents, and unrelated metadata. Empty `tool_input` objects mark scrubbing;
 there is no captured outcome evidence. No fixture asserts KQ-003 outcomes.
 
-| Fixture | Primary source section |
-| --- | --- |
-| SessionStart | https://code.claude.com/docs/en/hooks#sessionstart-input |
+| Fixture          | Primary source section                                       |
+| ---------------- | ------------------------------------------------------------ |
+| SessionStart     | https://code.claude.com/docs/en/hooks#sessionstart-input     |
 | UserPromptSubmit | https://code.claude.com/docs/en/hooks#userpromptsubmit-input |
-| PreToolUse | https://code.claude.com/docs/en/hooks#pretooluse-input |
-| PostToolUse | https://code.claude.com/docs/en/hooks#posttooluse-input |
-| Stop | https://code.claude.com/docs/en/hooks#stop-input |
-| StopFailure | https://code.claude.com/docs/en/hooks#stopfailure-input |
-| SessionEnd | https://code.claude.com/docs/en/hooks#sessionend-input |
+| PreToolUse       | https://code.claude.com/docs/en/hooks#pretooluse-input       |
+| PostToolUse      | https://code.claude.com/docs/en/hooks#posttooluse-input      |
+| Stop             | https://code.claude.com/docs/en/hooks#stop-input             |
+| StopFailure      | https://code.claude.com/docs/en/hooks#stopfailure-input      |
+| SessionEnd       | https://code.claude.com/docs/en/hooks#sessionend-input       |
 
 The fixtures feed the actual hook normalizer before the agents parser and golden
 state assertions. Synthetic command/classifier, ordering and privacy sentinels
