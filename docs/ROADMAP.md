@@ -23,7 +23,7 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | T-012 | System validation: two-node scripted test, `docs/VALIDATION.md` real-device protocol, results log, field test with the test partner (same LAN first, then different networks) | T-010, T-011, T-013 | todo |
 | T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | review |
 | T-015 | **App-wide pixel redesign** (owner priority 1): pixel tokens/texture across all screens, yard as visual centre with stations + pixel characters from real agents. Spec `docs/tasks/T-015-pixel-app-redesign.md` | T-014 code-accepted (`1f90a07`) | review (code accepted `a859ed4`; reference image + N-14 pending) |
-| T-016 | **Living yard** (owner priority 1): persistent scene, agents walk along yard paths to the station of their real state; reduced motion snaps. Spec `docs/tasks/T-016-yard-motion.md` | T-015 code-accepted | ready |
+| T-016 | **Living yard** (owner priority 1): persistent scene, agents walk along yard paths to the station of their real state; reduced motion snaps. Spec `docs/tasks/T-016-yard-motion.md` | T-015 code-accepted | in-progress |
 | T-013 | Tester DMG: `aarch64-apple-darwin`, ad-hoc signed, stable id `ch.arifi.meshyard`, `meshyard://join` deep link, bundled `meshyard-hook`, Strict-only profile + bundle check for relay/n0 hosts, `docs/TESTER-GUIDE.md` (German) | T-011 | todo |
 
 Parallelizable: T-007 can run alongside T-003…T-006 (separate worktree).

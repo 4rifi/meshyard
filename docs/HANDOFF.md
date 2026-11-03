@@ -105,6 +105,15 @@ No prior task status, review decision or owner decision is changed by this path-
 
 ## 6. Log
 
+- 2026-11-03 — Codex lead: T-015 reviewed code `a859ed4`, review `1f9886a`, connection/motion
+  planning `52382a8` committed separately and pushed (remote SHA verified). Parent actual new
+  browser proof: 12 cases, 31 screenshots, 9 extra origin/resize checks; PNG audit checks both
+  2× layouts and exact fixture characters; all nine fixture-build files and 144 checked inputs
+  match the worker source/build. Mock IPC only; reference image and owner N-14 remain open.
+  Starting T-016 `t-016-yard-motion` from that reviewed head, sole yard/effect writer. T-007b
+  backend prep runs separately; its frontend integration waits for T-016 handoff. Real native
+  T-015 preview remains open (50103/50266/50284), no owner install or native acceptance claimed.
+
 - 2026-11-03 — Claude: T-015 re-review — code accepted at `a859ed4` (all four findings resolved,
   browser-mock evidence only); task stays review (reference image missing, N-14 deferred). Owner
   feedback "kein richtiger Playground / wie verbinden" → new T-016 (agents walk to real state
