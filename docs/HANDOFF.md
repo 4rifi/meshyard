@@ -83,7 +83,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
-| T-015 pixel app redesign | ready · **priority 1** | Codex lane A | `docs/tasks/T-015-pixel-app-redesign.md`; branch from `1f90a07`; exclusive frontend ownership; reference image not available → provisional palette |
+| T-015 pixel app redesign | review · **priority 1** | Codex lane A | `docs/tasks/T-015-pixel-app-redesign.md`; branch from `1f90a07`; exclusive frontend ownership; reference image not available → provisional palette |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
@@ -102,6 +102,15 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: T-015 source `b9324a9` + isolated fixture `e17de2a`, report
+  `44e5aaf`; fresh full check exit 0 (177.720 s; 67 top-level Rust + lock child, 28 Vitest).
+  Parent normal-shell browser QA completed 12 cases / 24 PNGs under production CSP at 960/375,
+  no CSP/runtime errors or overflow; sampled pixel palette checks pass. Browser states are
+  mocked IPC, not native/live/persistence acceptance. Real native preview serves T-015's real
+  main entry with accepted T-014 backend and the same USB file-key profile (14557/14707/14714);
+  onscreen window confirmed, no screen capture permission or screenshot. Narrow-map label
+  legibility goes to visual review. Original reference and N-14 remain pending; no done/main merge.
 
 - 2026-11-03 — Claude: T-014 re-review at `1f90a07` (source only): identity fix resolved, code
   accepted; N-14 native gate pending with Dion. New owner priority → T-015 app-wide pixel redesign
