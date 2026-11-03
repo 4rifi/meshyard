@@ -182,6 +182,70 @@ async fn identity_errors_do_not_create_a_key_or_fallback() {
     }
 }
 #[tokio::test]
+async fn existing_workspace_identity_errors_only_load_without_creating_or_fallback() {
+    let dir = profile();
+    let state = AppState::open(dir.path().to_owned(), true).await;
+    let original = ready(create_workspace(&state, create_input()).await);
+    state.close().await.unwrap();
+    let identity = std::fs::read(dir.path().join("identity")).unwrap();
+
+    for (error, expected) in [
+        (IdentityError::NotFound, AppError::IdentityMissing),
+        (IdentityError::Locked, AppError::IdentityLocked),
+        (IdentityError::Unavailable, AppError::IdentityUnavailable),
+        (IdentityError::Invalid, AppError::IdentityInvalid),
+        (IdentityError::Permissions, AppError::UnsafePermissions),
+    ] {
+        // A different selected backend cannot see this profile's existing file key.
+        let keys = RefusingKeys {
+            error,
+            creates: AtomicUsize::new(0),
+        };
+        let state = AppState::open_with_keys(dir.path().to_owned(), &keys).await;
+        assert_eq!(app_status(&state).await, AppStatus::Error(expected));
+        assert_eq!(keys.creates.load(Ordering::SeqCst), 0);
+        state.close().await.unwrap();
+        assert_eq!(
+            std::fs::read(dir.path().join("identity")).unwrap(),
+            identity
+        );
+    }
+
+    // Selecting the matching backend still opens the unchanged workspace and identity.
+    let reopened = AppState::open(dir.path().to_owned(), true).await;
+    assert_eq!(app_status(&reopened).await, AppStatus::Ready(original));
+    reopened.close().await.unwrap();
+}
+#[tokio::test]
+async fn removed_file_identity_on_existing_workspace_is_missing_without_replacement() {
+    let dir = profile();
+    let state = AppState::open(dir.path().to_owned(), true).await;
+    let original = ready(create_workspace(&state, create_input()).await);
+    state.close().await.unwrap();
+    let path = dir.path().join("identity");
+    let identity = std::fs::read(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+
+    let reopened = AppState::open(dir.path().to_owned(), true).await;
+    assert_eq!(
+        app_status(&reopened).await,
+        AppStatus::Error(AppError::IdentityMissing)
+    );
+    assert!(!path.exists());
+    reopened.close().await.unwrap();
+    assert!(!path.exists());
+
+    // Restoring the original identity permits reopening the same saved workspace.
+    FileKeyStore::new(&path)
+        .create(&SecretKey::from_bytes(
+            identity.as_slice().try_into().unwrap(),
+        ))
+        .unwrap();
+    let restored = AppState::open(dir.path().to_owned(), true).await;
+    assert_eq!(app_status(&restored).await, AppStatus::Ready(original));
+    restored.close().await.unwrap();
+}
+#[tokio::test]
 async fn partial_create_is_durable_and_repairable_without_a_second_workspace() {
     let dir = profile();
     let state = AppState::open(dir.path().to_owned(), true).await;

@@ -36,6 +36,7 @@ function render(status: AppStatus, busy = false) {
   );
 }
 const errors: Record<AppError, true> = {
+  IdentityMissing: true,
   IdentityLocked: true,
   IdentityUnavailable: true,
   IdentityInvalid: true,
@@ -121,6 +122,10 @@ describe('real-state screen contract', () => {
       expect(html).toContain('tabindex="-1"');
       if (error === 'PartialCreate')
         expect(html).toContain('for="repair-name"');
+      if (error === 'IdentityMissing')
+        expect(html).toContain(
+          'This workspace’s device identity is missing; restore it or use the matching key store.',
+        );
     });
   }
 });
