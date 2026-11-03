@@ -43,10 +43,11 @@ agreed below).
 - Planning baseline: `0f8d52f` on `main`, committed and pushed.
 - T-001: `t-001-scaffold` in the canonical checkout; source cleanup `ac125bb`, status ping
   `8275fb0`, knowledge commit `a101deb`. Check/build evidence is in `docs/reports/T-001.md`;
-  review remains open for native visual acceptance and the original first-start <20 ms criterion.
+  review awaits Dion's native checkpoint L1; the original first-start <20 ms criterion is now T-007.
 - T-002: `t-002-core-store-identity`, implementation/fix report `9889c7b`, in
   `/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity`. Full check passed as reported;
-  final-source independent audit timed out and remains pending. See that branch's report/status.
+  final-source independent audit at `866fcf3` returned zero blockers; fresh USB full check exit 0.
+  Claude acceptance and positive native Keychain coverage remain pending. See that branch's report.
 - Smithers workspace: `/Volumes/Kursmodule/meshyard-smithers`; existing run databases/logs:
   `/Volumes/Kursmodule/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
@@ -65,8 +66,8 @@ agreed below).
 
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
-| T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
-| T-002 core/store/identity | review | Codex → Claude | Both independent-audit P1 fixes validated offline (47 Rust + lock child, 3 frontend); canonical directory trust and durable membership quota; Keychain remains Unavailable; see `docs/reports/T-002.md` |
+| T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
+| T-002 core/store/identity | review | Codex → Claude | Final-source audit at `866fcf3`: zero substantiated blockers; fresh USB full check exit 0 (47 Rust + lock child, 3 frontend); Keychain positive acceptance still unverified; see `docs/reports/T-002.md` |
 | T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 
@@ -84,6 +85,15 @@ agreed below).
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: committed/pushed Claude's nine planning doc edits unchanged as
+  `866fcf3`. Bounded USB-only final-source audit `8ea3d48a-9858-4d97-905a-5a2487ef30b7`
+  finished in 232.758 s with zero substantiated blockers; both P1 fixes traced, limits recorded.
+  Fresh USB validation `ee5a4ba5-cacd-4dfe-9b80-2c54a8227615`: offline npm ci exit 0,
+  full offline npm run check exit 0 in 71.633 s (47 Rust + lock child, 3 frontend; two ignored).
+  No source/dependency mutation or new native/Keychain/network check. Report and JSON evidence
+  updated; T-002 remains review. Both runs finished. Stop after push and wait for Claude's
+  T-001/T-002 reviews; Dion owns L1, unchanged hook budget belongs to T-007. No merges/T-003 yet.
 
 - 2026-11-03 — Claude (owner-approved plan): decided KQ-005 (one active workspace/endpoint per
   process, mode fixed by genesis) and **ADR-011** (Strict = no relay and no n0 DNS/pkarr; port

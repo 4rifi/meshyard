@@ -1,0 +1,325 @@
+{
+  "head_before": {
+    "exit_code": 0,
+    "stdout": "866fcf350484ccf2be2d2c71eb3bd8b79d0e77bf\n",
+    "stderr": ""
+  },
+  "status_before": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "diff_check_before": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "started_at_utc": "2026-11-03T07:14:34.496967+00:00",
+  "commands": [
+    {
+      "command": "source /Volumes/Kursmodule/meshyard-smithers/env.sh && npm ci --offline --no-audit --no-fund",
+      "log": "/Volumes/Kursmodule/Meshyard-build/orchestration/t002-usb-npm-ci.log",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_seconds": 9.504,
+      "log_sha256": "f2293eeef7ecc541dae4876aba2829d739268b01292c908309b501f1a39449e8"
+    },
+    {
+      "command": "source /Volumes/Kursmodule/meshyard-smithers/env.sh && CARGO_NET_OFFLINE=true npm run check",
+      "log": "/Volumes/Kursmodule/Meshyard-build/orchestration/t002-usb-full-check.log",
+      "status": "completed",
+      "exit_code": 0,
+      "duration_seconds": 71.633,
+      "log_sha256": "34ae6ba8d21f081938490696aed24f9ef4a7e80ee513dc56ba205677054f61a7"
+    }
+  ],
+  "node_modules": {
+    "exists": true,
+    "is_symlink": false,
+    "realpath": "/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity/node_modules"
+  },
+  "head_after": {
+    "exit_code": 0,
+    "stdout": "866fcf350484ccf2be2d2c71eb3bd8b79d0e77bf\n",
+    "stderr": ""
+  },
+  "status_after": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "diff_check_after": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "tracked_file_changes": [],
+  "finished_at_utc": "2026-11-03T07:15:55.778316+00:00",
+  "rust": {
+    "suites": [
+      {
+        "context": "Running unittests src/lib.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_agents-8ce5f6d290558859)",
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/lib.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_app-325aa2f56c44f949)",
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/main.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_app-eaf939b6f809aa57)",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/lib.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_core-88b42442942013b0)",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running tests/core.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/core-e9689203cc3a54b6)",
+        "result": "ok",
+        "passed": 12,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.3,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running tests/golden.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/golden-cb68616e19defec1)",
+        "result": "ok",
+        "passed": 2,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/main.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_hook-997420e5aacddc3f)",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/lib.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_net-f594940791af7a39)",
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/main.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_node-0f8e4da612f45a0c)",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running unittests src/lib.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/meshyard_store-18c12772844594cc)",
+        "result": "ok",
+        "passed": 3,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.41,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running tests/identity.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/identity-e1bb1ecc5fb8f7bc)",
+        "result": "ok",
+        "passed": 11,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 1.04,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Running tests/store.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/store-be8b6c26d1cc46ae)",
+        "result": "ok",
+        "passed": 1,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 16,
+        "duration_seconds": 0.0,
+        "nested_lock_child": true
+      },
+      {
+        "context": "Running tests/store.rs (/Volumes/Kursmodule/Meshyard-build/target/debug/deps/store-be8b6c26d1cc46ae)",
+        "result": "ok",
+        "passed": 16,
+        "failed": 0,
+        "ignored": 1,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 4.18,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Doc-tests meshyard_agents",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Doc-tests meshyard_app",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Doc-tests meshyard_core",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Doc-tests meshyard_net",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      },
+      {
+        "context": "Doc-tests meshyard_store",
+        "result": "ok",
+        "passed": 0,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered_out": 0,
+        "duration_seconds": 0.0,
+        "nested_lock_child": false
+      }
+    ],
+    "top_level_totals": {
+      "passed": 47,
+      "failed": 0,
+      "ignored": 2,
+      "measured": 0,
+      "filtered_out": 0
+    },
+    "nested_lock_child_totals": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered_out": 16
+    },
+    "passed_including_child": 48,
+    "ignored_boundaries": [
+      {
+        "test": "identity::keychain_probe::isolated_keychain_roundtrip",
+        "reason": "Manual macOS Keychain probe; remained ignored and was not retried."
+      },
+      {
+        "test": "lock_child_probe",
+        "reason": "Ignored in parent suite; explicitly invoked by the exclusive lock test subprocess and passed; its 16 filtered tests are not missing top-level tests."
+      }
+    ]
+  },
+  "vitest": {
+    "files_passed": 1,
+    "files_total": 1,
+    "tests_passed": 3,
+    "tests_total": 3
+  },
+  "properties": {
+    "source": "crates/meshyard-core/tests/core.rs:369-395",
+    "cases_per_property_configured": 256,
+    "properties_passed": [
+      "unconfirmed_quota_is_interleaving_invariant",
+      "sanitation_always_valid",
+      "cross_author_interleavings_preserve_projection"
+    ],
+    "configured_successful_cases_total": 768,
+    "PROPTEST_CASES_environment": null,
+    "boundaries": [
+      "Unconfirmed-author count 1020..1030 (exclusive upper bound); split 0..1020 (exclusive upper bound).",
+      "Sanitation arbitrary string, cap 0..200 (exclusive upper bound).",
+      "Interleaving boolean vector length 0..100 and six control-free names length 0..12 (exclusive upper bounds).",
+      "Bounded randomized properties; no exhaustive or fixed-seed claim. Runner output reports property tests, not individual generated cases."
+    ]
+  },
+  "golden": {
+    "fixture_records": 47,
+    "frame_header_fixed_vector": 1,
+    "golden_and_frame_test_functions_passed": 2
+  },
+  "npm_ci_warning": "fsevents@2.3.3 install scripts not yet covered by allowScripts; npm ci nevertheless exited 0.",
+  "not_run": [
+    "Manual Keychain probe",
+    "UI/native acceptance",
+    "Binding generation",
+    "Public-network integration tests"
+  ],
+  "unexpected_mutation": false,
+  "log_sha256": {
+    "t002-usb-npm-ci.log": "f2293eeef7ecc541dae4876aba2829d739268b01292c908309b501f1a39449e8",
+    "t002-usb-full-check.log": "34ae6ba8d21f081938490696aed24f9ef4a7e80ee513dc56ba205677054f61a7"
+  }
+}

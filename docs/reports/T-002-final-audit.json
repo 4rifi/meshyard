@@ -1,0 +1,16 @@
+{
+  "run_id": "8ea3d48a-9858-4d97-905a-5a2487ef30b7",
+  "node_id": "audit",
+  "iteration": 0,
+  "summary": "Am HEAD 866fcf350484ccf2be2d2c71eb3bd8b79d0e77bf wurden im geprüften T-002-Quellcode keine konkreten Blocker festgestellt. Beide Fixes sind enthalten und gegen Code sowie Regressionstestbedingungen nachvollzogen: 8e64216 prüft kanonische Verzeichnisvorfahren einschließlich macOS-ACLs und verwendet anschließend ausschließlich den kanonischen Pfad; 9b9931f begrenzt unbestätigte Autoren über beide SQL-Tabellen zusammen, einschließlich zusammenhängender Ereignisse, Wiederöffnung und transaktionalem Reset. Nur verifizierte zusammenhängende Owner-Ereignisse begründen die Ausnahme. Rohbyte-Signaturprüfung, striktes Decoding, Identitätsschutz vor Ersetzung, atomare Gap-Promotion, Equivocation-Erkennung, deterministischer autorisierter Fold, Geheimnis-Debug-Ausgabe und dedizierter DB-Thread zeigen keinen belegten weiteren Fehler.",
+  "blockers": [],
+  "warnings": [
+    "Reine Quellcodeprüfung: keine Dateien verändert, keine Builds oder Tests ausgeführt, keine Agenten konsultiert und keine UI-, Hardware-, Netzwerk- oder nativen Prüfungen vorgenommen. Die im Abschlussbericht genannten erfolgreichen Testläufe wurden nicht unabhängig wiederholt.",
+    "Verzeichnisfix: crates/meshyard-store/src/process_lock.rs:13 und :61 verhindern ungeschützte kanonische Vorfahren; identity.rs:69 und :106 sowie lib.rs:56 verwenden das geprüfte Ziel. Die Substitutionstests prüfen den Austausch eines ursprünglichen Alias durch denselben UID; numerische Eigentümerfixtures und ACL-Tests ergänzen die Policy-Abdeckung, ersetzen aber keinen tatsächlichen Mehrbenutzer-Versuch. POSIX-Verzeichniseigentum allein erlaubt ausdrücklich keinen Zugriff auf die 0600-Datei eines anderen UID. Bösartige Prozesse desselben UID und Administratoren liegen außerhalb des betrachteten Bedrohungsmodells.",
+    "Persistenzfix: database.rs:247 zählt Originalblobgrößen und Zeilen über zusammenhängende und gapped Holdings; :259 löscht bei Überlauf atomar, :82 bereinigt ältere übergroße unbestätigte Logs beim Öffnen. tests/store.rs:695, :790 und :1029 decken die frühere gültig signierte Angriffsform, Wiederöffnung, Owner-Bestätigung und erneute Einsendung ab. Der Bytegrenzentest bei :975 verwendet ausdrücklich synthetische SQL-Blobs; er belegt keinen gültigen Wire-Angriff. Die spätere Netzwerk-Re-Request-Implementierung bleibt T-006.",
+    "Native Keychain-Akzeptanz bleibt offen: Der berichtete Probeversuch endete mit Unavailable. Geprüfter Fehler- und Create-only-Code sowie Mocktests liefern keinen positiven Nachweis eines erfolgreichen nativen Create/Read/Delete-Durchlaufs. Diese Prüfung erteilt keine Claude-Freigabe und setzt T-002 nicht auf done."
+  ],
+  "reviewed_head": "866fcf350484ccf2be2d2c71eb3bd8b79d0e77bf",
+  "duration_seconds": 232.758,
+  "acceptance": "Independent read-only source audit; no Claude approval or native acceptance."
+}
