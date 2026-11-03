@@ -37,16 +37,22 @@ agreed below).
 
 ## 3. Current state
 
+Migration path update (2026-11-03): active paths below are on the APFS image backed by
+`/Volumes/Untitled/projects/MeshyardProjects.sparsebundle`; the exposed mount is
+`/Volumes/MeshyardProjects`. Task facts retained below reflect this branch's historical
+state; use the migration log entry and the active T-002 branch for the current review gates.
+No prior task status, review decision or owner decision is changed by this path-only migration.
+
 - Owner decision (2026-11-03): develop and build **only on the USB volume**. Canonical checkout:
-  `/Volumes/Kursmodule/meshyard`; task worktrees: `/Volumes/Kursmodule/meshyard-worktrees/`.
-  Both use Git metadata at `/Volumes/Kursmodule/meshyard/.git`, independent of temporary clones.
+  `/Volumes/MeshyardProjects/meshyard`; task worktrees: `/Volumes/MeshyardProjects/meshyard-worktrees/`.
+  Both use Git metadata at `/Volumes/MeshyardProjects/meshyard/.git`, independent of temporary clones.
 - Planning baseline: `0f8d52f` on `main`, committed and pushed.
 - T-001: `t-001-scaffold` in the canonical checkout; source cleanup `ac125bb`, status ping
   `8275fb0`, knowledge commit `a101deb`. Check/build evidence is in `docs/reports/T-001.md`;
   review awaits Dion's native checkpoint L1; the original first-start <20 ms criterion is now T-007.
   Its merge still awaits Claude-recorded Dion L1 evidence and an instruction to proceed.
 - T-002: `t-002-core-store-identity` in
-  `/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity`, returned to **review**
+  `/Volumes/MeshyardProjects/meshyard-worktrees/t-002-core-store-identity`, returned to **review**
   after Claude's required fixes 1–3 from `dce3613`: `793d0f4` preserves owner authority,
   `753ca63` persists derived membership/epoch, `ce34a79` proves the existing outer-frame guard.
   Full USB offline check at `ce34a79`: exit 0, 68.657 s, 55 top-level Rust passes plus lock
@@ -54,13 +60,13 @@ agreed below).
   Provider-capacity interruption and preserved WIP continuation are recorded in the report.
   Lead inspection of the final changes and check evidence is complete; renewed Claude review
   and positive native Keychain coverage remain pending. No merge or T-003 instruction is implied.
-- Smithers workspace: `/Volumes/Kursmodule/meshyard-smithers`; existing run databases/logs:
-  `/Volumes/Kursmodule/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
+- Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
+  `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
   archived; do not resume them in temporary checkouts.
-- Before project or Smithers commands, source `/Volumes/Kursmodule/meshyard-smithers/env.sh`.
+- Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
   It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
-  temporary files under `/Volumes/Kursmodule/Meshyard-build`. Install frontend dependencies
+  temporary files under `/Volumes/MeshyardProjects/Meshyard-build`. Install frontend dependencies
   physically inside their USB checkout/worktree; do not symlink them from an internal checkout.
 - The APFS sparsebundle on the USB stick **must remain mounted**. The Documents checkout,
   `/private/tmp/meshyard-t001-recovery-checkout` and the old T-002 worktree remain preserved,
@@ -91,6 +97,31 @@ agreed below).
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: inspected the completed projects migration and actual offline
+  check (exit 0; 55 Rust + lock child, 3 Vitest). Active checkout is now
+  `/Volumes/MeshyardProjects/meshyard`, backed physically by the image under
+  `/Volumes/Untitled/projects`; all old sources and five dirty knowledge files preserved.
+  Corrected the remaining active architect path reference. Publishing only migration docs
+  and operational instruction paths; no code, review verdict, merge or native acceptance.
+  See `docs/reports/USB-MIGRATION-2026-11-03.md`; Claude re-review is the next gate.
+
+- 2026-11-03 — Owner-approved bounded storage migration (Hardworker): verified complete
+  SHA256/mode/link manifests before operational edits; copied exactly the four Meshyard roots
+  from `/Volumes/Kursmodule` using ditto. Active APFS mount: `/Volumes/MeshyardProjects`;
+  physical backing image: `/Volumes/Untitled/projects/MeshyardProjects.sparsebundle` on ExFAT.
+  A literal nested mount under `projects/workspace` did not succeed and was not retried.
+  New canonical HEAD remains `f59aeca`; active T-002 remains `6ac6c1f`; detached review remains
+  `54ecc91`; origin/main remains `0f8d52f`. Repaired only new worktree registration; indexes,
+  refs, KNOWER's five dirty knowledge files, original sources/images and temporary/Documents
+  checkouts are preserved. Operational inputs archived; historical runs must not be replayed.
+  The copied `Meshyard-build/t002-worktree` remains inactive with its historical .git intact.
+  No implementation, commit, push, merge, native UI or manual Keychain test in this migration.
+  Current gates: T-001 awaits Claude-recorded Dion L1 plus instruction; T-002 fixes checked/pushed
+  at `6ac6c1f` await Claude rereview; Keychain positive native coverage remains unverified.
+  Original hook <20 ms requirement is T-007; no T-003 until T-001 and T-002 are done and merged.
+  Owner target is genuine pairing/sync/hooks/UI plus a Strict-only tester DMG; this is future
+  work, not available functionality. Detailed actual validation and limits: `/Volumes/MeshyardProjects/migration-control/MIGRATION-REPORT.md`.
 
 - 2026-11-03 — Codex lead: both Claude review files committed unchanged and pushed first
   (`f59aeca` T-001, `dce3613` T-002). Inspected focused fixes `793d0f4`, `753ca63`, `ce34a79`

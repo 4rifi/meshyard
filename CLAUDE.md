@@ -11,7 +11,7 @@ Role: **Lead architect, planner, reviewer.** Codex implements; you design, speci
 
 `docs/HANDOFF.md` is shared (append log entries, don't rewrite others'). Ask the Knower before
 guessing on hard technical questions (`codex exec resume 01a19e2a-ebb0-7c21-8860-08f501a12e7e "…"`).
-Work only in `/Volumes/Kursmodule/meshyard` (USB); source `/Volumes/Kursmodule/meshyard-smithers/env.sh`.
+Work only in `/Volumes/MeshyardProjects/meshyard` (USB); source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
 
 ## Read first
 `docs/HANDOFF.md` (current state + protocol) → `docs/ROADMAP.md` → relevant `docs/tasks/*` →
