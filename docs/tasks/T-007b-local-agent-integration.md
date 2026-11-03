@@ -130,7 +130,7 @@ After it, that branch merges the reviewed T-015 code (`a859ed4`) and T-016 when 
 does §4–6. One writer per file; no competing frontend writer.
 
 **User flow (one panel "Connect Claude Code" in the workspace, reachable from the title bar):**
-1. Choose the agent: list of own `ClaudeCode` agents (`bind_agent`) or "Register one" (focuses the
+1. Choose the agent: list of own `ClaudeCode` agents (`AgentView.is_you`; `bind_agent`) or "Register one" (focuses the
    existing T-015 form). **Registration alone is never "connected"** — the agent shows
    "Not connected" until a real hook event arrives.
 2. Review: `hook_plan` → show the exact JSON diff of `~/.claude/settings.json`, the base SHA-256,
@@ -143,7 +143,11 @@ does §4–6. One writer per file; no competing frontend writer.
 
 **Exact additions (Rust `view.rs`, ts-rs generated — frontend uses only these):**
 ```
-AgentView   += stale: bool, bound: bool, connection: AgentConnection
+AgentView   += is_you: bool, stale: bool, bound: bool, connection: AgentConnection
+   // is_you (clarification 2026-11-04): backend-computed `agent.author == signer.device_id()`,
+   // same pattern as MemberView.is_you. UI-domain only, not signed/wire. The Connect selector lists
+   // exactly agents with is_you && kind == ClaudeCode; never infer ownership from device_short,
+   // id prefixes, labels or list order. bind_agent still re-validates own/active/kind in the store.
 enum AgentConnection { NotConnected, WaitingForFirstEvent, Connected, Stale }
    // NotConnected: not bound or hook not installed; WaitingForFirstEvent: bound + hook installed +
    // no ingest-derived AgentState yet; Connected: ≥1 ingest-derived AgentState and not stale;
