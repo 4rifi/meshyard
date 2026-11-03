@@ -62,9 +62,10 @@ No prior task status, review decision or owner decision is changed by this path-
   Positive native Keychain acceptance remains pending; task status stays review. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
-  T-007b backend and merged T-016 are checked at `dc01799`; no implementation writer is active
-  at the previous checkpoint. Backend re-review is accepted; the single Connect/installer
-  integration writer is now the active implementation phase.
+  T-007b Connect/installer and merged T-016 are checked at `cd8430c`; all implementation
+  writers are finished. Actual normal full check passed (52.816 s) and browser fixtures
+  passed six cases / 12 PNGs. Original Claude exact-source review is next; native preview
+  is still T-015 until the combined app is reviewed and started.
   T-007a code is accepted but first-launch latency is unmet; N-14/reference gates remain open.
   Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
@@ -88,7 +89,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
 | T-016 living yard | review (code accepted `b535dbc`) | Dion (native/reference) | Claude re-review `090257d`; renderer movement/occupancy labels accepted; no native/live-hook acceptance |
 | T-007a hook/normalizer | review (code accepted) | Codex lane B | Claude re-review `584cf0c`; B-2 resolved, B-1 first-launch <20 ms remains unmet; no live installation |
-| T-007b connect Claude Code | in-progress (Connect UI and installer) | Codex lane B | Backend accepted at `dc01799`; full check green; single writer adds exact DTOs, live refresh and explicit Install; owner gates remain |
+| T-007b connect Claude Code | review | Codex → Claude | Source `cd8430c`; actual full check 0 / 52.816 s, 56 Vitest; six browser mock cases / 12 PNGs; explicit Install implemented; native/L4/B-1/reference gates remain |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -108,6 +109,16 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
 
 ## 6. Log
+
+- 2026-11-04 — Codex lead: all Connect writers finished; backend `295c45e`, UI `879f6ef`,
+  checked unlock `7bfbdf1`, keyboard fixture `cd8430c`. Actual normal full check **0 / 52.816 s**,
+  118 Rust plus lock child, 56 Vitest; actual six UDS **0 / 12.499 s**; browser mock QA
+  **0 / 44.109 s**, six cases / 12 PNGs, zero errors, actual frames viewed. Original full
+  Busy failure and first browser failure preserved; duplicate-lock release guarantee fixed,
+  historical Busy cause unconfirmed. Review next, then actual combined preview with the built
+  USB hook binary and existing file-key profile. No owner settings writes, live CLI, native/N-14/
+  B-1/reference/Keychain acceptance or main merge. Previous commits through `76228ed` pushed
+  and remote verified; this final checkpoint is committed/pushed next.
 
 - 2026-11-03 — Codex lead: Claude backend re-review `a88ba8cd` accepts source `dc01799`;
   review committed unchanged as `dd841b0`. Reactor/child-runtime finding closed with actual
