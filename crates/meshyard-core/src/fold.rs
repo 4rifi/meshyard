@@ -10,6 +10,8 @@ pub struct DerivedState {
     pub agents: BTreeMap<(DeviceId, [u8; 16]), Agent>,
     pub pending_membership: BTreeMap<DeviceId, Vec<Event>>,
     pub pending_overflow: Vec<DeviceId>,
+    /// Sorted unique authors that attempted to remove the immutable genesis owner.
+    pub owner_removal_attempts: Vec<DeviceId>,
 }
 /// Input is the store's accepted contiguous event set, with unique (author, seq).
 /// Ordering across authors and timestamps never influence the projection.
@@ -28,6 +30,13 @@ pub fn fold(genesis: &Genesis, events: &[Event]) -> Result<DerivedState, Validat
         agents: BTreeMap::new(),
         pending_membership: BTreeMap::new(),
         pending_overflow: vec![],
+        owner_removal_attempts: events
+            .iter()
+            .filter(|event| matches!(event.body, EventBody::MemberRemoved { device } if device == genesis.owner))
+            .map(|event| event.author)
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect(),
     };
     // Only the established owner's log needs sorting before membership is known.
     let mut owner_log: Vec<_> = events
@@ -55,7 +64,7 @@ pub fn fold(genesis: &Genesis, events: &[Event]) -> Result<DerivedState, Validat
                     },
                 );
             }
-            EventBody::MemberRemoved { device } => {
+            EventBody::MemberRemoved { device } if *device != genesis.owner => {
                 state.epoch = state
                     .epoch
                     .checked_add(1)

@@ -1,6 +1,6 @@
 # T-002 — Core types, wire v1, local store, device identity
 
-Status: review (audit fixes validated; owner exception: T-001 review; Keychain manual acceptance unverified) · Owner: Codex · Reviewer: Claude
+Status: in-progress (Claude review fixes 1–3; owner exception: T-001 review; Keychain manual acceptance unverified) · Owner: Codex · Reviewer: Claude
 Revised 2026-11-02 after the Codex architecture review; updated for PROTOCOL v1.1 (ADR-009,
 ADR-010). **Normative reference: `docs/PROTOCOL.md` v1.1 §§1–5 and §10.** Where this spec is
 silent, PROTOCOL.md decides.

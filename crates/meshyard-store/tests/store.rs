@@ -1073,3 +1073,71 @@ async fn reopen_cleans_old_oversized_unknown_logs_but_preserves_confirmed_histor
     assert_eq!(held_sql(dir.path(), w, confirmed.device_id()).0, 1025);
     store.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn owner_removal_is_flagged_without_revoking_genesis_authority() {
+    let dir = support::private_tempdir();
+    let store = Store::open(dir.path()).unwrap();
+    let owner = key();
+    let member_key = Arc::new(SecretKey::from_bytes(&[67; 32]));
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    store
+        .append_own(
+            w,
+            EventBody::MemberRemoved {
+                device: owner.device_id(),
+            },
+            owner.clone(),
+        )
+        .await
+        .unwrap();
+    let ordinary = store
+        .append_own(w, profile("Owner"), owner.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        verify_and_decode(&ordinary, &Ed25519Verifier)
+            .unwrap()
+            .membership_epoch,
+        0
+    );
+    store
+        .append_own(w, member(member_key.device_id()), owner.clone())
+        .await
+        .unwrap();
+    store
+        .append_own(
+            w,
+            EventBody::MemberRemoved {
+                device: owner.device_id(),
+            },
+            member_key.clone(),
+        )
+        .await
+        .unwrap();
+    store
+        .append_own(w, profile("Member"), member_key.clone())
+        .await
+        .unwrap();
+    let state = project(&store, w, &[owner.device_id(), member_key.device_id()]).await;
+    assert_eq!(state.epoch, 1);
+    assert_eq!(state.members[&owner.device_id()].role, Role::Owner);
+    assert_eq!(state.members[&owner.device_id()].display_name, "Owner");
+    assert_eq!(
+        state.members[&member_key.device_id()].display_name,
+        "Member"
+    );
+    for author in [owner.device_id(), member_key.device_id()] {
+        assert!(
+            store
+                .diagnostics(w, author)
+                .await
+                .unwrap()
+                .protocol_violation
+        );
+    }
+    store.close().await.unwrap();
+}

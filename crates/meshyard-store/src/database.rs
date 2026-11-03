@@ -239,6 +239,15 @@ impl Database {
             self.flag(event.workspace, event.author, false)?;
             return Ok(InsertOutcome::Rejected(RejectReason::InvalidField));
         }
+        if let EventBody::MemberRemoved { device } = event.body {
+            let (_, genesis) = verify_genesis(
+                &decode_genesis(&self.genesis(event.workspace)?)?,
+                &Ed25519Verifier,
+            )?;
+            if device == genesis.owner {
+                self.flag(event.workspace, event.author, false)?;
+            }
+        }
         let head = self.head(event.workspace, event.author)?;
         let gapped = event.seq != head.checked_add(1).ok_or(StoreError::SequenceRange)?;
         // Ever-confirmed authors keep their history, including after reserved M2

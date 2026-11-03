@@ -67,7 +67,7 @@ agreed below).
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
-| T-002 core/store/identity | review | Codex → Claude | Final-source audit at `866fcf3`: zero substantiated blockers; fresh USB full check exit 0 (47 Rust + lock child, 3 frontend); Keychain positive acceptance still unverified; see `docs/reports/T-002.md` |
+| T-002 core/store/identity | in-progress | Codex | Addressing Claude review fixes 1–3 from dce3613; local commits only, parent inspects and pushes; Keychain remains unverified |
 | T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 

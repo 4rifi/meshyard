@@ -464,3 +464,52 @@ fn raw_event_unknown(key: &SecretKey) -> SignedEventV1 {
         signed,
     }
 }
+
+#[test]
+fn owner_removal_is_a_flagged_noop_and_preserves_ordinary_events() {
+    let owner = DeviceId([1; 32]);
+    let member = DeviceId([2; 32]);
+    let stranger = DeviceId([3; 32]);
+    let events = vec![
+        event(owner, 1, EventBody::MemberRemoved { device: owner }),
+        event(owner, 2, profile("Owner")),
+        event(owner, 3, registration("Owner agent")),
+        event(owner, 4, activity()),
+        event(
+            owner,
+            5,
+            EventBody::MemberAdded {
+                device: member,
+                display_name: "M".into(),
+            },
+        ),
+        event(member, 1, EventBody::MemberRemoved { device: owner }),
+        event(stranger, 1, EventBody::MemberRemoved { device: owner }),
+        event(member, 2, profile("Member")),
+        event(member, 3, registration("Member agent")),
+        event(member, 4, activity()),
+        event(
+            owner,
+            6,
+            EventBody::MemberAdded {
+                device: owner,
+                display_name: "ignored".into(),
+            },
+        ),
+    ];
+    let state = fold(&genesis(owner), &events).unwrap();
+    assert_eq!(state.epoch, 1);
+    assert_eq!(state.members[&owner].role, Role::Owner);
+    assert_eq!(state.members[&owner].display_name, "Owner");
+    assert_eq!(state.members[&member].display_name, "Member");
+    for author in [owner, member] {
+        assert_eq!(
+            state.agents[&(author, [0; 16])].state,
+            ActivityState::Testing
+        );
+    }
+    assert_eq!(state.owner_removal_attempts, vec![owner, member, stranger]);
+    let mut reversed = events;
+    reversed.reverse();
+    assert_eq!(fold(&genesis(owner), &reversed).unwrap(), state);
+}
