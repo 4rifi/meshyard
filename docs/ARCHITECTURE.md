@@ -314,6 +314,24 @@ Pattern matching runs inside `meshyard-hook` on the local command string; only t
   `Disabled | Probing | Mapped | NotObserved`; no router-refusal claim. Strict builder =
   `presets::Minimal` + `RelayMode::Disabled` + `clear_address_lookup()`. (accepted 2026-11-03,
   resolves KQ-009)
+- **ADR-013** 0-RTT is disabled at the TLS layer via a vendored, minimally patched iroh 1.3.0.
+  Pinned iroh hardcodes client `enable_early_data = true` (`src/tls.rs:89`) and server
+  `max_early_data_size = u32::MAX` (`src/tls.rs:125`) with no public switch; `max_tls_tickets(0)`
+  only empties our own client cache, and stream-level `is_0rtt` is not transport provenance. Fix:
+  `vendor/iroh-1.3.0/` = the unmodified crates.io 1.3.0 archive (checksum equal to the
+  `Cargo.lock` entry, upstream licence files kept, `PROVENANCE.md` with source URL + SHA-256) plus
+  one documented patch file `vendor/iroh-1.3.0.patch` changing exactly those two values to
+  `false` / `0` (rustls 0.23.x: `0` disables early data; QUIC allows only `0` or `u32::MAX`).
+  Root `Cargo.toml`: `[patch.crates-io] iroh = { path = "vendor/iroh-1.3.0" }` and
+  `exclude = ["vendor"]` (not a workspace member: no workspace lints/tests/fmt on vendor code;
+  `.prettierignore` covers `vendor/`). Identity verification, QUIC config and full-handshake
+  admission unchanged; no `unsafe` added, no floating version, no registry-cache edit. Remove the
+  patch when upstream exposes a 0-RTT switch. (accepted 2026-11-03, architect)
+- **ADR-013 addendum (net report in Auto):** Auto uses `NetReportConfig { https_probes: true,
+  captive_portal_check: false }`; probes reach only the configured relay map (Custom = own relays,
+  N0Default = dev only). Strict keeps `NetReportConfig::minimal()` and has no relays. Rationale:
+  with `minimal()` a relay is only measured via QUIC address discovery; without it no home relay is
+  selected and `online()` never resolves (see T-003 review finding 1).
 
 ## 11. Pinned versions
 

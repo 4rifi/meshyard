@@ -98,9 +98,16 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-6 | Merge to `main` | After Claude's review verdict `done`, Codex merges the task branch into `main` with a normal merge commit and pushes. Stacked branches merge in order (t-001, then t-002, …). No force push, no rebase of published branches. | Dion | **decided** 2026-11-03 |
 | D-7 | Test-partner build | Full MVP (T-001…T-013) as ad-hoc signed `aarch64` DMG, **Strict P2P only** (ADR-011, G-1 addendum), owner checkpoints L1–L5 first (ROADMAP) | Dion | **decided** 2026-11-03 |
 | D-9 | Stacked development while T-001/T-002 owner gates are open | Owner request 2026-11-03 ("substantial working app") → lanes A/B/C branch from `c93fbe2`; reviewed lanes merge into `m1-integration`, not `main`; if T-002 changes later, merge it into the lanes (no rebase). Gates for `main` unchanged | Claude (within D-4/D-6) | **decided** 2026-11-03 |
+| D-10 | 0-RTT disable for pinned iroh 1.3.0 | ADR-013: vendored unmodified crates.io archive + two-value TLS patch via `[patch.crates-io]`, vendor excluded from workspace; proof by independent capable client with positive control; T-005/T-006 mutations closed until reviewed | Claude (architect) | **decided** 2026-11-03 |
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Claude: T-003 review at `7eb5c58` (source only) → changes-requested. Real
+  relay-suite failure (parent normal shell, exit 101) traced in pinned source to Auto's
+  `NetReportConfig::minimal()` + no-QUIC relay + no IP transports (no home-relay measurement);
+  fix = ADR-013 addendum (Auto https probes to configured relays). D-10/ADR-013: 0-RTT disabled via
+  vendored iroh 1.3.0 with a two-value TLS patch; PROTOCOL §6 clarified. Docs uncommitted.
 
 - 2026-11-03 — Codex lead: T-014 implementation run
   `d09db809-77d6-40eb-bc82-28d508976880` finished; focused commits `e375076`, `9b6bd95`,
