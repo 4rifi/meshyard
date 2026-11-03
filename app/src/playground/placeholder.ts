@@ -1,3 +1,5 @@
+// Install static Pixi polyfills so rendering works without CSP unsafe-eval.
+import 'pixi.js/unsafe-eval';
 import { Application, Graphics } from 'pixi.js';
 import { initializeScene } from './sceneLifecycle';
 

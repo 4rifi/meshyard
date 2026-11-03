@@ -345,7 +345,11 @@ specified, but no IPC is called yet. Root npm scripts own frontend checks and Ta
 
 Runtime security configuration: production CSP denies connections, frames, workers, objects,
 and forms; scripts/styles/images/fonts are local only. Dev-only CSP adds loopback Vite HMR
-and inline Vite React refresh scripts. Pixi draws once without a ticker, external assets, or
+and inline Vite React refresh scripts. Updated by Codex, pending review (2026-11-03):
+`pixi.js/unsafe-eval` installs static shader/uniform/UBO/particle polyfills before renderer
+initialization; despite its name, it removes the need for dynamic evaluation. Production CSP
+continues to deny `unsafe-eval`. See the [upstream CSP setup](https://github.com/pixijs/pixijs/blob/dev/skills/pixijs-environments/SKILL.md#csp-compliant-setup).
+Pixi draws once without a ticker, external assets, or
 network requests. Async disposal is guarded across React StrictMode mount/unmount races.
 
 Primary implementation references: [Tauri CSP](https://v2.tauri.app/security/csp/),
