@@ -8,7 +8,8 @@ defaults. Where this file and PROTOCOL §9 differ, PROTOCOL wins.
 ## Split
 - **T-007a (start now, stacked on `c93fbe2`, branch `t-007a-hook-normalizer`)**: `meshyard-hook`
   binary + `meshyard-agents` normalizer/state machine + fixtures. Pure crates, no app wiring.
-- **T-007b (after T-014 review `done`)**: ingest socket server inside the app process, hook
+- **T-007b** — authoritative spec: `docs/tasks/T-007b-local-agent-integration.md` (stacked per D-9;
+  summary): ingest socket server inside the app process, hook
   installer (diff + explicit approval), appending `AgentState` for the agent registered in T-014,
   live UI refresh (first Tauri event, extends T-014's `commands.rs`/`client.ts`).
 
