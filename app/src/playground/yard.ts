@@ -156,6 +156,14 @@ export function mountYard(
           app.canvas.style.height = `${String(dimensions.height * scale)}px`;
           labels.style.transformOrigin = 'top left';
           labels.style.transform = `scale(${String(scale)})`;
+          // Centered ancestors can start on half pixels at odd window widths.
+          // Move the shared host, keeping canvas and HTML tags on the same grid.
+          // Relative offsets preserve flow and do not resize the observed viewport.
+          host.style.left = '0px';
+          host.style.top = '0px';
+          const origin = host.getBoundingClientRect();
+          host.style.left = `${String(Math.ceil(origin.x) - origin.x)}px`;
+          host.style.top = `${String(Math.ceil(origin.y) - origin.y)}px`;
         };
         resize();
         observer = new ResizeObserver(resize);

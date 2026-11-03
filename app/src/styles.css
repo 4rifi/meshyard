@@ -143,6 +143,8 @@ p {
 }
 .workspace-header {
   display: grid;
+  /* Keep wrapped and saving rows on whole pixels above the yard. */
+  line-height: 24px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 0 16px;
