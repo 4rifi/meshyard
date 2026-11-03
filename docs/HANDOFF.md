@@ -48,7 +48,7 @@ agreed below).
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; native retest blocked by tool permission and first-launch latency still over budget; no acceptance claimed |
-| T-002 core/store/identity | review | Codex → Claude | Core/wire/fold, threaded store and identity implemented; full offline check green; isolated native Keychain probe unavailable; see `docs/reports/T002.md` |
+| T-002 core/store/identity | review | Codex → Claude | Both independent-audit P1 fixes validated offline (47 Rust + lock child, 3 frontend); canonical directory trust and durable membership quota; Keychain remains Unavailable; see `docs/reports/T-002.md` |
 | T-003 net endpoint | ready | Codex | after T-002; revised test requirements (no public discovery, selected path) |
 
 ## 5. Open decisions
@@ -63,13 +63,25 @@ agreed below).
 
 ## 6. Log
 
+- 2026-11-03 — Codex T-002 fix worker: both P1 findings at `569b879` addressed. Canonical
+  root-down directory trust uses safe effective-UID and macOS ACL checks; no secret-read exploit
+  is claimed. Never-confirmed-author quotas now cover contiguous and gap SQL rows together,
+  survive reopen, reset held heads on overflow, and preserve established history. Added
+  deterministic substitution/ACL, quota/reopen/membership/resend and SQL rollback regressions.
+  Code commits `8e64216` (directory trust) and `9b9931f` (durable quotas) are local only.
+  Full offline `npm run check` exit 0: 47 top-level Rust tests + lock child, 3 frontend tests,
+  768 property cases, unchanged 48 golden/frame vectors; two binding generator runs reproduce
+  all 14 SHA-256 hashes. Report renamed to `docs/reports/T-002.md`; see final validation there.
+  Renewed final-source review requested; never marked done. Keychain Unavailable was not
+  retried; no GUI launch, T-003, additional agent/workflow, push or native acceptance.
+
 - 2026-11-03 — Codex T-002: review requested on `t-002-core-store-identity` (base `330dd71`,
   implementation `263544b81a1621f6367b2dd6c3f57cc30436cac6`).
   Full offline `npm run check` passes: 33 Rust tests + one process-lock child helper, 3 frontend
   tests; 30 task tests, 512 property cases, 48 golden/frame vectors, 14 reproducible UI bindings.
   Isolated native Keychain probe failed with Unavailable; no successful Keychain roundtrip or
   native acceptance claimed. File identity/locking and no-replacement errors are tested locally.
-  See `docs/reports/T002.md` and Architecture §11 additions (pending Claude review). T-001 review
+  See `docs/reports/T-002.md` and Architecture §11 additions (pending Claude review). T-001 review
   and its acceptance gaps remain unchanged. Local commits only; parent publishes after audit.
 
 - 2026-11-03 — Codex T-002: implementation started in the isolated `t-002-core-store-identity`

@@ -1,6 +1,6 @@
 # T-002 — Core types, wire v1, local store, device identity
 
-Status: review (owner exception: T-001 review; Keychain manual acceptance unverified) · Owner: Codex · Reviewer: Claude
+Status: review (audit fixes validated; owner exception: T-001 review; Keychain manual acceptance unverified) · Owner: Codex · Reviewer: Claude
 Revised 2026-11-02 after the Codex architecture review; updated for PROTOCOL v1.1 (ADR-009,
 ADR-010). **Normative reference: `docs/PROTOCOL.md` v1.1 §§1–5 and §10.** Where this spec is
 silent, PROTOCOL.md decides.
@@ -87,5 +87,5 @@ layer builds on.
 - [x] Default `SharingPolicy` never emits prompt/command/path text (test).
 - [x] `FileKeyStore` file mode 0600; `Debug` prints no key bytes; lock file prevents 2nd open.
 - [ ] Keychain path tested manually on macOS — isolated probe attempted, returned Unavailable;
-      successful create/read/delete remains unverified (see `docs/reports/T002.md`).
-- [x] `npm run check` green; report in `docs/reports/T002.md`.
+      successful create/read/delete remains unverified (see `docs/reports/T-002.md`).
+- [x] `npm run check` green; report in `docs/reports/T-002.md`.

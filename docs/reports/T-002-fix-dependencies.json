@@ -1,0 +1,360 @@
+[
+  {
+    "source": "https://crates.io/api/v1/crates/rustix/1.1.6",
+    "response": {
+      "version": {
+        "id": 3619107,
+        "crate": "rustix",
+        "num": "1.1.6",
+        "dl_path": "/api/v1/crates/rustix/1.1.6/download",
+        "readme_path": "/api/v1/crates/rustix/1.1.6/readme",
+        "updated_at": "2026-10-27T00:49:03.146056Z",
+        "created_at": "2026-10-27T00:49:03.146056Z",
+        "downloads": 4161801,
+        "features": {
+          "all-apis": [
+            "event",
+            "fs",
+            "io_uring",
+            "mm",
+            "mount",
+            "net",
+            "param",
+            "pipe",
+            "process",
+            "pty",
+            "rand",
+            "runtime",
+            "shm",
+            "stdio",
+            "system",
+            "termios",
+            "thread",
+            "time"
+          ],
+          "alloc": [],
+          "default": [
+            "std"
+          ],
+          "event": [],
+          "fs": [],
+          "io_uring": [
+            "event",
+            "fs",
+            "net",
+            "thread",
+            "linux-raw-sys/io_uring"
+          ],
+          "linux_4_11": [],
+          "linux_5_1": [
+            "linux_4_11"
+          ],
+          "linux_5_11": [
+            "linux_5_1"
+          ],
+          "linux_latest": [
+            "linux_5_11"
+          ],
+          "mm": [],
+          "mount": [],
+          "net": [
+            "linux-raw-sys/net",
+            "linux-raw-sys/netlink",
+            "linux-raw-sys/if_ether",
+            "linux-raw-sys/xdp"
+          ],
+          "param": [],
+          "pipe": [],
+          "process": [
+            "linux-raw-sys/prctl"
+          ],
+          "pty": [
+            "fs"
+          ],
+          "rand": [],
+          "runtime": [
+            "linux-raw-sys/prctl"
+          ],
+          "rustc-dep-of-std": [
+            "core",
+            "rustc-std-workspace-alloc",
+            "linux-raw-sys/rustc-dep-of-std"
+          ],
+          "shm": [
+            "fs"
+          ],
+          "std": [
+            "bitflags/std",
+            "alloc",
+            "libc?/std",
+            "libc_errno?/std"
+          ],
+          "stdio": [],
+          "system": [
+            "linux-raw-sys/system"
+          ],
+          "termios": [],
+          "thread": [
+            "linux-raw-sys/prctl"
+          ],
+          "time": [],
+          "try_close": [],
+          "use-explicitly-provided-auxv": [],
+          "use-libc": [
+            "libc_errno",
+            "libc"
+          ],
+          "use-libc-auxv": []
+        },
+        "yanked": false,
+        "yank_message": null,
+        "lib_links": null,
+        "license": "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+        "links": {
+          "dependencies": "/api/v1/crates/rustix/1.1.6/dependencies",
+          "version_downloads": "/api/v1/crates/rustix/1.1.6/downloads",
+          "authors": "/api/v1/crates/rustix/1.1.6/authors"
+        },
+        "crate_size": 426484,
+        "published_by": {
+          "id": 6825,
+          "login": "sunfishcode",
+          "name": "Dan Gohman",
+          "avatar": "https://avatars.githubusercontent.com/u/4503403?v=4",
+          "url": "https://github.com/sunfishcode",
+          "github_username_matches": true,
+          "created_at": "2013-05-22T21:05:44Z"
+        },
+        "audit_actions": [
+          {
+            "action": "publish",
+            "user": {
+              "id": 6825,
+              "login": "sunfishcode",
+              "name": "Dan Gohman",
+              "avatar": "https://avatars.githubusercontent.com/u/4503403?v=4",
+              "url": "https://github.com/sunfishcode",
+              "github_username_matches": true,
+              "created_at": "2013-05-22T21:05:44Z"
+            },
+            "time": "2026-10-27T00:49:03.146056Z"
+          }
+        ],
+        "checksum": "e5e76742e5294153d4dde1207dbec5bdd81eef6fabdc0d2118babadabfd858aa",
+        "rust_version": "1.65",
+        "has_lib": true,
+        "bin_names": [],
+        "edition": "2021",
+        "description": "Safe Rust bindings to POSIX/Unix/Linux/Winsock-like syscalls",
+        "homepage": null,
+        "documentation": "https://docs.rs/rustix",
+        "repository": "https://github.com/bytecodealliance/rustix",
+        "trustpub_data": null,
+        "linecounts": {
+          "languages": {
+            "Rust": {
+              "code_lines": 49629,
+              "comment_lines": 2328,
+              "files": 317
+            }
+          },
+          "total_code_lines": 49629,
+          "total_comment_lines": 2328
+        }
+      }
+    }
+  },
+  {
+    "source": "https://crates.io/api/v1/crates/exacl/0.13.0",
+    "response": {
+      "version": {
+        "id": 2353734,
+        "crate": "exacl",
+        "num": "0.13.0",
+        "dl_path": "/api/v1/crates/exacl/0.13.0/download",
+        "readme_path": "/api/v1/crates/exacl/0.13.0/readme",
+        "updated_at": "2026-05-05T19:10:06.926787Z",
+        "created_at": "2026-05-05T19:10:06.926787Z",
+        "downloads": 736321,
+        "features": {
+          "buildtime_bindgen": [
+            "bindgen"
+          ],
+          "default": []
+        },
+        "yanked": false,
+        "yank_message": null,
+        "lib_links": null,
+        "license": "MIT",
+        "links": {
+          "dependencies": "/api/v1/crates/exacl/0.13.0/dependencies",
+          "version_downloads": "/api/v1/crates/exacl/0.13.0/downloads",
+          "authors": "/api/v1/crates/exacl/0.13.0/authors"
+        },
+        "crate_size": 67625,
+        "published_by": {
+          "id": 107045,
+          "login": "byllyfish",
+          "name": "Bill Fisher",
+          "avatar": "https://avatars.githubusercontent.com/u/105391?v=4",
+          "url": "https://github.com/byllyfish",
+          "github_username_matches": true,
+          "created_at": "2009-07-15T21:05:38Z"
+        },
+        "audit_actions": [
+          {
+            "action": "publish",
+            "user": {
+              "id": 107045,
+              "login": "byllyfish",
+              "name": "Bill Fisher",
+              "avatar": "https://avatars.githubusercontent.com/u/105391?v=4",
+              "url": "https://github.com/byllyfish",
+              "github_username_matches": true,
+              "created_at": "2009-07-15T21:05:38Z"
+            },
+            "time": "2026-05-05T19:10:06.926787Z"
+          }
+        ],
+        "checksum": "8de9e551ced9d700a31dacb8b168129640240fcd7a279a3fa4d59608b84ebcae",
+        "rust_version": "1.85",
+        "has_lib": true,
+        "bin_names": [],
+        "edition": "2024",
+        "description": "Manipulate file system access control lists (ACL) on macOS, Linux, and FreeBSD",
+        "homepage": null,
+        "documentation": "https://byllyfish.github.io/exacl",
+        "repository": "https://github.com/byllyfish/exacl",
+        "trustpub_data": null,
+        "linecounts": {
+          "languages": {
+            "C Header": {
+              "code_lines": 12,
+              "comment_lines": 2,
+              "files": 1
+            },
+            "Rust": {
+              "code_lines": 5449,
+              "comment_lines": 171,
+              "files": 23
+            },
+            "Shell": {
+              "code_lines": 110,
+              "comment_lines": 29,
+              "files": 5
+            }
+          },
+          "total_code_lines": 5571,
+          "total_comment_lines": 202
+        }
+      }
+    }
+  },
+  {
+    "source": "https://crates.io/api/v1/crates/log/0.4.35",
+    "response": {
+      "version": {
+        "id": 3660718,
+        "crate": "log",
+        "num": "0.4.35",
+        "dl_path": "/api/v1/crates/log/0.4.35/download",
+        "readme_path": "/api/v1/crates/log/0.4.35/readme",
+        "updated_at": "2026-10-30T21:36:19.748360Z",
+        "created_at": "2026-10-30T21:36:19.748360Z",
+        "downloads": 2263680,
+        "features": {
+          "alloc": [],
+          "kv": [],
+          "kv_serde": [
+            "kv_std",
+            "value-bag/serde",
+            "serde"
+          ],
+          "kv_std": [
+            "std",
+            "kv",
+            "value-bag/error"
+          ],
+          "kv_sval": [
+            "kv",
+            "value-bag/sval",
+            "sval",
+            "sval_ref"
+          ],
+          "kv_unstable": [
+            "kv",
+            "value-bag"
+          ],
+          "kv_unstable_serde": [
+            "kv_serde",
+            "kv_unstable_std"
+          ],
+          "kv_unstable_std": [
+            "kv_std",
+            "kv_unstable"
+          ],
+          "kv_unstable_sval": [
+            "kv_sval",
+            "kv_unstable"
+          ],
+          "max_level_debug": [],
+          "max_level_error": [],
+          "max_level_info": [],
+          "max_level_off": [],
+          "max_level_trace": [],
+          "max_level_warn": [],
+          "release_max_level_debug": [],
+          "release_max_level_error": [],
+          "release_max_level_info": [],
+          "release_max_level_off": [],
+          "release_max_level_trace": [],
+          "release_max_level_warn": [],
+          "serde": [
+            "serde_core"
+          ],
+          "std": [
+            "alloc"
+          ]
+        },
+        "yanked": false,
+        "yank_message": null,
+        "lib_links": null,
+        "license": "MIT OR Apache-2.0",
+        "links": {
+          "dependencies": "/api/v1/crates/log/0.4.35/dependencies",
+          "version_downloads": "/api/v1/crates/log/0.4.35/downloads",
+          "authors": "/api/v1/crates/log/0.4.35/authors"
+        },
+        "crate_size": 54093,
+        "published_by": null,
+        "audit_actions": [],
+        "checksum": "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c",
+        "rust_version": "1.71.0",
+        "has_lib": true,
+        "bin_names": [],
+        "edition": "2021",
+        "description": "A lightweight logging facade for Rust\n",
+        "homepage": null,
+        "documentation": "https://docs.rs/log",
+        "repository": "https://github.com/rust-lang/log",
+        "trustpub_data": {
+          "provider": "github",
+          "repository": "rust-lang/log",
+          "run_id": "41132243978",
+          "sha": "75fcb86da1cce3b9476c58c911482ec43ec235f4"
+        },
+        "linecounts": {
+          "languages": {
+            "Rust": {
+              "code_lines": 3471,
+              "comment_lines": 164,
+              "files": 9
+            }
+          },
+          "total_code_lines": 3471,
+          "total_comment_lines": 164
+        }
+      }
+    }
+  }
+]

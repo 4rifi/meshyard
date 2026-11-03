@@ -405,11 +405,34 @@ Implementation choices pending review:
   async callers use `open_async`. Explicit `close` releases the lock before returning.
 - `append_own` records the locally observed membership epoch and current wall-clock timestamp;
   `append_own_with` allows explicit policy/time/epoch context. Neither timestamp decides order.
-- Private data directories are 0700; lock/identity files use no-follow opens and private inode
-  checks. File identity publishes a complete fsynced staging inode using create-only hard-link
-  insertion, never overwriting an existing entry. The persistent OS lock is released by close
-  or process exit; its filename is never deleted to acquire a lock. Scope is macOS/Unix (M5
-  covers other platforms). Protection against malicious same-user processes is not claimed.
+- Directory policy after the independent T-002 audit: resolve once to a canonical absolute
+  path, validate its chain from root down, and use only that spelling for every later identity,
+  lock and SQLite operation. Every ancestor must belong to root or the actual effective UID
+  (`rustix::process::geteuid`) and lack group/other write permission, except root-owned sticky
+  directories (including canonical `/private/tmp`). The final directory must belong to the
+  effective UID and be 0700. Root-owned sticky parents cannot replace another owner's entry;
+  directories owned by other UIDs are rejected even if currently 0700. macOS nonempty allow
+  ACLs, including inherited grants, are conservatively rejected throughout the chain and on
+  private files; deny-only ACLs are allowed. Linux POSIX access ACL grants are constrained by
+  the group-class mode mask. Other platforms fail closed pending M5. Root/admin and malicious
+  same-UID mutation, including same-UID symlink/mount replacement, remain outside protection.
+  No directory-FD alias trick or custom SQLite VFS is used.
+- Lock/identity files use no-follow opens, effective-UID ownership, 0600 and single-link inode
+  checks. A staging identity inode is checked before secret writes, fsynced, and published with
+  a create-only hard link; cleanup uses the canonical directory. SQLite main/sidecar files
+  reject symlink/hardlink/foreign-owner aliases before opening; safe older 0644 SQLite inodes
+  are tightened to 0600 without replacing content. SQLite also uses OPEN_NOFOLLOW. The DB
+  worker uses the canonical directory retained by the process lock. Close/process exit releases
+  the persistent OS lock; its filename is never deleted to acquire a lock.
+- Additional exact direct dependencies for that policy: `rustix 1.1.6` (already resolved,
+  activate process feature for safe effective-UID lookup), `exacl 0.13.0` (macOS-only safe ACL
+  reads, default features disabled), and already resolved `log 0.4.35` (macOS-only feature
+  activation `max_level_info`). exacl's failure debug instrumentation includes paths, so the
+  legacy log facade's debug/trace calls are removed at compile time, even with a future runtime
+  logger; tracing remains independent. This compilation-wide legacy-log cap and conservative
+  rejection of benign allow ACLs are explicit pending-review tradeoffs. Cargo generated the
+  lockfile. Raw version evidence is `docs/reports/T-002-fix-dependencies.json`; the original
+  `T002-dependencies.json` evidence is retained.
 - Keychain production service/account are `computer.meshyard.device` / `device`. Reads use
   keyring; insertion uses its backend's safe create-only API because keyring's setter upserts.
   NotFound alone permits generation; Locked/Unavailable/invalid/permission failures propagate.
@@ -419,11 +442,29 @@ Implementation choices pending review:
   and carries only structured fields otherwise. Explicit task-label opt-in is a caller's claim
   of Meshyard user entry or field-level permission; arbitrary text cannot be inspected to prove
   it secret-free. Adapter allowlist/source enforcement belongs to T-007, not a text classifier.
-- Fold inputs are one workspace's unique accepted contiguous event set. Unknown authors are
-  not projected; their ordinary-event holding is capped at 1024 events / 1 MiB per author
-  (conservative wire-size accounting). Overflow is reported and discards that holding; future
-  sync handles re-request. The accepted log remains the projection source when membership
-  arrives. Store pending-gap limits count the actual received outer bytes.
+- Durable pending-membership quota: before each new insert, never-confirmed authors are
+  limited to 1024 total rows / 1 MiB of original outer-envelope bytes across both `events`
+  (contiguous holding) and `pending_events` (gap holding), per workspace/author. All bodies
+  count, including unauthorized peer membership bodies. Duplicate/equivocation and invalid
+  field handling still precede accounting. Overflow returns Rejected(PendingOverflow), drops
+  both held sets transactionally, and removes that head (absent means zero); T-006 must
+  re-request from zero. An own-append overflow commits the same drop and returns AppendRejected.
+  Opening an older database also transactionally discards oversized never-confirmed holdings.
+  No new table or wire change is needed: the durable rows themselves are the accounting source.
+- Confirmation authority is verified genesis plus a verified contiguous prefix of the owner's
+  `events` log only. A peer grant or an owner grant still in `pending_events` cannot exempt an
+  author. For retention purposes confirmation means ever validly added, so reserved M2
+  MemberRemoved never deletes established logs. Current membership for projection still uses
+  the full owner fold. Established authors retain the separate gap-only quota; its overflow
+  never erases their contiguous history.
+- Inserted means persisted contiguously, not membership authorization; Pending means a gap.
+  This preserves the public API and protocol definition of contiguous heads. Bounded unknown
+  contiguous rows can be returned for folding but are never speculatively applied. A later
+  owner grant makes their permissible ordinary events applicable directly from the existing
+  rows; gap promotion moves each row once and raw duplicates remain duplicates. Fold indexes
+  only confirmed authors' complete logs; unknown ordinary events are held with bounded storage
+  while iterating, rather than first collecting every unknown input reference. Projection
+  retains conservative wire-size accounting; SQL uses exact original envelope lengths.
 - Regenerate the 14 UI-domain-only bindings from the repository root with
   `npm run bindings:generate` (offline cargo example + deterministic Prettier). Wire, signing
   keys and signed byte envelopes are never exported. No IPC transport is connected in T-002.
