@@ -314,6 +314,22 @@ Pattern matching runs inside `meshyard-hook` on the local command string; only t
   `Disabled | Probing | Mapped | NotObserved`; no router-refusal claim. Strict builder =
   `presets::Minimal` + `RelayMode::Disabled` + `clear_address_lookup()`. (accepted 2026-11-03,
   resolves KQ-009)
+- **ADR-014** Read paths use a persisted, incrementally maintained projection, never a full replay.
+  The store keeps derived tables updated **only** when an event becomes contiguous (direct insert or
+  pending promotion), in the **same transaction** as the event row and `apply_contiguous_membership`:
+  `agent_projection(workspace, author, local_id)` (kind, label, state, provenance, tool, task_label,
+  last_state_ts_ms), `profile_projection(workspace, author)` (display_name, avatar), and
+  `members.added_name` (name from the latest `MemberAdded`). Rules mirror `fold` exactly, per author in
+  seq order: `AgentRegistered` upserts and resets state to Idle/no provenance; `AgentState` updates
+  only an existing row (earlier/unknown ignored); `AgentGone` deletes; `ProfileUpdated` upserts.
+  Rows are kept for every author (members or not); **membership filters at read time** (active =
+  `members.removed = 0`, owner always), so removal hides and re-grant restores exactly like `fold`.
+  Deleting an author's events (quota overflow, reopen cleanup) deletes its projection rows in the
+  same transaction. Existing databases are backfilled **once** per workspace at open (verified, like
+  `backfill_membership`), marked in `meta`. Genesis is verified once at open/`add_workspace` and its
+  decoded fields cached in the DB actor. `workspace_state` (verify + `fold`) stays only as the test
+  oracle / audit path, never on app hot paths. Signed wire v1 and receive-time verification
+  unchanged. (accepted 2026-11-03, architect; T-007b ingest performance)
 
 ## 11. Pinned versions
 
