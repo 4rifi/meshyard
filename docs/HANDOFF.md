@@ -79,7 +79,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | Task | Status | Assignee | Notes |
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
-| T-002 core/store/identity | review | Codex → Claude | Fixes 1–3 addressed and lead-inspected; full offline check exit 0; renewed Claude review requested; Keychain remains unverified |
+| T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 

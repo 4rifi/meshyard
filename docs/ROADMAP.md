@@ -8,7 +8,7 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | ID | Task | Depends on | Status |
 |---|---|---|---|
 | T-001 | Repo scaffold: Cargo workspace, Tauri 2 app, React/TS/Vite, lint/typecheck/test scripts, pinned versions | — | review (native check = owner checkpoint L1; hook first-launch <20 ms criterion moved unchanged to T-007) |
-| T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | review (Claude fixes 1–3 addressed; offline full check green; native Keychain unverified) |
+| T-002 | `meshyard-core` domain types + `meshyard-store` (SQLite, migrations, event log) + device identity (Keychain) | T-001 | review (code accepted by Claude re-review 2026-11-03; `done` after a real native Keychain roundtrip by Dion; merge after T-001) |
 | T-003 | `meshyard-net` endpoint: Auto/Strict modes, ALPN routing, allowlist, path diagnostics; direct + relay test suites | T-002 | ready |
 | T-003b | Field test 1: Strict feasibility (owner checkpoint L2 on Dion's Mac: two profiles + router port-mapping check); cross-network Strict with the test partner happens in T-012. Relay paths are tested only locally (no n0 with the partner, D-7) | T-004 | todo |
 | T-004 | `meshyard-node` headless CLI skeleton + test harness (`--data-dir` profiles, `create`, `status`, `ping`, `tail`); `invite`/`join` wired after T-005 | T-003 | todo |
