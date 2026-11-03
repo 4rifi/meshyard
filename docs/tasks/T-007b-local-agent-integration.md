@@ -98,5 +98,53 @@ seeing the exact diff and pressing "Install".
    payloads reach the app; (a)/(b) never count as (c).
 7. Tests never touch the owner's real `~/.claude/settings.json` or Keychain.
 
+## 6. Connect flow and exact DTOs (addendum 2026-11-03, owner: "wie kann ich ein Agent registrieren damit es verbunden ist?")
+Status of work: backend prep §1–3 is running in `t-007b-local-agent-integration` (base `3e8ccab`).
+After it, that branch merges the reviewed T-015 code (`a859ed4`) and T-016 when reviewed, then
+does §4–6. One writer per file; no competing frontend writer.
+
+**User flow (one panel "Connect Claude Code" in the workspace, reachable from the title bar):**
+1. Choose the agent: list of own `ClaudeCode` agents (`bind_agent`) or "Register one" (focuses the
+   existing T-015 form). **Registration alone is never "connected"** — the agent shows
+   "Not connected" until a real hook event arrives.
+2. Review: `hook_plan` → show the exact JSON diff of `~/.claude/settings.json`, the base SHA-256,
+   the hook binary path and socket path. Buttons "Install" / "Cancel".
+3. Install: `hook_apply(plan_id)` only on the button. No startup install, no manual shell/config
+   workaround offered.
+4. Status (from backend, never guessed in the UI): Waiting for first event → Connected (receiving)
+   → Stale/Error, plus "Remove hook".
+- Codex row: "Codex connection is not available yet." (T-008); no button.
+
+**Exact additions (Rust `view.rs`, ts-rs generated — frontend uses only these):**
+```
+AgentView   += stale: bool, bound: bool, connection: AgentConnection
+enum AgentConnection { NotConnected, WaitingForFirstEvent, Connected, Stale }
+   // NotConnected: not bound or hook not installed; WaitingForFirstEvent: bound + hook installed +
+   // no ingest-derived AgentState yet; Connected: ≥1 ingest-derived AgentState and not stale;
+   // Stale: per is_stale (10 min). Only the bound agent can leave NotConnected.
+WorkspaceView += ingest: IngestView, hook: HookView
+struct IngestView { status: IngestStatus, dropped_unbound: u32, dropped_invalid: u32 }
+enum  IngestStatus { Disabled, Listening, Unavailable(AppError) }
+struct HookView { installed: bool, binary_available: bool }   // installed = exact Meshyard entries present
+struct HookPlan { plan_id: String, settings_path_display: String, base_sha256: String,
+                  diff: String, action: HookAction }          // diff = unified text, display only
+enum  HookAction { Install, Remove, NoChange }
+AppError    += IngestUnavailable, HookBinaryMissing, HookPlanStale, HookConfigInvalid
+```
+`settings_path_display` may show `~/.claude/settings.json` (home abbreviated); no other paths in
+views except the hook binary/socket inside the diff the owner must approve.
+
+**Frontend files (after T-016):** `app/src/features/connect/ConnectClaudeCode.tsx` (new),
+`ipc/client.ts` (+4 typed wrappers), `App.tsx` (`workspace-changed` listener), `AgentList.tsx`
+(connection label), `WorkspaceScreen.tsx` (panel + title-bar entry). The yard needs no change:
+real state changes walk via T-016 `update`.
+
+**Optional isolated CLI capture (distinct from the owner flow, not required):** only if the
+installed Claude Code CLI verifiably supports loading an extra settings file per run (check
+`claude --help` for `--settings`; do not assume). Then: temporary settings JSON in the USB profile
+with the real hook binary/socket, a throwaway prompt in a temporary USB directory, no change to
+`~/.claude/settings.json`, no HOME override. Running it uses Dion's Claude account → ask Dion
+first. Reported as evidence level (c′) "isolated CLI capture", never as the owner-flow gate L4.
+
 ## Out of scope
-Codex adapter (T-008), project-scope install, remote agents/networking, avatar animation.
+Codex adapter (T-008), project-scope install, remote agents/networking. Avatar movement is T-016.
