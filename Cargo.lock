@@ -2528,6 +2528,10 @@ name = "meshyard-agents"
 version = "0.1.0"
 dependencies = [
  "meshyard-core",
+ "meshyard-hook",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -2560,6 +2564,11 @@ dependencies = [
 [[package]]
 name = "meshyard-hook"
 version = "0.1.0"
+dependencies = [
+ "rustix",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "meshyard-net"

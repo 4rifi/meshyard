@@ -1,0 +1,7 @@
+{
+  "session_id": "abc123",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Write",
+  "tool_input": {},
+  "tool_use_id": "toolu_01ABC123..."
+}
