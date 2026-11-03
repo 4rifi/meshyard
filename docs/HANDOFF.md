@@ -105,6 +105,14 @@ No prior task status, review decision or owner decision is changed by this path-
 
 ## 6. Log
 
+- 2026-11-03 — Codex lead: T-016 review `9ee4c48` committed unchanged, bounded fix
+  `b535dbc` restores occupancy-based name tags; report `e1a2eb4`. Full check exit 0 / 22.194 s.
+  Actual parent renderer QA: eight cases / 100 PNGs pass, original movement assertions plus
+  single/shared/remaining-second-slot width, identity and nonoverlap checks at 960/375.
+  Current source/fixture hashes and 11 bundle files match; actual frames viewed. Mock renderer
+  evidence only; native/reference/real CLI gates open. Next exact-head label re-review, then
+  reviewed motion merges into T-007b after its backend writer releases the tree.
+
 - 2026-11-03 — Codex lead: T-016 source `c5beea9`, report `d95961e`; full check exit 0,
   185.187 s (67 Rust plus lock child, 44 Vitest, two ignored). Parent renderer-fixture QA passes
   six isolated timing-mode/width cases, 84 PNGs, real RAF movement + reduced-motion snaps,
