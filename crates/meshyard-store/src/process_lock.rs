@@ -167,11 +167,99 @@ impl DataDirLock {
     pub(crate) fn directory(&self) -> &Path {
         &self.directory
     }
+    /// Release the owned lock even while a duplicated descriptor remains open.
+    /// Ordinary drop remains the fallback when no checked release is requested.
+    pub fn release(self) -> Result<(), StoreError> {
+        self._file.unlock().map_err(|_| StoreError::Io)
+    }
 }
 
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn checked_release_is_independent_of_duplicate_lifetime() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let lock = DataDirLock::acquire(dir.path()).unwrap();
+        let duplicate = lock._file.try_clone().unwrap();
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        lock.release().unwrap();
+        let reopened = DataDirLock::acquire(dir.path()).unwrap();
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        drop(duplicate);
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        reopened.release().unwrap();
+        DataDirLock::acquire(dir.path()).unwrap().release().unwrap();
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn store_close_ack_releases_lock_with_duplicate_alive_and_closes_clones() {
+        use crate::Store;
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let lock = DataDirLock::acquire(dir.path()).unwrap();
+        let duplicate = lock._file.try_clone().unwrap();
+        let store = Store::open_locked(lock, crate::database::Database::open).unwrap();
+        let clone = store.clone();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            assert!(matches!(Store::open(dir.path()), Err(StoreError::Busy)));
+            store.close().await.unwrap();
+            assert!(matches!(clone.workspaces().await, Err(StoreError::Closed)));
+            let reopened = Store::open(dir.path()).unwrap();
+            assert!(reopened.workspaces().await.unwrap().is_empty());
+            assert!(matches!(Store::open(dir.path()), Err(StoreError::Busy)));
+            drop(duplicate);
+            assert!(matches!(Store::open(dir.path()), Err(StoreError::Busy)));
+            reopened.close().await.unwrap();
+            Store::open(dir.path()).unwrap().close().await.unwrap();
+        });
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn store_open_error_releases_lock_before_reporting_with_duplicate_alive() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let lock = DataDirLock::acquire(dir.path()).unwrap();
+        let duplicate = lock._file.try_clone().unwrap();
+        assert!(matches!(
+            crate::Store::open_locked(lock, |_| Err(StoreError::Migration)),
+            Err(StoreError::Migration)
+        ));
+        let reopened = DataDirLock::acquire(dir.path()).unwrap();
+        drop(duplicate);
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        reopened.release().unwrap();
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     #[allow(clippy::unwrap_used)]

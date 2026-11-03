@@ -57,7 +57,7 @@ pub struct WorkspaceSnapshot {
 type Job = Box<dyn FnOnce(&mut database::Database) + Send>;
 enum Command {
     Run(Job),
-    Close(oneshot::Sender<()>),
+    Close(oneshot::Sender<Result<(), StoreError>>),
 }
 #[derive(Clone)]
 pub struct Store {
@@ -85,6 +85,12 @@ impl Store {
         open: impl FnOnce(&Path) -> Result<database::Database, StoreError> + Send + 'static,
     ) -> Result<Self, StoreError> {
         let lock = process_lock::DataDirLock::acquire(data_dir.as_ref())?;
+        Self::open_locked(lock, open)
+    }
+    fn open_locked(
+        lock: process_lock::DataDirLock,
+        open: impl FnOnce(&Path) -> Result<database::Database, StoreError> + Send + 'static,
+    ) -> Result<Self, StoreError> {
         let directory = lock.directory().to_owned();
         let path = directory.join("meshyard.sqlite");
         let (sender, mut receiver) = mpsc::channel::<Command>(64);
@@ -95,11 +101,17 @@ impl Store {
                 let mut db = match open(&path) {
                     Ok(db) => db,
                     Err(error) => {
+                        let error = match lock.release() {
+                            Ok(()) => error,
+                            Err(release_error) => release_error,
+                        };
                         let _ = ready_tx.send(Err(error));
                         return;
                     }
                 };
                 if ready_tx.send(Ok(())).is_err() {
+                    drop(db);
+                    let _ = lock.release();
                     return;
                 }
                 while let Some(command) = receiver.blocking_recv() {
@@ -107,12 +119,14 @@ impl Store {
                         Command::Run(job) => job(&mut db),
                         Command::Close(reply) => {
                             drop(db);
-                            drop(lock);
-                            let _ = reply.send(());
+                            let result = lock.release();
+                            let _ = reply.send(result);
                             return;
                         }
                     }
                 }
+                drop(db);
+                let _ = lock.release();
             })
             .map_err(|_| StoreError::Io)?;
         ready_rx.recv().map_err(|_| StoreError::Closed)??;
@@ -176,7 +190,7 @@ impl Store {
             .send(Command::Close(tx))
             .await
             .map_err(|_| StoreError::Closed)?;
-        rx.await.map_err(|_| StoreError::Closed)
+        rx.await.map_err(|_| StoreError::Closed)?
     }
     /// Accepts the original outer postcard bytes; stores them without re-encoding.
     pub async fn add_workspace(&self, raw: Vec<u8>) -> Result<WorkspaceId, StoreError> {
