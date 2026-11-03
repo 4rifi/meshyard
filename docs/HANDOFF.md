@@ -38,7 +38,7 @@ agreed below).
 ## 3. Current state
 
 - Planning baseline: `0f8d52f` on `main`, committed and pushed by parent.
-- T-001 branch: `t-001-scaffold`; CSP fix `9e31b6c`, full check and native build pass; review requested with native/first-launch acceptance open.
+- T-001 branch: `t-001-scaffold`; CSP fix `9e31b6c`, full check and native build pass; review requested with native/first-launch acceptance open. Review cleanup and its isolated artifacts are recorded in the dated T-001 report.
 - Active safe checkout: `/private/tmp/meshyard-t001-recovery-checkout`; original Documents checkout is incomplete and was not repaired or overwritten.
 - Rust toolchain, caches and build output: `/Volumes/Kursmodule/Meshyard-build` (USB APFS image must stay mounted).
 - Toolchain verified: Rust/cargo 1.99.1 (parent installed via official rustup), Node 26.7.0, npm 11.19.0; Xcode present.
@@ -62,6 +62,17 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Bounded T-001 review cleanup: make the existing external headless CSP check
+  discoverable, use portable README setup, allow unwrap/expect only in tests through Clippy
+  configuration, and build only an rlib for the desktop app. Dependencies and production CSP
+  unchanged. Earlier worker-only T-002 restrictions are historical; the owner's permission
+  to start T-002 after review remains in force. This worker does not touch T-002. The owner
+  kept the original first-start `<20 ms` criterion; profiling found no credible fix. Automatic
+  approval review blocked Meshyard GUI launch/control; no native launch, capture, alternate
+  channel or visual acceptance is authorized by this cleanup. T-001 stays **review, not done**.
+  The existing main tracing event has no subscriber/console sink; observability and the later
+  agent-pipeline redaction layer are not implemented by this scaffold cleanup.
 
 - 2026-11-03 — Codex lead: T-001 review requested after clean-clone full checks/native build
   and red/green production-CSP rendering test. Native pre-fix bundle showed graphics fallback;
