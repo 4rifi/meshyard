@@ -37,11 +37,29 @@ agreed below).
 
 ## 3. Current state
 
-- Planning baseline: `0f8d52f` on `main`, committed and pushed by parent.
-- T-001 branch: `t-001-scaffold`; CSP fix `9e31b6c`, full check and native build pass; review requested with native/first-launch acceptance open.
-- Active safe checkout: `/private/tmp/meshyard-t001-recovery-checkout`; original Documents checkout is incomplete and was not repaired or overwritten.
-- Rust toolchain, caches and build output: `/Volumes/Kursmodule/Meshyard-build` (USB APFS image must stay mounted).
-- Toolchain verified: Rust/cargo 1.99.1 (parent installed via official rustup), Node 26.7.0, npm 11.19.0; Xcode present.
+- Owner decision (2026-11-03): develop and build **only on the USB volume**. Canonical checkout:
+  `/Volumes/Kursmodule/meshyard`; task worktrees: `/Volumes/Kursmodule/meshyard-worktrees/`.
+  Both use Git metadata at `/Volumes/Kursmodule/meshyard/.git`, independent of temporary clones.
+- Planning baseline: `0f8d52f` on `main`, committed and pushed.
+- T-001: `t-001-scaffold` in the canonical checkout; source cleanup `ac125bb`, status ping
+  `8275fb0`, knowledge commit `a101deb`. Check/build evidence is in `docs/reports/T-001.md`;
+  review remains open for native visual acceptance and the original first-start <20 ms criterion.
+- T-002: `t-002-core-store-identity`, implementation/fix report `9889c7b`, in
+  `/Volumes/Kursmodule/meshyard-worktrees/t-002-core-store-identity`. Full check passed as reported;
+  final-source independent audit timed out and remains pending. See that branch's report/status.
+- Smithers workspace: `/Volumes/Kursmodule/meshyard-smithers`; existing run databases/logs:
+  `/Volumes/Kursmodule/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
+  No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
+  archived; do not resume them in temporary checkouts.
+- Before project or Smithers commands, source `/Volumes/Kursmodule/meshyard-smithers/env.sh`.
+  It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
+  temporary files under `/Volumes/Kursmodule/Meshyard-build`. Install frontend dependencies
+  physically inside their USB checkout/worktree; do not symlink them from an internal checkout.
+- The APFS sparsebundle on the USB stick **must remain mounted**. The Documents checkout,
+  `/private/tmp/meshyard-t001-recovery-checkout` and the old T-002 worktree remain preserved,
+  archival and unused; no deletion without Dion's confirmation. New runs must use USB paths.
+- Toolchain verified after migration: Rust/cargo 1.99.1 from the external toolchain. Node/npm
+  versions previously verified: Node 26.7.0, npm 11.19.0; Xcode present.
 
 ## 4. Task board
 
@@ -62,6 +80,16 @@ agreed below).
 | D-5 | License | none chosen | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — USB-only migration completed per Dion: both task branches fetched and
+  fast-forwarded from origin; T-002 now has a USB-owned worktree/Git directory. Moved Smithers
+  workspace/state from temporary storage; verified all 29 original entries before path updates,
+  archived original inputs, checked seven SQLite databases and bundled seven workflow files
+  without running jobs. KNOWER explicitly confirmed readiness; five unchanged knowledge files
+  committed separately as `a101deb`, including advisory KQ-008 (DMG/onboarding planning pointer
+  for Claude, CTA meaning still awaiting Dion). Updated §3 on both task branches; no source,
+  task acceptance or product-scope changes. No new app checks/native test or implementation run;
+  old checkouts preserved. Final-source T-002 audit is the next bounded USB-only run.
 
 - 2026-11-03 — Codex T-002 fix worker: both P1 findings at `569b879` addressed. Canonical
   root-down directory trust uses safe effective-UID and macOS ACL checks; no secret-read exploit
