@@ -18,4 +18,8 @@ export type AppError =
   | 'RandomUnavailable'
   | 'PartialCreate'
   | 'Configuration'
-  | 'IpcUnavailable';
+  | 'IpcUnavailable'
+  | 'IngestUnavailable'
+  | 'HookBinaryMissing'
+  | 'HookPlanStale'
+  | 'HookConfigInvalid';

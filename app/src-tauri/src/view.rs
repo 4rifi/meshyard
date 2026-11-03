@@ -23,6 +23,10 @@ pub enum AppError {
     PartialCreate,
     Configuration,
     IpcUnavailable,
+    IngestUnavailable,
+    HookBinaryMissing,
+    HookPlanStale,
+    HookConfigInvalid,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub enum AppStatus {
@@ -38,6 +42,8 @@ pub struct WorkspaceView {
     pub device_short: String,
     pub members: Vec<MemberView>,
     pub agents: Vec<AgentView>,
+    pub ingest: IngestView,
+    pub hook: HookView,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct MemberView {
@@ -54,6 +60,48 @@ pub struct AgentView {
     pub label: String,
     pub state: Option<ActivityState>,
     pub provenance: Option<Provenance>,
+    pub is_you: bool,
+    pub stale: bool,
+    pub bound: bool,
+    pub connection: AgentConnection,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub enum AgentConnection {
+    NotConnected,
+    WaitingForFirstEvent,
+    Connected,
+    Stale,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct IngestView {
+    pub status: IngestStatus,
+    pub dropped_unbound: u32,
+    pub dropped_invalid: u32,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub enum IngestStatus {
+    Disabled,
+    Listening,
+    Unavailable(AppError),
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct HookView {
+    pub installed: bool,
+    pub binary_available: bool,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub struct HookPlan {
+    pub plan_id: String,
+    pub settings_path_display: String,
+    pub base_sha256: String,
+    pub diff: String,
+    pub action: HookAction,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+pub enum HookAction {
+    Install,
+    Remove,
+    NoChange,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields)]

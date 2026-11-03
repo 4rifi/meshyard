@@ -7,5 +7,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     AppStatus::export_all(&config)?;
     CreateWorkspace::export_all(&config)?;
     RegisterAgent::export_all(&config)?;
+    HookPlan::export_all(&config)?;
     Ok(())
 }

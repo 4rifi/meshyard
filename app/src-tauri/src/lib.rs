@@ -1,5 +1,6 @@
 //! Local workspace application. No network endpoint, hook, filesystem or shell plugin.
 pub mod commands;
+pub mod hooks;
 mod ingest;
 pub mod state;
 pub mod view;
@@ -31,6 +32,10 @@ pub fn run() -> tauri::Result<()> {
             commands::ipc::create_workspace,
             commands::ipc::update_profile,
             commands::ipc::register_agent,
+            commands::ipc::bind_agent,
+            commands::ipc::hook_plan,
+            commands::ipc::hook_apply,
+            commands::ipc::hook_remove,
         ])
         .build(tauri::generate_context!())?
         .run(|app, event| {

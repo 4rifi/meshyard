@@ -5,6 +5,10 @@ fn main() {
             "create_workspace",
             "update_profile",
             "register_agent",
+            "bind_agent",
+            "hook_plan",
+            "hook_apply",
+            "hook_remove",
         ]),
     ))
     .unwrap_or_else(|error| panic!("app build failed: {error}"));

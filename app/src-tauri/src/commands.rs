@@ -17,7 +17,11 @@ pub async fn create_workspace(state: &AppState, input: CreateWorkspace) -> AppSt
         }
     };
     state.start_ingest().await;
-    result
+    if matches!(result, AppStatus::Ready(_)) {
+        app_status(state).await
+    } else {
+        result
+    }
 }
 pub async fn update_profile(state: &AppState, name: String) -> AppStatus {
     let mut guard = state.0.lock().await;
@@ -30,6 +34,36 @@ pub async fn register_agent(state: &AppState, input: RegisterAgent) -> AppStatus
     let mut guard = state.0.lock().await;
     match guard.as_mut() {
         Ok(core) => core.register(input).await.unwrap_or_else(AppStatus::Error),
+        Err(error) => AppStatus::Error(error.clone()),
+    }
+}
+pub async fn bind_agent(state: &AppState, agent_id: String) -> AppStatus {
+    let mut guard = state.0.lock().await;
+    match guard.as_mut() {
+        Ok(core) => core.bind(agent_id).await.unwrap_or_else(AppStatus::Error),
+        Err(error) => AppStatus::Error(error.clone()),
+    }
+}
+pub async fn hook_plan(state: &AppState) -> Result<HookPlan, AppError> {
+    plan(state, false).await
+}
+pub async fn hook_remove(state: &AppState) -> Result<HookPlan, AppError> {
+    plan(state, true).await
+}
+async fn plan(state: &AppState, remove: bool) -> Result<HookPlan, AppError> {
+    let mut guard = state.0.lock().await;
+    match guard.as_mut() {
+        Ok(core) => core.hook_plan(remove),
+        Err(error) => Err(error.clone()),
+    }
+}
+pub async fn hook_apply(state: &AppState, plan_id: String) -> AppStatus {
+    let mut guard = state.0.lock().await;
+    match guard.as_mut() {
+        Ok(core) => core
+            .hook_apply(plan_id)
+            .await
+            .unwrap_or_else(AppStatus::Error),
         Err(error) => AppStatus::Error(error.clone()),
     }
 }
@@ -59,5 +93,27 @@ pub(crate) mod ipc {
         input: RegisterAgent,
     ) -> Result<AppStatus, AppError> {
         Ok(super::register_agent(&state, input).await)
+    }
+    #[tauri::command]
+    pub async fn bind_agent(
+        state: tauri::State<'_, AppState>,
+        agent_id: String,
+    ) -> Result<AppStatus, AppError> {
+        Ok(super::bind_agent(&state, agent_id).await)
+    }
+    #[tauri::command]
+    pub async fn hook_plan(state: tauri::State<'_, AppState>) -> Result<HookPlan, AppError> {
+        super::hook_plan(&state).await
+    }
+    #[tauri::command]
+    pub async fn hook_remove(state: tauri::State<'_, AppState>) -> Result<HookPlan, AppError> {
+        super::hook_remove(&state).await
+    }
+    #[tauri::command]
+    pub async fn hook_apply(
+        state: tauri::State<'_, AppState>,
+        plan_id: String,
+    ) -> Result<AppStatus, AppError> {
+        Ok(super::hook_apply(&state, plan_id).await)
     }
 }

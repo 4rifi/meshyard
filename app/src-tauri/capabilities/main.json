@@ -1,12 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Only the four local workspace commands for the main window.",
+  "description": "Eight local workspace and reviewed hook commands; event subscription only.",
   "windows": ["main"],
   "permissions": [
     "allow-app-status",
     "allow-create-workspace",
     "allow-update-profile",
-    "allow-register-agent"
+    "allow-register-agent",
+    "allow-bind-agent",
+    "allow-hook-plan",
+    "allow-hook-apply",
+    "allow-hook-remove",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

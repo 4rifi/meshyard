@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
+use super::IngestStatus;
 use super::*;
 use crate::{commands::*, state::AppState, view::*};
 use meshyard_core::{
@@ -575,6 +576,7 @@ async fn uds_oversized_slow_malformed_and_ninth_connection_are_bounded() {
 #[tokio::test]
 async fn uds_fixture_envelopes_to_signed_store_app_status_and_fake_idle() {
     let (dir, state) = profile(true).await;
+    install_fixture(&state, dir.path()).await;
     let clock = Arc::new(FakeClock::default());
     let server = start(
         dir.path(),
@@ -586,6 +588,10 @@ async fn uds_fixture_envelopes_to_signed_store_app_status_and_fake_idle() {
     assert_eq!(std::fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
     send(&path, PROMPT).await;
     wait_state(&state, S::Thinking).await;
+    assert_eq!(
+        ready(app_status(&state).await).agents[0].connection,
+        AgentConnection::Connected
+    );
     clock.set(100);
     send(&path, PROMPT).await;
     wait_counter(&state.2.received, 2).await;
@@ -668,6 +674,8 @@ async fn prep_counted_app_status_idle_and_binding_use_projection_across_store_cl
         signer: signer.clone(),
         workspace: None,
         app: None,
+        ingest: Arc::default(),
+        installer: None,
     };
     ready(
         core.create(CreateWorkspace {
@@ -854,6 +862,8 @@ async fn prep_rate_deadline_starts_after_async_persistence_not_receive_sample() 
         signer: signer.clone(),
         workspace: None,
         app: None,
+        ingest: Arc::default(),
+        installer: None,
     };
     ready(
         core.create(CreateWorkspace {
@@ -1099,4 +1109,150 @@ async fn uds_darwin_buffered_closed_peer_records_old_errno_and_new_uid() {
     assert!(read_one(stream, expected_uid, &status).await.is_some());
     assert_eq!(status.dropped_invalid.load(Ordering::Relaxed), 0);
     assert_eq!(rejection_counts(&status), [0; 8]);
+}
+
+async fn install_fixture(state: &AppState, dir: &Path) {
+    let binary = dir.join("reviewed hook fixture");
+    std::fs::write(&binary, b"not executed").unwrap();
+    std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+    state
+        .configure_hooks(dir.join(".claude/settings.json"), Some(binary))
+        .await;
+    let plan = hook_plan(state).await.unwrap();
+    assert_eq!(plan.action, HookAction::Install);
+    let waiting = ready(hook_apply(state, plan.plan_id).await);
+    assert_eq!(
+        waiting.agents[0].connection,
+        AgentConnection::WaitingForFirstEvent
+    );
+}
+#[tokio::test]
+async fn connect_dto_clock_only_staleness_binding_authority_and_disabled_settings() {
+    let (dir, state) = profile(true).await;
+    let initial = ready(app_status(&state).await);
+    assert_eq!(initial.agents[0].connection, AgentConnection::NotConnected);
+    assert!(initial.agents[0].bound && initial.agents[0].is_you);
+    assert!(!initial.hook.installed && !initial.hook.binary_available);
+    assert_eq!(hook_plan(&state).await, Err(AppError::HookBinaryMissing));
+    assert!(!dir.path().join(".claude").exists());
+    install_fixture(&state, dir.path()).await;
+    let clock = Arc::new(FakeClock::default());
+    let mut pipeline = Pipeline::new(clock.clone());
+    apply(&state, &mut pipeline, &clock, PROMPT, 0).await;
+    let connected = ready(app_status(&state).await);
+    assert_eq!(connected.agents[0].connection, AgentConnection::Connected);
+    let count = events(&state).await.len();
+    {
+        let guard = state.0.lock().await;
+        let core = guard.as_ref().unwrap();
+        let snapshot = core
+            .store
+            .workspace_snapshot(core.workspace.unwrap())
+            .await
+            .unwrap();
+        let ts = snapshot.agent_state_ts.values().copied().max().unwrap();
+        let boundary = ready(core.status_at(ts + 600_000).await.unwrap());
+        assert_eq!(boundary.agents[0].connection, AgentConnection::Connected);
+        let stale = ready(core.status_at(ts + 600_001).await.unwrap());
+        assert!(stale.agents[0].stale);
+        assert_eq!(stale.agents[0].state, Some(S::Thinking));
+        assert_eq!(stale.agents[0].connection, AgentConnection::Stale);
+    }
+    assert_eq!(
+        events(&state).await.len(),
+        count,
+        "derived staleness appends no wire event"
+    );
+    let with_codex = ready(
+        register_agent(
+            &state,
+            RegisterAgent {
+                kind: AgentKind::Codex,
+                label: "unsupported".into(),
+            },
+        )
+        .await,
+    );
+    let codex = with_codex
+        .agents
+        .iter()
+        .find(|a| a.kind == AgentKind::Codex)
+        .unwrap();
+    assert_eq!(codex.connection, AgentConnection::NotConnected);
+    assert_eq!(
+        bind_agent(&state, codex.id.clone()).await,
+        AppStatus::Error(AppError::InvalidInput)
+    );
+    let (foreign_id, own_id) = {
+        let guard = state.0.lock().await;
+        let core = guard.as_ref().unwrap();
+        let workspace = core.workspace.unwrap();
+        let id = core
+            .store
+            .agent_binding(workspace, AgentKind::ClaudeCode, core.signer.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        let remote = Arc::new(SecretKey::from_bytes(&[111; 32]));
+        core.store
+            .append_own(
+                workspace,
+                EventBody::MemberAdded {
+                    device: remote.device_id(),
+                    display_name: "foreign".into(),
+                },
+                core.signer.clone(),
+            )
+            .await
+            .unwrap();
+        core.store
+            .append_own(
+                workspace,
+                EventBody::AgentRegistered {
+                    agent_local_id: id,
+                    kind: AgentKind::ClaudeCode,
+                    label: "same ID".into(),
+                },
+                remote.clone(),
+            )
+            .await
+            .unwrap();
+        let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        (
+            format!("{}:{}", hex(&remote.device_id().0), hex(&id)),
+            connected.agents[0].id.clone(),
+        )
+    };
+    let view = ready(app_status(&state).await);
+    assert!(
+        !view
+            .agents
+            .iter()
+            .find(|a| a.id == foreign_id)
+            .unwrap()
+            .is_you
+    );
+    assert_eq!(
+        bind_agent(&state, foreign_id).await,
+        AppStatus::Error(AppError::InvalidInput)
+    );
+    assert_eq!(
+        ready(bind_agent(&state, own_id).await)
+            .agents
+            .iter()
+            .filter(|a| a.bound)
+            .count(),
+        1
+    );
+    let removal = hook_remove(&state).await.unwrap();
+    assert!(
+        ready(app_status(&state).await).hook.installed,
+        "remove remains a review until Apply"
+    );
+    assert!(
+        !ready(hook_apply(&state, removal.plan_id).await)
+            .hook
+            .installed
+    );
+    state.close().await.unwrap();
 }

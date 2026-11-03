@@ -22,11 +22,15 @@ meshyard-core.workspace = true
 meshyard-store.workspace = true
 tokio = { workspace = true, features = ["net", "io-util", "time"] }
 meshyard-agents.workspace = true
-rustix.workspace = true
+rustix = { workspace = true, features = ["fs"] }
 serde.workspace = true
 ts-rs.workspace = true
 postcard.workspace = true
 getrandom.workspace = true
+serde_json = { workspace = true, features = ["preserve_order", "raw_value"] }
+sha2 = "=0.11.1"
+tempfile.workspace = true
+libc.workspace = true
 
 # ADR-015: Darwin UID lookup must not require a live peer PID.
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -34,5 +38,4 @@ nix = { version = "=0.31.3", default-features = false, features = ["socket", "us
 
 [dev-dependencies]
 meshyard-store = { workspace = true, features = ["test-support"] }
-tempfile.workspace = true
 rusqlite.workspace = true

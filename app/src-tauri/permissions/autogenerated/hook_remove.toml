@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-hook-remove"
+description = "Enables the hook_remove command without any pre-configured scope."
+commands.allow = ["hook_remove"]
+
+[[permission]]
+identifier = "deny-hook-remove"
+description = "Denies the hook_remove command without any pre-configured scope."
+commands.deny = ["hook_remove"]
