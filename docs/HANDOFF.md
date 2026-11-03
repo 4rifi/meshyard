@@ -83,9 +83,10 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
-| T-015 pixel app redesign | in-progress · **priority 1** | Codex lane A | exclusive frontend writer; visual fixes/alignment active; original reference missing |
+| T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
+| T-016 living yard | review (code accepted `b535dbc`) | Dion (native/reference) | Claude re-review `090257d`; renderer movement/occupancy labels accepted; no native/live-hook acceptance |
 | T-007a hook/normalizer | review (code accepted) | Codex lane B | Claude re-review `584cf0c`; B-2 resolved, B-1 first-launch <20 ms remains unmet; no live installation |
-| T-007b local integration | in-progress (backend prep) | Codex lane B | USB-only ingest/store/backend; frontend follows T-015; final B-1/N-14 gates open |
+| T-007b connect Claude Code | in-progress | Codex lane B | ingest/projection/closed-peer UID implemented; normal socket cases pass; combined check and Connect frontend/installer next; owner Install/L4 pending |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -125,6 +126,48 @@ No prior task status, review decision or owner decision is changed by this path-
   ingest/store binding/state and installer backend; frontend/IPC handoff follows reviewed T-015.
   Code acceptance permits prep under D-9; B-1 first-launch and N-14 owner gates remain open.
   No hook installation or actual owner settings/Keychain writes are authorized by tests.
+
+- 2026-11-03 — Codex lead: T-016 review `9ee4c48` committed unchanged, bounded fix
+  `b535dbc` restores occupancy-based name tags; report `e1a2eb4`. Full check exit 0 / 22.194 s.
+  Actual parent renderer QA: eight cases / 100 PNGs pass, original movement assertions plus
+  single/shared/remaining-second-slot width, identity and nonoverlap checks at 960/375.
+  Current source/fixture hashes and 11 bundle files match; actual frames viewed. Mock renderer
+  evidence only; native/reference/real CLI gates open. Next exact-head label re-review, then
+  reviewed motion merges into T-007b after its backend writer releases the tree.
+
+- 2026-11-03 — Codex lead: T-016 source `c5beea9`, report `d95961e`; full check exit 0,
+  185.187 s (67 Rust plus lock child, 44 Vitest, two ignored). Parent renderer-fixture QA passes
+  six isolated timing-mode/width cases, 84 PNGs, real RAF movement + reduced-motion snaps,
+  no idle ticker or CSP/runtime/overflow errors. First shared-clock-context attempt failed and
+  remains preserved; no production change/timeout weakening. Actual frames inspected; narrow
+  tag abbreviation/heading overlap goes to Claude review. Task review, no native/reference/CLI
+  acceptance. T-007b ADR-014 projection/failure follow-up `48b41755` runs separately; next merge
+  follows source acceptance and backend-writer handoff. Real T-015 native window remains open.
+
+- 2026-11-03 — Codex lead: T-015 reviewed code `a859ed4`, review `1f9886a`, connection/motion
+  planning `52382a8` committed separately and pushed (remote SHA verified). Parent actual new
+  browser proof: 12 cases, 31 screenshots, 9 extra origin/resize checks; PNG audit checks both
+  2× layouts and exact fixture characters; all nine fixture-build files and 144 checked inputs
+  match the worker source/build. Mock IPC only; reference image and owner N-14 remain open.
+  Starting T-016 `t-016-yard-motion` from that reviewed head, sole yard/effect writer. T-007b
+  backend prep runs separately; its frontend integration waits for T-016 handoff. Real native
+  T-015 preview remains open (50103/50266/50284), no owner install or native acceptance claimed.
+
+- 2026-11-03 — Claude: T-015 re-review — code accepted at `a859ed4` (all four findings resolved,
+  browser-mock evidence only); task stays review (reference image missing, N-14 deferred). Owner
+  feedback "kein richtiger Playground / wie verbinden" → new T-016 (agents walk to real state
+  stations, persistent scene) and T-007b §6 (Connect Claude Code flow, exact DTOs, registration
+  never "connected", explicit Install, optional isolated CLI capture only with Dion's OK). Palette
+  and art direction frozen until the original image is supplied. Docs uncommitted.
+
+- 2026-11-03 — Codex lead: T-015 source `b9324a9` + isolated fixture `e17de2a`, report
+  `44e5aaf`; fresh full check exit 0 (177.720 s; 67 top-level Rust + lock child, 28 Vitest).
+  Parent normal-shell browser QA completed 12 cases / 24 PNGs under production CSP at 960/375,
+  no CSP/runtime errors or overflow; sampled pixel palette checks pass. Browser states are
+  mocked IPC, not native/live/persistence acceptance. Real native preview serves T-015's real
+  main entry with accepted T-014 backend and the same USB file-key profile (14557/14707/14714);
+  onscreen window confirmed, no screen capture permission or screenshot. Narrow-map label
+  legibility goes to visual review. Original reference and N-14 remain pending; no done/main merge.
 
 - 2026-11-03 — Claude: T-014 re-review at `1f90a07` (source only): identity fix resolved, code
   accepted; N-14 native gate pending with Dion. New owner priority → T-015 app-wide pixel redesign

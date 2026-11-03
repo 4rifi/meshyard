@@ -81,7 +81,11 @@ export function App() {
   return (
     <main ref={main} aria-busy={busy}>
       {status === null ? (
-        <p role="status">Opening local workspace…</p>
+        <section className="loading-sign" role="status">
+          <p className="eyebrow">Meshyard · This device</p>
+          <h1 tabIndex={-1}>Opening local workspace…</h1>
+          <p>Reading saved workspace and device identity.</p>
+        </section>
       ) : (
         <StatusScreen
           status={status}
@@ -103,7 +107,7 @@ export function App() {
       <p className="footnote" role="status">
         {busy
           ? 'Saving to this device…'
-          : 'Local data · No networking or live hook in this slice'}
+          : 'Local data only · Networking and live agent status are not available yet.'}
       </p>
     </main>
   );

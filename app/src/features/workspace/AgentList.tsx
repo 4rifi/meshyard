@@ -1,5 +1,25 @@
 import type { AgentView } from '../../ipc/generated/AgentView';
+import type { HookEvent } from '../../ipc/generated/HookEvent';
+import type { RuleId } from '../../ipc/generated/RuleId';
 import { activityLabel } from '../../playground/yardData';
+// Verified names identify source events; inferred names identify classifier rules.
+const sourceLabels: Record<HookEvent, string> = {
+  SessionStart: 'Session start event',
+  UserPromptSubmit: 'Prompt submitted event',
+  PreToolUse: 'Before tool event',
+  PostToolUse: 'After tool event',
+  Stop: 'Stop event',
+  StopFailure: 'Stop failure event',
+  SessionEnd: 'Session end event',
+};
+const ruleLabels: Record<RuleId, string> = {
+  ToolEdit: 'Edit tool',
+  ToolShell: 'Shell tool',
+  ToolRead: 'Read tool',
+  ToolWeb: 'Web tool',
+  TurnEnded: 'Turn ended',
+  Stale: 'Stale activity',
+};
 export function AgentList({ agents }: { agents: AgentView[] }) {
   if (!agents.length) return <p>No agents registered yet.</p>;
   return (
@@ -9,13 +29,13 @@ export function AgentList({ agents }: { agents: AgentView[] }) {
           <strong>{agent.label}</strong>
           <span>
             {agent.kind === 'ClaudeCode' ? 'Claude Code' : agent.kind} ·{' '}
-            {activityLabel(agent.state)}
+            <span className="badge">{activityLabel(agent.state)}</span>
           </span>
           {agent.provenance && (
-            <span>
+            <span className="badge">
               {'Verified' in agent.provenance
-                ? `Verified · ${agent.provenance.Verified.source}`
-                : `Inferred · ${agent.provenance.Inferred.rule}`}
+                ? `Verified · ${sourceLabels[agent.provenance.Verified.source]}`
+                : `Inferred · ${ruleLabels[agent.provenance.Inferred.rule]}`}
             </span>
           )}
         </li>

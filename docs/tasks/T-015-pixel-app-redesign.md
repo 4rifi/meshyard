@@ -76,6 +76,14 @@ the image. All art is original (no copied sprites, tilesets or fonts).
 - The accessible `AgentList` stays the equivalent of the yard (same DTO, same labels); canvas
   `aria-hidden`. Renderer failure text unchanged in meaning.
 
+### Responsive yard (amendment 2026-11-03, after review)
+- Host width ≥ 640 CSS px: 4-column layout, logical 320 wide, integer scale `floor(host/320)`.
+- Host width < 640: **2-column** layout, logical 160 wide (two stations per row, four rows, same
+  eight stations in the same order), integer scale `max(1, floor(host/160))` — 2 at 375 px.
+  Same real agents/states; nothing hidden or invented. Height grows accordingly (yard stays first).
+- Name tags may wrap to two lines within the tag width before an ellipsis, in both layouts.
+- Crisp integer pixels and no horizontal overflow in both layouts; the accessible list is unchanged.
+
 ## Code shape (minimal)
 - Rewrite `styles.css` around the tokens; add `app/src/assets/pixel/*.svg` only for textures,
   borders, icons and props actually referenced. Small sprite/prop definitions as typed pixel maps in

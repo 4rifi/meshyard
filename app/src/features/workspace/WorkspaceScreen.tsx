@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { RegisterAgent as RegisterInput } from '../../ipc/generated/RegisterAgent';
-import { mountYard } from '../../playground/yard';
+import { createYard, type Yard } from '../../playground/yard';
 import { MemberList } from './MemberList';
 import { AgentList } from './AgentList';
 import { RegisterAgent } from './RegisterAgent';
@@ -17,16 +17,26 @@ export function WorkspaceScreen({
   onProfile: (name: string) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
+  const yard = useRef<Yard | null>(null);
+  const agentLabel = useRef<HTMLInputElement>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [name, setName] = useState(
     workspace.members.find((m) => m.is_you)?.display_name ?? '',
   );
   useEffect(() => {
-    if (!host.current || !workspace.agents.length) return;
-    return mountYard(host.current, workspace.agents, () => {
+    if (!host.current) return;
+    const scene = createYard(host.current, () => {
       setRendererFailed(true);
     });
-  }, [workspace.agents]);
+    yard.current = scene;
+    return () => {
+      scene.destroy();
+      yard.current = null;
+    };
+  }, [workspace.id_short]);
+  useEffect(() => {
+    yard.current?.update(workspace.agents);
+  }, [workspace.id_short, workspace.agents]);
   return (
     <>
       <header className="workspace-header">
@@ -37,18 +47,50 @@ export function WorkspaceScreen({
         <span className="mode">
           {workspace.mode === 'Strict' ? 'Strict P2P' : 'Auto'}
         </span>
+        {busy ? (
+          <span className="register-shortcut">Saving…</span>
+        ) : (
+          <a
+            className="pixel-control register-shortcut"
+            href="#agent-label"
+            onClick={(event) => {
+              event.preventDefault();
+              agentLabel.current?.scrollIntoView({ block: 'center' });
+              agentLabel.current?.focus({ preventScroll: true });
+            }}
+          >
+            Register agent
+          </a>
+        )}
         <p className="identity">
           Workspace <code>{workspace.id_short}</code> · Your device{' '}
           <code>{workspace.device_short}</code>
         </p>
       </header>
       <section className="panel yard" aria-labelledby="yard-heading">
-        <h2 id="yard-heading">The yard</h2>
-        {workspace.agents.length ? (
+        <div className="yard-heading">
+          <h2 id="yard-heading">The yard</h2>
+          <p>Stations reflect observed agent states</p>
+        </div>
+        <div
+          className="yard-viewport"
+          tabIndex={0}
+          role="region"
+          aria-label="Yard map; scroll horizontally on small screens"
+        >
           <div className="canvas-host" ref={host} aria-hidden="true" />
-        ) : (
+        </div>
+        {!workspace.agents.length && (
           <p className="empty-yard">Register an agent to see it here.</p>
         )}
+        <p className="narrow-yard-help">
+          At very narrow widths the map uses smaller pixels. Full names and
+          status are in the agent list below.
+        </p>
+        <p className="yard-caption">
+          <span>{workspace.agents.length} registered agents</span>
+          <span>Movement follows observed state changes</span>
+        </p>
         {rendererFailed && (
           <p role="status">
             Graphics are unavailable. Every agent is listed below.
@@ -61,10 +103,12 @@ export function WorkspaceScreen({
             Agents <span className="count">{workspace.agents.length}</span>
           </h2>
           <AgentList agents={workspace.agents} />
-          <p>
-            Live status arrives when the Claude Code hook is installed (T-007).
-          </p>
-          <RegisterAgent busy={busy} onRegister={onRegister} />
+          <p>Live agent status is not connected yet.</p>
+          <RegisterAgent
+            busy={busy}
+            onRegister={onRegister}
+            labelInput={agentLabel}
+          />
         </section>
         <div className="side-panels">
           <section className="panel" aria-labelledby="members-heading">

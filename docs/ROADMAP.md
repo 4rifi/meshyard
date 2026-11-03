@@ -23,7 +23,8 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | T-012 | System validation: two-node scripted test, `docs/VALIDATION.md` real-device protocol, results log, field test with the test partner (same LAN first, then different networks) | T-010, T-011, T-013 | todo |
 | T-007b | Local app ingest, explicit agent binding and approved hook installer (backend prep first; frontend follows T-015) | T-014 code accepted; T-007a code accepted, final gates pending | in-progress (backend prep) |
 | T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | review |
-| T-015 | **App-wide pixel redesign** (owner priority 1): pixel tokens/texture across all screens, yard as visual centre with stations + pixel characters from real agents. Spec `docs/tasks/T-015-pixel-app-redesign.md` | T-014 code-accepted (`1f90a07`) | ready |
+| T-015 | **App-wide pixel redesign** (owner priority 1): pixel tokens/texture across all screens, yard as visual centre with stations + pixel characters from real agents. Spec `docs/tasks/T-015-pixel-app-redesign.md` | T-014 code-accepted (`1f90a07`) | review (code accepted `a859ed4`; reference image + N-14 pending) |
+| T-016 | **Living yard** (owner priority 1): persistent scene, agents walk along yard paths to the station of their real state; reduced motion snaps. Spec `docs/tasks/T-016-yard-motion.md` | T-015 code-accepted | review |
 | T-013 | Tester DMG: `aarch64-apple-darwin`, ad-hoc signed, stable id `ch.arifi.meshyard`, `meshyard://join` deep link, bundled `meshyard-hook`, Strict-only profile + bundle check for relay/n0 hosts, `docs/TESTER-GUIDE.md` (German) | T-011 | todo |
 
 Parallelizable: T-007 can run alongside T-003…T-006 (separate worktree).
@@ -34,8 +35,8 @@ then `m1-integration` once the T-001/T-002 owner gates close (D-6 unchanged):
 
 | Lane | Task | Branch | Owns |
 |---|---|---|---|
-| A (priority) | ~~T-014~~ code-accepted, N-14 pending → **T-015 pixel redesign** | `t-015-pixel-app-redesign` from `1f90a07` | **exclusive** `app/src/**` (not generated), `app/src/assets/**`, `app/index.html`, `app/vite.config.ts` |
-| B | T-007b backend prep (after T-007a fixes) | `t-007b-local-agent-integration` | `app/src-tauri/**`, store binding; T-007b frontend §4 waits for T-015 hand-off |
+| A (priority) | T-015 code-accepted → **T-016 living yard** | `t-016-yard-motion` from `a859ed4` | `app/src/playground/**` + yard effect in `WorkspaceScreen.tsx` |
+| B | T-007b §1–3 backend prep (running), then merge T-015/T-016 and do §4–6 connect flow | `t-007b-local-agent-integration` (base `3e8ccab`) | `app/src-tauri/**`, store binding; later `features/connect/**`, `ipc/client.ts`, `App.tsx`, `AgentList.tsx` |
 | B | T-007a hook + normalizer | `t-007a-hook-normalizer` | `crates/meshyard-hook`, `crates/meshyard-agents` |
 | C (when A/B have capacity) | T-003 Strict endpoint | `t-003-net-endpoint` | `crates/meshyard-net` |
 
