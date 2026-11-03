@@ -214,6 +214,39 @@ fn terminal_ordering_ended_turns_and_turn_start_gate() {
 }
 
 #[test]
+fn idless_tools_in_one_turn_are_distinct_but_identified_replays_are_dropped() {
+    let mut m = machine();
+    prompt(&mut m, "s", "t", 0);
+    let edit = envelope("PreToolUse", "s", json!({"turn_id":"t","tool":"edit"}));
+    let test = envelope(
+        "PreToolUse",
+        "s",
+        json!({"turn_id":"t","tool":"shell","command_class":"test"}),
+    );
+    assert_eq!(
+        m.apply(&edit, at(1)),
+        Some((
+            S::Building,
+            P::Inferred { rule: R::ToolEdit },
+            Some(T::Edit)
+        ))
+    );
+    assert_eq!(
+        m.apply(&test, at(2)),
+        Some((
+            S::Testing,
+            P::Inferred { rule: R::ToolShell },
+            Some(T::Shell)
+        ))
+    );
+    let identified = envelope("PreToolUse", "s", json!({"tool":"edit","tool_use_id":"u"}));
+    assert_eq!(m.apply(&identified, at(3)).unwrap().0, S::Building);
+    assert_eq!(m.apply(&test, at(4)).unwrap().0, S::Testing);
+    assert_eq!(m.apply(&identified, at(5)), None);
+    assert_eq!(m.current().unwrap().0, S::Testing);
+}
+
+#[test]
 fn duplicate_context_includes_subagent_and_survives_a_new_turn() {
     let mut m = machine();
     prompt(&mut m, "s", "t1", 0);

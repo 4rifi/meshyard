@@ -228,41 +228,65 @@ fn bounded<T: Send + 'static>(
     rx.recv_timeout(budget).ok()
 }
 
+fn remaining_budget(elapsed: Duration, limit: Duration) -> Option<Duration> {
+    TOTAL_BUDGET
+        .checked_sub(elapsed)
+        .map(|left| left.min(limit))
+}
+
+fn bounded_remaining<T: Send + 'static>(
+    started: Instant,
+    limit: Duration,
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Option<T> {
+    bounded(remaining_budget(started.elapsed(), limit)?, work)
+}
+
 fn forward(agent: &'static str, path: PathBuf, started: Instant) -> Option<()> {
-    let input = bounded(
-        READ_BUDGET.min(TOTAL_BUDGET.checked_sub(started.elapsed())?),
-        || {
-            let mut input = Vec::new();
-            std::io::stdin()
-                .take((INPUT_LIMIT + 1) as u64)
-                .read_to_end(&mut input)
-                .ok()?;
-            Some(input)
-        },
-    )??;
+    let input = bounded_remaining(started, READ_BUDGET, || {
+        let mut input = Vec::new();
+        std::io::stdin()
+            .take((INPUT_LIMIT + 1) as u64)
+            .read_to_end(&mut input)
+            .ok()?;
+        Some(input)
+    })??;
     let line = normalize(agent, &input)?;
     drop(input);
     if !socket_allowed(&path) {
         return None;
     }
-    let mut stream = bounded(
-        IO_BUDGET.min(TOTAL_BUDGET.checked_sub(started.elapsed())?),
-        move || UnixStream::connect(path).ok(),
-    )??;
-    stream
-        .set_write_timeout(Some(
-            IO_BUDGET.min(TOTAL_BUDGET.checked_sub(started.elapsed())?),
-        ))
-        .ok()?;
-    bounded(
-        IO_BUDGET.min(TOTAL_BUDGET.checked_sub(started.elapsed())?),
-        move || stream.write_all(&line).ok(),
-    )??;
+    send_line(
+        started,
+        path,
+        line,
+        |path| UnixStream::connect(path).ok(),
+        |mut stream, line, budget| {
+            stream.set_write_timeout(Some(budget)).ok()?;
+            stream.write_all(&line).ok()
+        },
+    )
+}
+
+// Inject transport operations so supervision does not depend on OS queue behaviour.
+fn send_line<S: Send + 'static>(
+    started: Instant,
+    path: PathBuf,
+    line: Vec<u8>,
+    connect: impl FnOnce(PathBuf) -> Option<S> + Send + 'static,
+    write: impl FnOnce(S, Vec<u8>, Duration) -> Option<()> + Send + 'static,
+) -> Option<()> {
+    let stream = bounded_remaining(started, IO_BUDGET, move || connect(path))??;
+    let write_budget = remaining_budget(started.elapsed(), IO_BUDGET)?;
+    bounded_remaining(started, IO_BUDGET, move || {
+        write(stream, line, write_budget)
+    })??;
     Some(())
 }
 
 /// Process entry: all arguments, errors and timeouts fail open without stdout/stderr.
 pub fn run(started: Instant) {
+    std::panic::set_hook(Box::new(|_| {}));
     let mut args = std::env::args_os().skip(1);
     let agent = match args.next().as_deref().and_then(|s| s.to_str()) {
         Some("claude-code") => "claude_code",
@@ -280,9 +304,7 @@ pub fn run(started: Instant) {
     }
     // The supervisor also caps metadata/JSON work and a blocking Unix connect. Detached
     // workers are terminated by process exit; this library entry is for the hook binary only.
-    if let Some(remaining) = TOTAL_BUDGET.checked_sub(started.elapsed()) {
-        let _ = bounded(remaining, move || forward(agent, path, started));
-    }
+    let _ = bounded_remaining(started, TOTAL_BUDGET, move || forward(agent, path, started));
 }
 
 #[cfg(test)]
@@ -373,6 +395,89 @@ mod tests {
         });
         assert!(result.is_none());
         assert!(started.elapsed() < Duration::from_millis(400));
+    }
+
+    #[test]
+    fn blocked_connect_and_write_use_remaining_budget_and_supervision() {
+        // Explicit elapsed time proves clamping independently of OS scheduling.
+        assert_eq!(
+            remaining_budget(Duration::ZERO, READ_BUDGET),
+            Some(READ_BUDGET)
+        );
+        assert_eq!(
+            remaining_budget(Duration::from_millis(100), IO_BUDGET),
+            Some(IO_BUDGET)
+        );
+        assert_eq!(
+            remaining_budget(Duration::from_millis(145), IO_BUDGET),
+            Some(Duration::from_millis(5))
+        );
+        assert_eq!(
+            remaining_budget(Duration::from_millis(151), IO_BUDGET),
+            None
+        );
+
+        for blocked_phase in ["connect", "write"] {
+            let (entered_tx, entered_rx) = mpsc::channel();
+            let (release_tx, release_rx) = mpsc::channel();
+            let (finished_tx, finished_rx) = mpsc::channel();
+            // Inject into the actual transport path, keeping the selected
+            // operation blocked until send_line returns, then release its worker.
+            let started = Instant::now() - Duration::from_millis(140);
+            let gate = move || {
+                entered_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+                finished_tx.send(()).unwrap();
+            };
+            let (connect_gate, write_gate) = if blocked_phase == "connect" {
+                (Some(gate), None)
+            } else {
+                (None, Some(gate))
+            };
+            let result = send_line(
+                started,
+                PathBuf::new(),
+                vec![b'\n'],
+                move |_| {
+                    if let Some(gate) = connect_gate {
+                        gate();
+                    }
+                    Some(())
+                },
+                move |(), line, budget| {
+                    assert_eq!(line, b"\n");
+                    assert!(budget <= Duration::from_millis(10));
+                    if let Some(gate) = write_gate {
+                        gate();
+                    } else {
+                        panic!("write must not follow a timed-out connect");
+                    }
+                    Some(())
+                },
+            );
+            assert_eq!(result, None, "blocked {blocked_phase} must time out");
+            assert!(started.elapsed() < Duration::from_millis(400));
+            entered_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+            release_tx.send(()).unwrap();
+            finished_rx.recv_timeout(Duration::from_secs(1)).unwrap();
+        }
+
+        // Whole-forward supervision must also return if work outside the inner
+        // I/O waits (e.g. metadata) stalls. No socket or platform backlog needed.
+        let (release_tx, release_rx) = mpsc::channel();
+        let (finished_tx, finished_rx) = mpsc::channel();
+        let started = Instant::now();
+        assert!(
+            bounded_remaining(started, TOTAL_BUDGET, move || {
+                release_rx.recv().unwrap();
+                finished_tx.send(()).unwrap();
+            })
+            .is_none()
+        );
+        assert!(started.elapsed() >= TOTAL_BUDGET);
+        assert!(started.elapsed() < Duration::from_millis(400));
+        release_tx.send(()).unwrap();
+        finished_rx.recv_timeout(Duration::from_secs(1)).unwrap();
     }
 
     #[test]
