@@ -172,6 +172,45 @@ impl DataDirLock {
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+    #[cfg(target_os = "macos")]
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn darwin_flock_duplicate_lifetime_diagnostic() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let lock = DataDirLock::acquire(dir.path()).unwrap();
+        // dup and fork share the same flock reference on Darwin. Keep that
+        // reference alive deterministically, without a scheduling-dependent fork.
+        let inherited = lock._file.try_clone().unwrap();
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        drop(lock);
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        println!("Darwin flock: guard dropped, duplicate alive, separate open => Busy");
+        inherited.unlock().unwrap();
+        let reopened = DataDirLock::acquire(dir.path()).unwrap();
+        println!("Darwin flock: explicit unlock of duplicate => separate open succeeds");
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        drop(inherited);
+        assert!(matches!(
+            DataDirLock::acquire(dir.path()),
+            Err(StoreError::Busy)
+        ));
+        drop(reopened);
+        assert!(DataDirLock::acquire(dir.path()).is_ok());
+    }
+
     #[test]
     fn owner_policy_uses_the_actual_effective_uid_and_rejects_other_owners() {
         let current = current_uid();
