@@ -28,3 +28,6 @@ netwatch = "=0.19.3"
 iroh-relay = { version = "=1.4.1", default-features = false }
 iroh = { workspace = true, features = ["test-utils"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "test-util"] }
+# Independent, socket-free QUIC TLS proof; versions already resolved in Cargo.lock.
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std"] }
+rcgen = { version = "=0.14.10", default-features = false, features = ["ring", "crypto"] }

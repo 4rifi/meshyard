@@ -825,3 +825,6 @@ pub const fn version() -> &'static str {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tls_tests;

@@ -1,0 +1,41 @@
+--- a/src/tls.rs
++++ b/src/tls.rs
+@@ -86,7 +86,9 @@
+ 
+         // TODO: enable/disable 0-RTT/storing tickets
+         crypto.resumption = rustls::client::Resumption::store(self.session_store.clone());
+-        crypto.enable_early_data = true;
++        crypto.enable_early_data = false;
++        #[cfg(test)]
++        assert!(!crypto.enable_early_data);
+ 
+         // The synthetic server name is used locally to select the expected endpoint ID
+         // and to partition the session cache. Iroh servers do not use SNI, so do not
+@@ -122,7 +124,9 @@
+ 
+         // must be u32::MAX or 0 (the default). Any other value panics with QUIC
+         // This is specified in RFC 9001: https://www.rfc-editor.org/rfc/rfc9001#section-4.6.1
+-        crypto.max_early_data_size = u32::MAX;
++        crypto.max_early_data_size = 0;
++        #[cfg(test)]
++        assert_eq!(crypto.max_early_data_size, 0);
+         let quic = QuicServerConfig::try_from(crypto)?;
+         Ok(quic)
+     }
+@@ -145,3 +149,16 @@
+         source: rustls::Error,
+     },
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn built_configs_disable_early_data() {
++        let tls = TlsConfig::new(SecretKey::generate(), 8, default_provider());
++        // Assertions inspect each actual rustls config immediately before QUIC type erasure.
++        tls.make_client_config(false).unwrap();
++        tls.make_server_config(false).unwrap();
++    }
++}

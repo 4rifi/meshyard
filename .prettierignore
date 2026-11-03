@@ -8,3 +8,4 @@ app/src-tauri/icons/
 docs/
 AGENTS.md
 CLAUDE.md
+vendor/
