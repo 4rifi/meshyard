@@ -30,6 +30,7 @@ type Character = {
   body: Container;
   poses: [Graphics, Graphics];
   tag: HTMLSpanElement;
+  tagOffset: number;
   position: Point;
   target: Point;
   walk: Walk | null;
@@ -88,7 +89,7 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
   };
   const place = (character: Character) => {
     character.body.position.set(character.position.x, character.position.y);
-    character.tag.style.left = `${String(character.position.x - 10)}px`;
+    character.tag.style.left = `${String(character.position.x - character.tagOffset)}px`;
     character.tag.style.top = `${String(character.position.y + 16)}px`;
     const pose =
       character.walk && !character.walk.done
@@ -176,6 +177,16 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
     }
     const plots = retainedPlots;
     const geometry = yardGeometry(plots, columns, slots);
+    const tagWidths = new Map(
+      plots.flatMap((plot) =>
+        plot.stations.flatMap((station) =>
+          station.agents.map(
+            (agent) =>
+              [agent.id, station.agents.length === 1 ? 76 : 36] as const,
+          ),
+        ),
+      ),
+    );
     const width = columns * 80;
     const plotHeight = (8 / columns) * 96;
     const height = plots.length * plotHeight;
@@ -270,11 +281,11 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
           body,
           poses,
           tag: tag(agent.label, 0, 0, 'agent-tag', labels),
+          tagOffset: 10,
           position,
           target: position,
           walk: null,
         };
-        character.tag.style.width = '36px';
         character.tag.dataset.agentId = agent.id;
         characters.set(agent.id, character);
       }
@@ -282,6 +293,11 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
       character.tag.textContent = agent.label;
       character.tag.title = `${agent.label} · ${activityLabel(agent.state)}`;
       character.tag.dataset.kind = agent.kind;
+      const tagWidth = tagWidths.get(agent.id) ?? 36;
+      character.tag.style.width = `${String(tagWidth)}px`;
+      // A lone second-slot occupant uses the whole station without moving its body.
+      character.tagOffset =
+        10 + (tagWidth === 76 ? ((slots.get(agent.id) ?? 0) % 2) * 40 : 0);
       if (reflow || media?.matches) {
         // Layout changes snap existing identities to their new logical slots. They
         // never invent a state transition or replace an avatar/name-tag instance.
