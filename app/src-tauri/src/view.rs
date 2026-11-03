@@ -5,6 +5,7 @@ use ts_rs::TS;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub enum AppError {
+    IdentityMissing,
     IdentityLocked,
     IdentityUnavailable,
     IdentityInvalid,

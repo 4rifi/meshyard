@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { AppError } from '../../ipc/generated/AppError';
 
 const advice: Record<AppError, string> = {
+  IdentityMissing:
+    'This workspace’s device identity is missing; restore it or use the matching key store.',
   IdentityLocked: 'Unlock the device identity store, then restart Meshyard.',
   IdentityUnavailable:
     'Make the selected identity store available, then restart Meshyard.',

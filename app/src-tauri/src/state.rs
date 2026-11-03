@@ -42,8 +42,15 @@ impl AppState {
             if workspaces.len() > 1 {
                 return Err(AppError::MultipleWorkspaces);
             }
-            let signer = Arc::new(load_or_create(keys).map_err(identity_error)?);
             let workspace = workspaces.first().copied();
+            let signer = Arc::new(
+                if workspace.is_some() {
+                    keys.load()
+                } else {
+                    load_or_create(keys)
+                }
+                .map_err(identity_error)?,
+            );
             if let Some(id) = workspace {
                 let (_, state) = store.workspace_state(id).await.map_err(storage_error)?;
                 if !state.members.contains_key(&signer.device_id()) {
@@ -229,11 +236,12 @@ fn storage_error(error: StoreError) -> AppError {
 }
 fn identity_error(error: IdentityError) -> AppError {
     match error {
+        IdentityError::NotFound => AppError::IdentityMissing,
         IdentityError::Locked => AppError::IdentityLocked,
         IdentityError::Unavailable => AppError::IdentityUnavailable,
         IdentityError::Permissions => AppError::UnsafePermissions,
         IdentityError::Random => AppError::RandomUnavailable,
         IdentityError::Io => AppError::Storage,
-        _ => AppError::IdentityInvalid,
+        IdentityError::AlreadyExists | IdentityError::Invalid => AppError::IdentityInvalid,
     }
 }
