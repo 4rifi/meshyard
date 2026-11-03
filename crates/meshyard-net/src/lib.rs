@@ -420,10 +420,14 @@ impl MeshNode {
             builder = builder
                 .clear_address_lookup()
                 .net_report_config(NetReportConfig::minimal());
+        } else {
+            // Measure only configured relays, including relays without QUIC discovery.
+            builder = builder.net_report_config(NetReportConfig {
+                https_probes: true,
+                captive_portal_check: false,
+            });
         }
-        // Optional public probes are unnecessary even in Auto; configured relays still operate.
         builder = builder
-            .net_report_config(NetReportConfig::minimal())
             .portmapper_config(PortmapperConfig::Disabled)
             .secret_key(config.secret_key)
             .max_tls_tickets(0)
