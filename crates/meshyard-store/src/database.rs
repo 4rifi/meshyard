@@ -73,7 +73,38 @@ impl Database {
         migrations()
             .to_latest(&mut conn)
             .map_err(|_| StoreError::Migration)?;
-        Ok(Self { conn })
+        let db = Self { conn };
+        db.discard_oversized_unconfirmed()?;
+        Ok(db)
+    }
+    // Upgrade existing T-002 databases as well: an old oversized unconfirmed log
+    // must not survive reopen and become an unbounded projection input.
+    fn discard_oversized_unconfirmed(&self) -> Result<(), StoreError> {
+        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
+        let oversized = {
+            let mut query = self.conn.prepare(
+                "SELECT workspace,author FROM (SELECT workspace,author,signed_blob FROM events UNION ALL SELECT workspace,author,signed_blob FROM pending_events) GROUP BY workspace,author HAVING COUNT(*)>?1 OR SUM(length(signed_blob))>?2",
+            )?;
+            let rows = query.query_map(
+                params![PENDING_EVENTS as i64, PENDING_BYTES as i64],
+                |row| Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?)),
+            )?;
+            rows.collect::<Result<Vec<_>, _>>()?
+        };
+        for (workspace, author) in oversized {
+            let workspace = WorkspaceId(workspace.try_into().map_err(|_| StoreError::Database)?);
+            let author = DeviceId(author.try_into().map_err(|_| StoreError::Database)?);
+            if !self.confirmed_author(workspace, author)? {
+                for table in ["events", "pending_events"] {
+                    self.conn.execute(
+                        &format!("DELETE FROM {table} WHERE workspace=?1 AND author=?2"),
+                        params![workspace.0.as_slice(), author.0.as_slice()],
+                    )?;
+                }
+            }
+        }
+        transaction.commit()?;
+        Ok(())
     }
     pub fn add_workspace(&mut self, raw: &[u8]) -> Result<WorkspaceId, StoreError> {
         let signed = decode_genesis(raw)?;
@@ -209,8 +240,16 @@ impl Database {
             return Ok(InsertOutcome::Rejected(RejectReason::InvalidField));
         }
         let head = self.head(event.workspace, event.author)?;
-        if event.seq != head.checked_add(1).ok_or(StoreError::SequenceRange)? {
-            let (count, bytes): (i64,i64) = self.conn.query_row("SELECT COUNT(*),COALESCE(SUM(length(signed_blob)),0) FROM pending_events WHERE workspace=?1 AND author=?2", params![w,a], |row| Ok((row.get(0)?,row.get(1)?)))?;
+        let gapped = event.seq != head.checked_add(1).ok_or(StoreError::SequenceRange)?;
+        // Ever-confirmed authors keep their history, including after reserved M2
+        // MemberRemoved. Authority comes only from verified contiguous owner data.
+        let confirmed = self.confirmed_author(event.workspace, event.author)?;
+        if !confirmed || gapped {
+            let (count, bytes): (i64, i64) = self.conn.query_row(
+                "SELECT COUNT(*),COALESCE(SUM(length(signed_blob)),0) FROM (SELECT signed_blob FROM pending_events WHERE workspace=?1 AND author=?2 UNION ALL SELECT signed_blob FROM events WHERE workspace=?1 AND author=?2 AND ?3)",
+                params![w, a, !confirmed],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
             let added = i64::try_from(raw.len()).map_err(|_| StoreError::Limit)?;
             if count >= PENDING_EVENTS as i64
                 || bytes
@@ -221,8 +260,16 @@ impl Database {
                     "DELETE FROM pending_events WHERE workspace=?1 AND author=?2",
                     params![w, a],
                 )?;
+                if !confirmed {
+                    self.conn.execute(
+                        "DELETE FROM events WHERE workspace=?1 AND author=?2",
+                        params![w, a],
+                    )?;
+                }
                 return Ok(InsertOutcome::Rejected(RejectReason::PendingOverflow));
             }
+        }
+        if gapped {
             self.conn.execute(
                 "INSERT INTO pending_events VALUES(?1,?2,?3,?4)",
                 params![w, a, seq, raw],
@@ -247,6 +294,42 @@ impl Database {
         }
         Ok(InsertOutcome::Inserted)
     }
+    fn confirmed_author(
+        &self,
+        workspace: WorkspaceId,
+        author: DeviceId,
+    ) -> Result<bool, StoreError> {
+        let (_, genesis) = verify_genesis(
+            &decode_genesis(&self.genesis(workspace)?)?,
+            &Ed25519Verifier,
+        )?;
+        if author == genesis.owner {
+            return Ok(true);
+        }
+        let mut query = self.conn.prepare(
+            "SELECT signed_blob FROM events WHERE workspace=?1 AND author=?2 ORDER BY seq",
+        )?;
+        let rows = query.query_map(
+            params![workspace.0.as_slice(), genesis.owner.0.as_slice()],
+            |row| row.get::<_, Vec<u8>>(0),
+        )?;
+        let mut expected = 1u64;
+        for row in rows {
+            let event = verify_and_decode(&decode_signed_event(&row?)?, &Ed25519Verifier)?;
+            event.validate_received()?;
+            if event.workspace != workspace
+                || event.author != genesis.owner
+                || event.seq != expected
+            {
+                return Err(StoreError::Database);
+            }
+            if matches!(event.body, EventBody::MemberAdded { device, .. } if device == author) {
+                return Ok(true);
+            }
+            expected = expected.checked_add(1).ok_or(StoreError::SequenceRange)?;
+        }
+        Ok(false)
+    }
     pub fn append_own(
         &mut self,
         workspace: WorkspaceId,
@@ -258,7 +341,7 @@ impl Database {
     ) -> Result<SignedEventV1, StoreError> {
         self.check_workspace(workspace)?;
         let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
-        let result = (|| {
+        let result: Result<_, StoreError> = (|| {
             let seq = self
                 .head(workspace, signer.device_id())?
                 .checked_add(1)
@@ -277,13 +360,15 @@ impl Database {
                 &policy,
             )?;
             let raw = postcard::to_stdvec(&signed).map_err(|_| CryptoError::Encoding)?;
-            if self.insert(&raw)? != InsertOutcome::Inserted {
-                return Err(StoreError::AppendRejected);
-            }
-            Ok(signed)
+            Ok((signed, self.insert(&raw)?))
         })();
-        let value = result?;
+        let (value, outcome) = result?;
+        // Quota overflow deliberately commits the held-data drop, even when an
+        // own append cannot return a successfully persisted event.
         transaction.commit()?;
+        if outcome != InsertOutcome::Inserted {
+            return Err(StoreError::AppendRejected);
+        }
         Ok(value)
     }
     pub fn current_epoch(&self, workspace: WorkspaceId) -> Result<u32, StoreError> {

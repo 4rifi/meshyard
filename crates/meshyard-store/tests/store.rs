@@ -652,3 +652,424 @@ async fn version_field_is_validated_after_equivocation_and_never_stored() {
     );
     store.close().await.unwrap();
 }
+
+fn held_sql(dir: &std::path::Path, w: WorkspaceId, author: DeviceId) -> (i64, i64) {
+    let conn = rusqlite::Connection::open(dir.join("meshyard.sqlite")).unwrap();
+    conn.query_row(
+        "SELECT COUNT(*),COALESCE(SUM(length(signed_blob)),0) FROM (SELECT signed_blob FROM events WHERE workspace=?1 AND author=?2 UNION ALL SELECT signed_blob FROM pending_events WHERE workspace=?1 AND author=?2)",
+        rusqlite::params![w.0.as_slice(), author.0.as_slice()],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    ).unwrap()
+}
+fn member(device: DeviceId) -> EventBody {
+    EventBody::MemberAdded {
+        device,
+        display_name: "Member".into(),
+    }
+}
+async fn project(store: &Store, w: WorkspaceId, authors: &[DeviceId]) -> DerivedState {
+    let raw = store.genesis(w).await.unwrap();
+    let signed: SignedGenesisV1 = postcard::from_bytes(&raw).unwrap();
+    let (_, genesis) = verify_genesis(&signed, &Ed25519Verifier).unwrap();
+    let mut events = vec![];
+    for author in authors {
+        let mut cursor = 0;
+        loop {
+            let batch = store.events_after(w, *author, cursor, 256).await.unwrap();
+            if batch.is_empty() {
+                break;
+            }
+            for raw in batch {
+                let event =
+                    verify_and_decode(&decode_signed_event(&raw).unwrap(), &Ed25519Verifier)
+                        .unwrap()
+                        .into_event();
+                cursor = event.seq;
+                events.push(event);
+            }
+        }
+    }
+    fold(&genesis, &events).unwrap()
+}
+#[tokio::test]
+async fn unknown_contiguous_quota_survives_reopen_resets_head_and_allows_resend() {
+    let dir = support::private_tempdir();
+    let owner = key();
+    let author = SecretKey::from_bytes(&[61; 32]);
+    let store = Store::open(dir.path()).unwrap();
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    let other = store
+        .add_workspace(signed_genesis(owner.as_ref(), 1))
+        .await
+        .unwrap();
+    store
+        .insert_remote(remote(other, 1, profile("isolated"), &author))
+        .await
+        .unwrap();
+    for seq in 1..=1024 {
+        assert_eq!(
+            store
+                .insert_remote(remote(w, seq, profile("held"), &author))
+                .await
+                .unwrap(),
+            InsertOutcome::Inserted
+        );
+    }
+    assert_eq!(held_sql(dir.path(), w, author.device_id()).0, 1024);
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&author.device_id()],
+        1024
+    );
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 1024, profile("held"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Duplicate
+    );
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 1024, profile("bad\n"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Equivocation
+    );
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 1025, profile("overflow"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Rejected(RejectReason::PendingOverflow)
+    );
+    assert_eq!(held_sql(dir.path(), w, author.device_id()), (0, 0));
+    assert!(
+        !store
+            .contiguous_heads(w)
+            .await
+            .unwrap()
+            .contains_key(&author.device_id())
+    );
+    assert_eq!(held_sql(dir.path(), other, author.device_id()).0, 1);
+    // The sender can see zero after reopen and re-request its dropped prefix.
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 2, profile("two"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Pending
+    );
+    store
+        .append_own(w, member(author.device_id()), owner.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 1, profile("one"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Inserted
+    );
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&author.device_id()],
+        2
+    );
+    let state = project(&store, w, &[owner.device_id(), author.device_id()]).await;
+    assert_eq!(state.members[&author.device_id()].display_name, "two");
+    assert!(state.pending_membership.is_empty());
+    assert_eq!(held_sql(dir.path(), w, author.device_id()).0, 2);
+    store.close().await.unwrap();
+}
+#[tokio::test]
+async fn quota_combines_gapped_and_contiguous_rows_and_only_contiguous_owner_can_confirm() {
+    let dir = support::private_tempdir();
+    let owner = key();
+    let author = SecretKey::from_bytes(&[62; 32]);
+    let forger = SecretKey::from_bytes(&[63; 32]);
+    let store = Store::open(dir.path()).unwrap();
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    // Neither a peer's forged grant nor an owner event behind a gap is authority.
+    store
+        .insert_remote(remote(w, 1, member(author.device_id()), &forger))
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 2, member(author.device_id()), owner.as_ref()))
+            .await
+            .unwrap(),
+        InsertOutcome::Pending
+    );
+    for seq in 1..=512 {
+        store
+            .insert_remote(remote(w, seq, profile("held"), &author))
+            .await
+            .unwrap();
+    }
+    for seq in 514..=1025 {
+        assert_eq!(
+            store
+                .insert_remote(remote(w, seq, profile("held gap"), &author))
+                .await
+                .unwrap(),
+            InsertOutcome::Pending
+        );
+    }
+    assert_eq!(held_sql(dir.path(), w, author.device_id()).0, 1024);
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 513, profile("fills gap but over quota"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Rejected(RejectReason::PendingOverflow)
+    );
+    assert_eq!(held_sql(dir.path(), w, author.device_id()), (0, 0));
+    assert!(
+        !store
+            .contiguous_heads(w)
+            .await
+            .unwrap()
+            .contains_key(&author.device_id())
+    );
+    // Hold new permissible events, then activate the owner's contiguous grant.
+    let one = remote(w, 1, profile("before grant"), &author);
+    let three = remote(w, 3, profile("after gap"), &author);
+    store.insert_remote(one.clone()).await.unwrap();
+    store.insert_remote(three.clone()).await.unwrap();
+    let before = project(
+        &store,
+        w,
+        &[owner.device_id(), forger.device_id(), author.device_id()],
+    )
+    .await;
+    assert!(!before.members.contains_key(&author.device_id()));
+    store
+        .insert_remote(remote(w, 1, profile("owner"), owner.as_ref()))
+        .await
+        .unwrap();
+    let after = project(
+        &store,
+        w,
+        &[owner.device_id(), forger.device_id(), author.device_id()],
+    )
+    .await;
+    assert_eq!(
+        after.members[&author.device_id()].display_name,
+        "before grant"
+    );
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    let two = remote(w, 2, profile("gap filled"), &author);
+    store.insert_remote(two.clone()).await.unwrap();
+    assert_eq!(
+        store
+            .events_after(w, author.device_id(), 0, 256)
+            .await
+            .unwrap(),
+        vec![one.clone(), two, three]
+    );
+    assert_eq!(
+        store.insert_remote(one).await.unwrap(),
+        InsertOutcome::Duplicate
+    );
+    assert_eq!(
+        project(&store, w, &[owner.device_id(), author.device_id()])
+            .await
+            .members[&author.device_id()]
+            .display_name,
+        "after gap"
+    );
+    // Confirmed history is exempt from pending-membership quotas, even after the
+    // reserved MemberRemoved body. Gap overflow may discard only the gap buffer.
+    store
+        .append_own(
+            w,
+            EventBody::MemberRemoved {
+                device: author.device_id(),
+            },
+            owner.clone(),
+        )
+        .await
+        .unwrap();
+    for seq in 4..=1026 {
+        assert_eq!(
+            store
+                .insert_remote(remote(w, seq, profile("confirmed history"), &author))
+                .await
+                .unwrap(),
+            InsertOutcome::Inserted
+        );
+    }
+    for seq in 1028..=2051 {
+        assert_eq!(
+            store
+                .insert_remote(remote(w, seq, profile("gap"), &author))
+                .await
+                .unwrap(),
+            InsertOutcome::Pending
+        );
+    }
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 2052, profile("gap overflow"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Rejected(RejectReason::PendingOverflow)
+    );
+    assert_eq!(held_sql(dir.path(), w, author.device_id()).0, 1026);
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&author.device_id()],
+        1026
+    );
+    store.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn promotion_sql_failure_rolls_back_entire_receive_transaction() {
+    let dir = support::private_tempdir();
+    let owner = key();
+    let store = Store::open(dir.path()).unwrap();
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    store
+        .insert_remote(remote(w, 2, profile("two"), owner.as_ref()))
+        .await
+        .unwrap();
+    let conn = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
+    conn.execute_batch("CREATE TRIGGER fail_promotion BEFORE INSERT ON events WHEN NEW.seq=2 BEGIN SELECT RAISE(ABORT, 'test'); END;").unwrap();
+    assert!(matches!(
+        store
+            .insert_remote(remote(w, 1, profile("one"), owner.as_ref()))
+            .await,
+        Err(StoreError::Database)
+    ));
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&owner.device_id()],
+        0
+    );
+    assert_eq!(held_sql(dir.path(), w, owner.device_id()).0, 1);
+    conn.execute_batch("DROP TRIGGER fail_promotion").unwrap();
+    store
+        .insert_remote(remote(w, 1, profile("one"), owner.as_ref()))
+        .await
+        .unwrap();
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&owner.device_id()],
+        2
+    );
+    store.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn byte_quota_counts_original_sql_blob_lengths_across_both_tables() {
+    let dir = support::private_tempdir();
+    let owner = key();
+    let author = SecretKey::from_bytes(&[64; 32]);
+    let store = Store::open(dir.path()).unwrap();
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    store
+        .insert_remote(remote(w, 1, profile("one"), &author))
+        .await
+        .unwrap();
+    let three = remote(w, 3, profile("three"), &author);
+    let conn = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
+    // Synthetic SQL size fixture, not a valid signed event or an exploit: valid
+    // current-v1 fields hit the count limit before 1 MiB. Exercise the byte guard
+    // independently of that incidental wire-size restriction.
+    conn.execute(
+        "UPDATE events SET signed_blob=zeroblob(?1) WHERE workspace=?2 AND author=?3",
+        rusqlite::params![
+            i64::try_from(PENDING_BYTES - three.len()).unwrap(),
+            w.0.as_slice(),
+            author.device_id().0.as_slice()
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        store.insert_remote(three).await.unwrap(),
+        InsertOutcome::Pending
+    );
+    assert_eq!(
+        held_sql(dir.path(), w, author.device_id()),
+        (2, PENDING_BYTES as i64)
+    );
+    assert_eq!(
+        store
+            .insert_remote(remote(w, 2, profile("overflow"), &author))
+            .await
+            .unwrap(),
+        InsertOutcome::Rejected(RejectReason::PendingOverflow)
+    );
+    assert_eq!(held_sql(dir.path(), w, author.device_id()), (0, 0));
+    assert!(
+        !store
+            .contiguous_heads(w)
+            .await
+            .unwrap()
+            .contains_key(&author.device_id())
+    );
+    store.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn reopen_cleans_old_oversized_unknown_logs_but_preserves_confirmed_history() {
+    let dir = support::private_tempdir();
+    let owner = key();
+    let unknown = SecretKey::from_bytes(&[65; 32]);
+    let confirmed = SecretKey::from_bytes(&[66; 32]);
+    let store = Store::open(dir.path()).unwrap();
+    let w = store
+        .add_workspace(signed_genesis(owner.as_ref(), 0))
+        .await
+        .unwrap();
+    store
+        .append_own(w, member(confirmed.device_id()), owner.clone())
+        .await
+        .unwrap();
+    store.close().await.unwrap();
+    // Reproduce the pre-fix durable shape using correctly signed rows. Bypass the
+    // fixed receive API only to build an old database for startup repair coverage.
+    let mut conn = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
+    let tx = conn.transaction().unwrap();
+    for author in [&unknown, &confirmed] {
+        for seq in 1..=1025 {
+            tx.execute(
+                "INSERT INTO events VALUES(?1,?2,?3,?4)",
+                rusqlite::params![
+                    w.0.as_slice(),
+                    author.device_id().0.as_slice(),
+                    i64::try_from(seq).unwrap(),
+                    remote(w, seq, profile("legacy"), author)
+                ],
+            )
+            .unwrap();
+        }
+    }
+    tx.commit().unwrap();
+    drop(conn);
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(held_sql(dir.path(), w, unknown.device_id()), (0, 0));
+    assert_eq!(held_sql(dir.path(), w, confirmed.device_id()).0, 1025);
+    let heads = store.contiguous_heads(w).await.unwrap();
+    assert!(!heads.contains_key(&unknown.device_id()));
+    assert_eq!(heads[&confirmed.device_id()], 1025);
+    assert_eq!(heads[&owner.device_id()], 1);
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert_eq!(held_sql(dir.path(), w, confirmed.device_id()).0, 1025);
+    store.close().await.unwrap();
+}

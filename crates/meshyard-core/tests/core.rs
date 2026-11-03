@@ -369,6 +369,20 @@ fn owner_membership_seq_order_and_removed_authors_are_held() {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(256))]
     #[test]
+    fn unconfirmed_quota_is_interleaving_invariant(count in 1020u64..1030, split in 0usize..1020) {
+        let owner = DeviceId([1;32]);
+        let unknown = DeviceId([2;32]);
+        let other = DeviceId([3;32]);
+        let a: Vec<_> = (1..=count).map(|seq| event(unknown, seq, profile("held"))).collect();
+        let b = vec![event(other, 1, profile("other"))];
+        let mut baseline = a.clone();
+        baseline.extend(b.clone());
+        let mut mixed = a[..split].to_vec();
+        mixed.extend(b);
+        mixed.extend_from_slice(&a[split..]);
+        prop_assert_eq!(fold(&genesis(owner), &baseline).unwrap(), fold(&genesis(owner), &mixed).unwrap());
+    }
+    #[test]
     fn sanitation_always_valid(value in ".*",cap in 0usize..200) { prop_assert!(validate_received(&sanitize_for_signing(&value,cap),cap).is_ok()); }
     #[test]
     fn cross_author_interleavings_preserve_projection(choices in prop::collection::vec(any::<bool>(),0..100), names in prop::collection::vec("[^\\p{Cc}]{0,12}",6)) {

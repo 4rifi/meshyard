@@ -29,74 +29,81 @@ pub fn fold(genesis: &Genesis, events: &[Event]) -> Result<DerivedState, Validat
         pending_membership: BTreeMap::new(),
         pending_overflow: vec![],
     };
-    let mut authors: BTreeMap<DeviceId, Vec<&Event>> = BTreeMap::new();
-    for event in events {
-        authors.entry(event.author).or_default().push(event);
-    }
-    for log in authors.values_mut() {
-        log.sort_by_key(|event| event.seq);
-    }
-    if let Some(log) = authors.get(&genesis.owner) {
-        for event in log {
-            match &event.body {
-                EventBody::MemberAdded {
-                    device,
-                    display_name,
-                } if *device != genesis.owner => {
-                    state.epoch = state
-                        .epoch
-                        .checked_add(1)
-                        .ok_or(ValidationError::Overflow)?;
-                    state.members.insert(
-                        *device,
-                        Member {
-                            device: *device,
-                            display_name: display_name.clone(),
-                            role: Role::Member,
-                            avatar: 0,
-                        },
-                    );
-                }
-                EventBody::MemberRemoved { device } => {
-                    state.epoch = state
-                        .epoch
-                        .checked_add(1)
-                        .ok_or(ValidationError::Overflow)?;
-                    state.members.remove(device);
-                }
-                _ => {}
+    // Only the established owner's log needs sorting before membership is known.
+    let mut owner_log: Vec<_> = events
+        .iter()
+        .filter(|event| event.author == genesis.owner)
+        .collect();
+    owner_log.sort_by_key(|event| event.seq);
+    for event in owner_log {
+        match &event.body {
+            EventBody::MemberAdded {
+                device,
+                display_name,
+            } if *device != genesis.owner => {
+                state.epoch = state
+                    .epoch
+                    .checked_add(1)
+                    .ok_or(ValidationError::Overflow)?;
+                state.members.insert(
+                    *device,
+                    Member {
+                        device: *device,
+                        display_name: display_name.clone(),
+                        role: Role::Member,
+                        avatar: 0,
+                    },
+                );
             }
+            EventBody::MemberRemoved { device } => {
+                state.epoch = state
+                    .epoch
+                    .checked_add(1)
+                    .ok_or(ValidationError::Overflow)?;
+                state.members.remove(device);
+            }
+            _ => {}
         }
     }
-    for (author, log) in authors {
-        if !state.members.contains_key(&author) {
-            let mut bytes = 0usize;
-            let mut pending = vec![];
-            for event in log {
-                if matches!(
-                    event.body,
-                    EventBody::MemberAdded { .. } | EventBody::MemberRemoved { .. }
-                ) {
-                    continue;
-                }
-                // Conservative wire-size accounting including header (≤74 B), framing (≤13 B) and signature (64 B).
-                let size = postcard::to_stdvec(&wire::v1::EventBodyV1::from(event.body.clone()))
-                    .map_err(|_| ValidationError::InvalidField)?
-                    .len()
-                    + 152;
-                bytes = bytes.checked_add(size).ok_or(ValidationError::Overflow)?;
-                if pending.len() == PENDING_EVENTS || bytes > PENDING_BYTES {
-                    pending.clear();
-                    state.pending_overflow.push(author);
-                    break;
-                }
-                pending.push(event.clone());
-            }
-            if !pending.is_empty() {
-                state.pending_membership.insert(author, pending);
-            }
+    let mut authors: BTreeMap<DeviceId, Vec<&Event>> = BTreeMap::new();
+    let mut held_bytes: BTreeMap<DeviceId, usize> = BTreeMap::new();
+    let mut overflow = std::collections::BTreeSet::new();
+    for event in events {
+        let author = event.author;
+        if state.members.contains_key(&author) {
+            authors.entry(author).or_default().push(event);
             continue;
         }
+        if overflow.contains(&author)
+            || matches!(
+                event.body,
+                EventBody::MemberAdded { .. } | EventBody::MemberRemoved { .. }
+            )
+        {
+            continue;
+        }
+        // Conservative accounting for the pure domain projection; the store
+        // enforces its durable quota using exact original envelope lengths.
+        let size = postcard::to_stdvec(&wire::v1::EventBodyV1::from(event.body.clone()))
+            .map_err(|_| ValidationError::InvalidField)?
+            .len()
+            + 152;
+        let bytes = held_bytes.entry(author).or_default();
+        *bytes = bytes.checked_add(size).ok_or(ValidationError::Overflow)?;
+        let pending = state.pending_membership.entry(author).or_default();
+        if pending.len() == PENDING_EVENTS || *bytes > PENDING_BYTES {
+            state.pending_membership.remove(&author);
+            overflow.insert(author);
+        } else {
+            pending.push(event.clone());
+        }
+    }
+    state.pending_overflow = overflow.into_iter().collect();
+    for pending in state.pending_membership.values_mut() {
+        pending.sort_by_key(|event| event.seq);
+    }
+    for (author, mut log) in authors {
+        log.sort_by_key(|event| event.seq);
         for event in log {
             match &event.body {
                 EventBody::ProfileUpdated {
