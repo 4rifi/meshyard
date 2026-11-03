@@ -2,16 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 import type { AppStatus } from './ipc/generated/AppStatus';
 import type { CreateWorkspace as CreateInput } from './ipc/generated/CreateWorkspace';
 import type { RegisterAgent as RegisterInput } from './ipc/generated/RegisterAgent';
+import { workspaceSync, type WorkspaceSync } from './ipc/workspaceSync';
 import * as client from './ipc/client';
 import { CreateWorkspace } from './features/setup/CreateWorkspace';
 import { ErrorScreen } from './features/errors/ErrorScreen';
 import { WorkspaceScreen } from './features/workspace/WorkspaceScreen';
 
-type Actions = {
+export type Actions = {
   create: (input: CreateInput) => void;
   register: (input: RegisterInput) => Promise<void>;
   profile: (name: string) => void;
   reload: () => void;
+  bind: (id: string) => Promise<AppStatus | undefined>;
+  apply: (id: string) => Promise<AppStatus | undefined>;
 };
 export function StatusScreen({
   status,
@@ -39,21 +42,26 @@ export function StatusScreen({
       busy={busy}
       onRegister={actions.register}
       onProfile={actions.profile}
+      onBind={actions.bind}
+      onApply={actions.apply}
     />
   );
 }
 export function App() {
   const [status, setStatus] = useState<AppStatus | null>(null);
   const [busy, setBusy] = useState(false);
-  const inFlight = useRef(false);
+  const sync = useRef<WorkspaceSync | null>(null);
   const main = useRef<HTMLElement>(null);
   useEffect(() => {
-    let active = true;
-    void client.appStatus().then((value) => {
-      if (active) setStatus(value);
+    const controller = workspaceSync({
+      read: client.appStatus,
+      listen: client.listenWorkspace,
+      accept: setStatus,
     });
+    sync.current = controller;
     return () => {
-      active = false;
+      controller.dispose();
+      sync.current = null;
     };
   }, []);
   const screen =
@@ -67,12 +75,13 @@ export function App() {
   useEffect(() => {
     main.current?.querySelector<HTMLElement>('h1')?.focus();
   }, [screen]);
-  const run = async (action: () => Promise<AppStatus>) => {
-    if (inFlight.current) return;
+  const inFlight = useRef(false);
+  const run = async (action: () => Promise<AppStatus>, localError = false) => {
+    if (inFlight.current) return undefined;
     inFlight.current = true;
     setBusy(true);
     try {
-      setStatus(await action());
+      return await sync.current?.action(action, localError);
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -94,7 +103,11 @@ export function App() {
             create: (input) => {
               void run(() => client.createWorkspace(input));
             },
-            register: (input) => run(() => client.registerAgent(input)),
+            register: async (input) => {
+              await run(() => client.registerAgent(input));
+            },
+            bind: (id) => run(() => client.bindAgent(id), true),
+            apply: (id) => run(() => client.hookApply(id), true),
             profile: (name) => {
               void run(() => client.updateProfile(name));
             },
@@ -107,7 +120,7 @@ export function App() {
       <p className="footnote" role="status">
         {busy
           ? 'Saving to this device…'
-          : 'Local data only · Networking and live agent status are not available yet.'}
+          : 'Local data only · Claude Code status comes from local hook events. Networking is not available yet.'}
       </p>
     </main>
   );

@@ -290,8 +290,12 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
         characters.set(agent.id, character);
       }
       character.agent = agent;
-      character.tag.textContent = agent.label;
-      character.tag.title = `${agent.label} · ${activityLabel(agent.state)}`;
+      character.tag.textContent = agent.stale
+        ? `${agent.label} · Unknown`
+        : agent.label;
+      character.tag.classList.toggle('stale-state', agent.stale);
+      for (const pose of character.poses) pose.alpha = agent.stale ? 0.55 : 1;
+      character.tag.title = `${agent.label} · ${agent.stale ? `Unknown (no events for 10 min) · Last: ${activityLabel(agent.state)}` : activityLabel(agent.state)}`;
       character.tag.dataset.kind = agent.kind;
       const tagWidth = tagWidths.get(agent.id) ?? 36;
       character.tag.style.width = `${String(tagWidth)}px`;

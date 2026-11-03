@@ -14,6 +14,10 @@ const agent = (id: string, state: AgentView['state']): AgentView => ({
   label: id,
   kind: 'ClaudeCode',
   provenance: null,
+  is_you: true,
+  stale: false,
+  bound: false,
+  connection: 'NotConnected' as const,
 });
 const length = (path: Point[]) =>
   path.reduce((sum, point, index) => {

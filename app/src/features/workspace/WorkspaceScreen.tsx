@@ -4,20 +4,28 @@ import type { RegisterAgent as RegisterInput } from '../../ipc/generated/Registe
 import { createYard, type Yard } from '../../playground/yard';
 import { MemberList } from './MemberList';
 import { AgentList } from './AgentList';
+import type { AppStatus } from '../../ipc/generated/AppStatus';
+import { ConnectClaudeCode, IngestNotice } from '../connect/ConnectClaudeCode';
 import { RegisterAgent } from './RegisterAgent';
 export function WorkspaceScreen({
   workspace,
   busy,
   onRegister,
   onProfile,
+  onBind,
+  onApply,
 }: {
   workspace: WorkspaceView;
   busy: boolean;
   onRegister: (input: RegisterInput) => Promise<void>;
   onProfile: (name: string) => void;
+  onBind: (id: string) => Promise<AppStatus | undefined>;
+  onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const yard = useRef<Yard | null>(null);
+  const connectButton = useRef<HTMLButtonElement>(null);
+  const [connecting, setConnecting] = useState(false);
   const agentLabel = useRef<HTMLInputElement>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [name, setName] = useState(
@@ -37,6 +45,10 @@ export function WorkspaceScreen({
   useEffect(() => {
     yard.current?.update(workspace.agents);
   }, [workspace.id_short, workspace.agents]);
+  const focusRegistration = () => {
+    agentLabel.current?.scrollIntoView({ block: 'center' });
+    agentLabel.current?.focus({ preventScroll: true });
+  };
   return (
     <>
       <header className="workspace-header">
@@ -47,6 +59,19 @@ export function WorkspaceScreen({
         <span className="mode">
           {workspace.mode === 'Strict' ? 'Strict P2P' : 'Auto'}
         </span>
+        <button
+          ref={connectButton}
+          className="register-shortcut"
+          type="button"
+          disabled={busy}
+          aria-expanded={connecting}
+          aria-controls="connection-panel"
+          onClick={() => {
+            setConnecting(true);
+          }}
+        >
+          Connect Claude Code
+        </button>
         {busy ? (
           <span className="register-shortcut">Saving…</span>
         ) : (
@@ -55,8 +80,7 @@ export function WorkspaceScreen({
             href="#agent-label"
             onClick={(event) => {
               event.preventDefault();
-              agentLabel.current?.scrollIntoView({ block: 'center' });
-              agentLabel.current?.focus({ preventScroll: true });
+              focusRegistration();
             }}
           >
             Register agent
@@ -67,6 +91,21 @@ export function WorkspaceScreen({
           <code>{workspace.device_short}</code>
         </p>
       </header>
+      <div id="connection-panel">
+        {connecting && (
+          <ConnectClaudeCode
+            workspace={workspace}
+            busy={busy}
+            onBind={onBind}
+            onApply={onApply}
+            onRegister={focusRegistration}
+            onClose={() => {
+              setConnecting(false);
+              connectButton.current?.focus();
+            }}
+          />
+        )}
+      </div>
       <section className="panel yard" aria-labelledby="yard-heading">
         <div className="yard-heading">
           <h2 id="yard-heading">The yard</h2>
@@ -102,8 +141,14 @@ export function WorkspaceScreen({
           <h2 id="agents-heading">
             Agents <span className="count">{workspace.agents.length}</span>
           </h2>
-          <AgentList agents={workspace.agents} />
-          <p>Live agent status is not connected yet.</p>
+          <AgentList
+            agents={workspace.agents}
+            busy={busy}
+            onSelect={() => {
+              setConnecting(true);
+            }}
+          />
+          <IngestNotice workspace={workspace} />
           <RegisterAgent
             busy={busy}
             onRegister={onRegister}

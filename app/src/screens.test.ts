@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { ConnectClaudeCode } from './features/connect/ConnectClaudeCode';
 import { StatusScreen } from './App';
 import type { AppStatus } from './ipc/generated/AppStatus';
 import type { AppError } from './ipc/generated/AppError';
@@ -10,6 +11,8 @@ import { yardPlots, yardZones } from './playground/yardData';
 // SSR verifies text/form semantics; it cannot initialize or prove native/WebGL rendering.
 vi.mock('./playground/yard', () => ({ createYard: vi.fn() }));
 const actions = {
+  bind: vi.fn(),
+  apply: vi.fn(),
   create: vi.fn(),
   profile: vi.fn(),
   reload: vi.fn(),
@@ -29,6 +32,8 @@ const workspace: WorkspaceView = {
     },
   ],
   agents: [],
+  ingest: { status: 'Disabled', dropped_invalid: 0, dropped_unbound: 0 },
+  hook: { installed: false, binary_available: false },
 };
 function render(status: AppStatus, busy = false) {
   return renderToStaticMarkup(
@@ -54,6 +59,10 @@ const errors: Record<AppError, true> = {
   PartialCreate: true,
   Configuration: true,
   IpcUnavailable: true,
+  IngestUnavailable: true,
+  HookBinaryMissing: true,
+  HookPlanStale: true,
+  HookConfigInvalid: true,
 };
 describe('real-state screen contract', () => {
   it('offers labeled setup with Strict and disabled Auto', () => {
@@ -90,6 +99,10 @@ describe('real-state screen contract', () => {
         kind: 'ClaudeCode' as const,
         state: null,
         provenance: null,
+        is_you: true,
+        stale: false,
+        bound: false,
+        connection: 'NotConnected' as const,
       },
     ];
     const html = render({ Ready: { ...workspace, agents } });
@@ -98,7 +111,7 @@ describe('real-state screen contract', () => {
     expect(html).toContain('No events yet');
     expect(html).not.toContain('Verified');
     expect(html).not.toContain('Idle');
-    expect(html).toContain('Live agent status is not connected yet.');
+    expect(html).toContain('Not connected');
     expect(yardZones(agents)).toEqual([{ label: 'No events yet', agents }]);
   });
   it('places actual activity in its real zone and shows only supplied provenance', () => {
@@ -108,6 +121,10 @@ describe('real-state screen contract', () => {
       kind: 'Codex' as const,
       state: 'Testing' as const,
       provenance: { Inferred: { rule: 'ToolShell' as const } },
+      is_you: true,
+      stale: false,
+      bound: false,
+      connection: 'NotConnected' as const,
     };
     expect(yardZones([agent])[0]?.label).toBe('Testing');
     const html = render({ Ready: { ...workspace, agents: [agent] } });
@@ -138,6 +155,10 @@ describe('real-state screen contract', () => {
         kind: 'ClaudeCode' as const,
         state: null,
         provenance: null,
+        is_you: true,
+        stale: false,
+        bound: false,
+        connection: 'NotConnected' as const,
       }));
       const plots = yardPlots(agents, columns);
       expect(plots).toHaveLength(3);
@@ -183,6 +204,10 @@ describe('real-state screen contract', () => {
             kind: 'Codex',
             state: 'Reviewing',
             provenance: null,
+            is_you: true,
+            stale: false,
+            bound: false,
+            connection: 'NotConnected' as const,
           },
         ],
         columns,
@@ -233,6 +258,46 @@ describe('real-state screen contract', () => {
       );
     },
   );
+  it('limits the connection selector to backend-owned Claude agents and shows typed connection truth', () => {
+    const own = {
+      id: 'own-full-id',
+      label: 'own worker',
+      kind: 'ClaudeCode' as const,
+      state: 'Thinking' as const,
+      provenance: null,
+      is_you: true,
+      bound: true,
+      stale: true,
+      connection: 'Stale' as const,
+    };
+    const view = {
+      ...workspace,
+      agents: [
+        own,
+        { ...own, id: 'other-full-id', label: 'foreign worker', is_you: false },
+        { ...own, id: 'codex', label: 'Codex worker', kind: 'Codex' as const },
+      ],
+    };
+    const html = renderToStaticMarkup(
+      createElement(ConnectClaudeCode, {
+        workspace: view,
+        busy: true,
+        onBind: actions.bind,
+        onApply: actions.apply,
+        onRegister: () => {},
+        onClose: () => {},
+      }),
+    );
+    expect(html).toContain('own-full-id');
+    expect(html).not.toContain('foreign worker');
+    expect(html).not.toContain('Codex worker');
+    expect(html).toContain('Unknown (no events for 10 min)');
+    expect(html).toContain('Codex connection is not available yet.');
+    expect(html).toContain('disabled=""');
+    const list = render({ Ready: view });
+    expect(list).toContain('Last: Thinking');
+    expect(list).toContain('stale-state');
+  });
   for (const error of Object.keys(errors) as AppError[]) {
     it(`renders actionable typed ${error} without OS details`, () => {
       const html = render({ Error: error });

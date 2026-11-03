@@ -1,17 +1,35 @@
-// Evidence-only entry, never imported by main.tsx or included in its production graph.
+// Evidence-only entry. Never imported by main.tsx or present in its production graph.
 import { mockIPC } from '@tauri-apps/api/mocks';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../App';
 import type { AppStatus } from '../ipc/generated/AppStatus';
+import type { AppError } from '../ipc/generated/AppError';
+import type { AgentView } from '../ipc/generated/AgentView';
 import type { WorkspaceView } from '../ipc/generated/WorkspaceView';
 import type { CreateWorkspace } from '../ipc/generated/CreateWorkspace';
 import type { RegisterAgent } from '../ipc/generated/RegisterAgent';
+import type { HookPlan } from '../ipc/generated/HookPlan';
 import '../styles.css';
 
-if (import.meta.env.MODE !== 'browser-mock-ipc') {
+if (import.meta.env.MODE !== 'browser-mock-ipc')
   throw new Error('Use the dedicated browser-mock-ipc evidence build.');
-}
 const scenario = new URLSearchParams(location.search).get('scenario');
+const agent = (
+  id: string,
+  label: string,
+  kind: AgentView['kind'] = 'ClaudeCode',
+): AgentView => ({
+  id,
+  label,
+  kind,
+  is_you: true,
+  state: null,
+  provenance: null,
+  stale: false,
+  bound: false,
+  connection: 'NotConnected',
+});
 let workspace: WorkspaceView = {
   id_short: 'a1b2c3d4',
   name: 'The local yard',
@@ -25,33 +43,37 @@ let workspace: WorkspaceView = {
       is_you: true,
     },
   ],
+  ingest: { status: 'Listening', dropped_unbound: 0, dropped_invalid: 0 },
+  hook: { installed: false, binary_available: true },
   agents:
     scenario === 'agents'
       ? [
+          agent('fixture-arrival', 'main'),
           {
-            id: 'fixture-arrival',
-            label: 'main',
-            kind: 'ClaudeCode',
-            state: null,
-            provenance: null,
-          },
-          {
-            id: 'fixture-testing',
-            label: 'test runner',
-            kind: 'Codex',
+            ...agent('fixture-testing', 'test runner', 'Codex'),
             state: 'Testing',
             provenance: { Inferred: { rule: 'ToolShell' } },
           },
           {
-            id: 'fixture-finished',
-            label: 'review complete',
-            kind: 'ClaudeCode',
+            ...agent('fixture-finished', 'review complete'),
             state: 'Finished',
             provenance: { Verified: { source: 'Stop' } },
           },
         ]
       : [],
 };
+if (scenario === 'connected') {
+  workspace.hook.installed = true;
+  workspace.agents = [
+    {
+      ...agent('fixture-clock-agent', 'clock runner'),
+      bound: true,
+      state: 'Thinking',
+      provenance: { Verified: { source: 'UserPromptSubmit' } },
+      connection: 'Connected',
+    },
+  ];
+}
 let status: AppStatus =
   scenario === 'setup'
     ? 'Setup'
@@ -60,11 +82,102 @@ let status: AppStatus =
       : scenario === 'partial-create'
         ? { Error: 'PartialCreate' }
         : { Ready: workspace };
-mockIPC((command, args) => {
-  if (scenario === 'loading')
-    return new Promise<AppStatus>(() => {
-      /* deliberately unresolved fixture */
+const listeners = new Map<number, number>();
+const commands: { command: string; args: unknown }[] = [];
+let nextListener = 0;
+let nextPlan = 0;
+let planned: HookPlan | null = null;
+let failure: AppError | null = null;
+let delay = 0;
+let actionDelay = 0;
+const hookCommand =
+  "'/fixture USB/meshyard-hook' claude-code --socket '/fixture USB/ingest.sock'";
+const fixtureHooks = Object.fromEntries(
+  [
+    'SessionStart',
+    'UserPromptSubmit',
+    'PreToolUse',
+    'PostToolUse',
+    'Stop',
+    'StopFailure',
+    'SessionEnd',
+  ].map((event) => [
+    event,
+    [{ hooks: [{ type: 'command', command: hookCommand, async: true }] }],
+  ]),
+);
+function fixtureDiff(remove: boolean) {
+  const before = JSON.stringify({ hooks: remove ? fixtureHooks : {} }, null, 2);
+  const after = JSON.stringify({ hooks: remove ? {} : fixtureHooks }, null, 2);
+  return `--- ~/.claude/settings.json (hooks)\n+++ ~/.claude/settings.json (hooks)\n@@ -1,${String(before.split('\n').length)} +1,${String(after.split('\n').length)} @@\n${before
+    .split('\n')
+    .map((line) => `-${line}`)
+    .join('\n')}\n${after
+    .split('\n')
+    .map((line) => `+${line}`)
+    .join('\n')}\n`;
+}
+const ready = () => {
+  status = { Ready: structuredClone(workspace) };
+  return status;
+};
+function emitChanged() {
+  const internal = window as unknown as {
+    __TAURI_INTERNALS__: { runCallback: (id: number, event: unknown) => void };
+  };
+  for (const [id, callback] of listeners)
+    internal.__TAURI_INTERNALS__.runCallback(callback, {
+      event: 'workspace-changed',
+      id,
+      payload: null,
     });
+}
+mockIPC(async (command, args) => {
+  commands.push({ command, args: structuredClone(args) });
+  if (command === 'plugin:event|listen') {
+    const id = ++nextListener;
+    listeners.set(id, (args as { handler: number }).handler);
+    return id;
+  }
+  if (command === 'plugin:event|unlisten') {
+    listeners.delete((args as { eventId: number }).eventId);
+    return;
+  }
+  if (scenario === 'loading') return new Promise<AppStatus>(() => {});
+  // Capture status now, then delay completion: used to prove refresh/action race handling.
+  if (command === 'app_status') {
+    const captured = structuredClone(status);
+    if (delay)
+      await new Promise((yes) => {
+        setTimeout(yes, delay);
+      });
+    return captured;
+  }
+  if (command === 'hook_plan' || command === 'hook_remove') {
+    if (failure) {
+      const error = failure;
+      failure = null;
+      // Tauri serializes this Rust enum rejection as a string.
+      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+      return Promise.reject(error);
+    }
+    const remove = command === 'hook_remove';
+    planned = {
+      plan_id: `fixture-plan-${String(++nextPlan)}`,
+      settings_path_display: '~/.claude/settings.json',
+      base_sha256: 'a'.repeat(64),
+      action: remove
+        ? 'Remove'
+        : workspace.hook.installed
+          ? 'NoChange'
+          : 'Install',
+      diff:
+        workspace.hook.installed && !remove
+          ? `No changes to hooks.\n${JSON.stringify({ hooks: fixtureHooks }, null, 2)}\n`
+          : fixtureDiff(remove),
+    };
+    return structuredClone(planned);
+  }
   if (command === 'create_workspace') {
     const { input } = args as { input: CreateWorkspace };
     workspace = {
@@ -75,37 +188,135 @@ mockIPC((command, args) => {
         display_name: input.display_name,
       })),
     };
-    status = { Ready: workspace };
   } else if (command === 'register_agent') {
     const { input } = args as { input: RegisterAgent };
+    const item = agent(
+      `fixture-own-${String(workspace.agents.length)}`,
+      input.label,
+      input.kind,
+    );
+    item.bound =
+      input.kind === 'ClaudeCode' &&
+      !workspace.agents.some((a) => a.is_you && a.kind === 'ClaudeCode');
+    workspace = { ...workspace, agents: [...workspace.agents, item] };
+  } else if (command === 'bind_agent') {
+    const { agentId } = args as { agentId: string };
+    if (
+      !workspace.agents.some(
+        (a) => a.id === agentId && a.is_you && a.kind === 'ClaudeCode',
+      )
+    )
+      return { Error: 'InvalidInput' };
     workspace = {
       ...workspace,
-      agents: [
-        ...workspace.agents,
-        {
-          ...input,
-          id: `fixture-${String(workspace.agents.length)}`,
-          state: null,
-          provenance: null,
-        },
-      ],
+      agents: workspace.agents.map((a) =>
+        a.kind === 'ClaudeCode'
+          ? { ...a, bound: a.id === agentId, connection: 'NotConnected' }
+          : a,
+      ),
     };
-    status = { Ready: workspace };
+  } else if (command === 'hook_apply') {
+    if (actionDelay)
+      await new Promise((yes) => {
+        setTimeout(yes, actionDelay);
+      });
+    if (failure) {
+      const error = failure;
+      failure = null;
+      return { Error: error };
+    }
+    if ((args as { planId: string }).planId !== planned?.plan_id)
+      return { Error: 'HookPlanStale' };
+    workspace.hook.installed = planned.action !== 'Remove';
+    workspace.agents = workspace.agents.map((a) => ({
+      ...a,
+      connection:
+        a.bound && workspace.hook.installed
+          ? a.state
+            ? 'Connected'
+            : 'WaitingForFirstEvent'
+          : 'NotConnected',
+    }));
+    planned = null;
   } else if (command === 'update_profile') {
-    const { name } = args as { name: string };
     workspace = {
       ...workspace,
-      members: workspace.members.map((member) => ({
-        ...member,
-        display_name: name,
+      members: workspace.members.map((m) => ({
+        ...m,
+        display_name: (args as { name: string }).name,
       })),
     };
-    status = { Ready: workspace };
-  } else if (command !== 'app_status') {
-    throw new Error('Unexpected fixture command');
-  }
-  return status;
+  } else throw new Error('Unexpected fixture command');
+  const result = ready();
+  emitChanged();
+  return result;
 });
-const root = document.getElementById('root');
-if (!root) throw new Error('Missing browser fixture root');
-createRoot(root).render(<App />);
+const fixture = {
+  snapshot: () => ({
+    commands: structuredClone(commands),
+    listeners: listeners.size,
+    workspace: structuredClone(workspace),
+    planned: structuredClone(planned),
+  }),
+  event: (state: AgentView['state']) => {
+    workspace.agents = workspace.agents.map((a) =>
+      a.bound
+        ? {
+            ...a,
+            state,
+            provenance: state
+              ? { Verified: { source: 'UserPromptSubmit' } }
+              : null,
+            stale: false,
+            connection:
+              workspace.hook.installed && state ? 'Connected' : 'NotConnected',
+          }
+        : a,
+    );
+    ready();
+    emitChanged();
+  },
+  staleWithoutEvent: () => {
+    workspace.agents = workspace.agents.map((a) =>
+      a.bound ? { ...a, stale: true, connection: 'Stale' } : a,
+    );
+    ready();
+  },
+  failNext: (error: AppError) => {
+    failure = error;
+  },
+  delayActions: (ms: number) => {
+    actionDelay = ms;
+  },
+  delayReads: (ms: number) => {
+    delay = ms;
+  },
+  addForeign: () => {
+    workspace.agents.push({
+      ...agent('d4c3b2a1-foreign-same-prefix', 'foreign agent'),
+      is_you: false,
+    });
+    ready();
+    emitChanged();
+  },
+  burst: () => {
+    for (let i = 0; i < 20; i += 1) emitChanged();
+  },
+  unmount: () => {
+    root.unmount();
+  },
+};
+declare global {
+  interface Window {
+    connectFixture: typeof fixture;
+  }
+}
+window.connectFixture = fixture;
+const element = document.getElementById('root');
+if (!element) throw new Error('Missing browser fixture root');
+const root = createRoot(element);
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

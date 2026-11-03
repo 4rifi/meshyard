@@ -1,3 +1,4 @@
+import { connectionLabels } from '../connect/connectionLabels';
 import type { AgentView } from '../../ipc/generated/AgentView';
 import type { HookEvent } from '../../ipc/generated/HookEvent';
 import type { RuleId } from '../../ipc/generated/RuleId';
@@ -20,7 +21,15 @@ const ruleLabels: Record<RuleId, string> = {
   TurnEnded: 'Turn ended',
   Stale: 'Stale activity',
 };
-export function AgentList({ agents }: { agents: AgentView[] }) {
+export function AgentList({
+  agents,
+  busy,
+  onSelect,
+}: {
+  agents: AgentView[];
+  busy: boolean;
+  onSelect: () => void;
+}) {
   if (!agents.length) return <p>No agents registered yet.</p>;
   return (
     <ul className="items">
@@ -29,8 +38,22 @@ export function AgentList({ agents }: { agents: AgentView[] }) {
           <strong>{agent.label}</strong>
           <span>
             {agent.kind === 'ClaudeCode' ? 'Claude Code' : agent.kind} ·{' '}
-            <span className="badge">{activityLabel(agent.state)}</span>
+            <span className={`badge${agent.stale ? ' stale-state' : ''}`}>
+              {agent.stale
+                ? `Unknown (no events for 10 min) · Last: ${activityLabel(agent.state)}`
+                : activityLabel(agent.state)}
+            </span>
           </span>
+          <span>
+            {agent.kind === 'Codex'
+              ? 'Codex connection is not available yet.'
+              : connectionLabels[agent.connection]}
+          </span>
+          {agent.is_you && agent.kind === 'ClaudeCode' && !agent.bound && (
+            <button type="button" disabled={busy} onClick={onSelect}>
+              Select for hook
+            </button>
+          )}
           {agent.provenance && (
             <span className="badge">
               {'Verified' in agent.provenance

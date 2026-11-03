@@ -8,6 +8,7 @@ class Element {
   textContent = '';
   title = '';
   className = '';
+  classList = { toggle: vi.fn() };
   dataset: Record<string, string> = {};
   style: Record<string, string | ((name: string, value: string) => void)> = {
     setProperty: (name: string, value: string) => {
@@ -139,6 +140,10 @@ const dto = (id: string, state: AgentView['state'] = null): AgentView => ({
   label: `${id} full name`,
   kind: 'ClaudeCode',
   provenance: null,
+  is_you: true,
+  stale: false,
+  bound: false,
+  connection: 'NotConnected' as const,
 });
 let media: {
   matches: boolean;
