@@ -5,7 +5,7 @@ import { StatusScreen } from './App';
 import type { AppStatus } from './ipc/generated/AppStatus';
 import type { AppError } from './ipc/generated/AppError';
 import type { WorkspaceView } from './ipc/generated/WorkspaceView';
-import { yardZones } from './playground/yardData';
+import { yardPlots, yardZones } from './playground/yardData';
 
 // SSR verifies text/form semantics; it cannot initialize or prove native/WebGL rendering.
 vi.mock('./playground/yard', () => ({ mountYard: vi.fn() }));
@@ -110,6 +110,41 @@ describe('real-state screen contract', () => {
     expect(html).toContain('Testing');
     expect(html).toContain('Inferred · ToolShell');
     expect(html).not.toContain('Verified');
+  });
+  it('keeps each real agent on a distinct tile when a station is crowded', () => {
+    const agents = Array.from({ length: 5 }, (_, index) => ({
+      id: String(index),
+      label: 'same label',
+      kind: 'ClaudeCode' as const,
+      state: null,
+      provenance: null,
+    }));
+    const plots = yardPlots(agents);
+    expect(plots).toHaveLength(3);
+    expect(
+      plots.flatMap((plot) =>
+        plot.stations.flatMap((station) => station.agents),
+      ),
+    ).toEqual(agents);
+    expect(
+      plots.every((plot) =>
+        plot.stations.every((station) => station.agents.length <= 2),
+      ),
+    ).toBe(true);
+    const future = yardPlots([
+      {
+        id: 'future',
+        label: 'future DTO state',
+        kind: 'Codex',
+        state: 'Reviewing',
+        provenance: null,
+      },
+    ]);
+    expect(
+      future
+        .flatMap((plot) => plot.stations)
+        .filter((station) => station.agents.length),
+    ).toMatchObject([{ label: 'Reviewing', prop: null }]);
   });
   for (const error of Object.keys(errors) as AppError[]) {
     it(`renders actionable typed ${error} without OS details`, () => {

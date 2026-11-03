@@ -12,6 +12,6 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ['**/src-tauri/**'] },
   },
-  build: { target: 'safari15' },
+  build: { target: 'safari15', assetsInlineLimit: 0 },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 });

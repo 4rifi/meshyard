@@ -22,7 +22,7 @@ export function WorkspaceScreen({
     workspace.members.find((m) => m.is_you)?.display_name ?? '',
   );
   useEffect(() => {
-    if (!host.current || !workspace.agents.length) return;
+    if (!host.current) return;
     return mountYard(host.current, workspace.agents, () => {
       setRendererFailed(true);
     });
@@ -43,12 +43,28 @@ export function WorkspaceScreen({
         </p>
       </header>
       <section className="panel yard" aria-labelledby="yard-heading">
-        <h2 id="yard-heading">The yard</h2>
-        {workspace.agents.length ? (
+        <div className="yard-heading">
+          <h2 id="yard-heading">The yard</h2>
+          <p>Stations reflect observed agent states</p>
+        </div>
+        <div
+          className="yard-viewport"
+          tabIndex={0}
+          role="region"
+          aria-label="Yard map; scroll horizontally on small screens"
+        >
           <div className="canvas-host" ref={host} aria-hidden="true" />
-        ) : (
+        </div>
+        {!workspace.agents.length && (
           <p className="empty-yard">Register an agent to see it here.</p>
         )}
+        <p className="narrow-yard-help">
+          Scroll the yard horizontally; full agent list below.
+        </p>
+        <p className="yard-caption">
+          <span>{workspace.agents.length} registered agents</span>
+          <span>Static view · Full names and status below</span>
+        </p>
         {rendererFailed && (
           <p role="status">
             Graphics are unavailable. Every agent is listed below.

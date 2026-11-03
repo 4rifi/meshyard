@@ -9,10 +9,10 @@ export function AgentList({ agents }: { agents: AgentView[] }) {
           <strong>{agent.label}</strong>
           <span>
             {agent.kind === 'ClaudeCode' ? 'Claude Code' : agent.kind} ·{' '}
-            {activityLabel(agent.state)}
+            <span className="badge">{activityLabel(agent.state)}</span>
           </span>
           {agent.provenance && (
-            <span>
+            <span className="badge">
               {'Verified' in agent.provenance
                 ? `Verified · ${agent.provenance.Verified.source}`
                 : `Inferred · ${agent.provenance.Inferred.rule}`}
