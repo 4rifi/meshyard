@@ -80,7 +80,9 @@ No prior task status, review decision or owner decision is changed by this path-
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
-| T-003 net endpoint | ready | Codex | after T-002 review `done` + merge; now includes KQ-005, ADR-011 (Strict without n0), port mapping, strict-only switch |
+| T-003 net endpoint | ready | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
+| T-014 local workspace slice | ready | Codex lane A | **priority**; `docs/tasks/T-014-local-workspace-slice.md`; branch from `c93fbe2` |
+| T-007a hook + normalizer | ready | Codex lane B | `docs/tasks/T-007-agent-pipeline.md` (KQ-002/003 decided); branch from `c93fbe2` |
 | T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -94,9 +96,19 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-5 | License | none chosen | Dion | open (needed before the DMG leaves Dion's Mac) |
 | D-6 | Merge to `main` | After Claude's review verdict `done`, Codex merges the task branch into `main` with a normal merge commit and pushes. Stacked branches merge in order (t-001, then t-002, …). No force push, no rebase of published branches. | Dion | **decided** 2026-11-03 |
 | D-7 | Test-partner build | Full MVP (T-001…T-013) as ad-hoc signed `aarch64` DMG, **Strict P2P only** (ADR-011, G-1 addendum), owner checkpoints L1–L5 first (ROADMAP) | Dion | **decided** 2026-11-03 |
+| D-9 | Stacked development while T-001/T-002 owner gates are open | Owner request 2026-11-03 ("substantial working app") → lanes A/B/C branch from `c93fbe2`; reviewed lanes merge into `m1-integration`, not `main`; if T-002 changes later, merge it into the lanes (no rebase). Gates for `main` unchanged | Claude (within D-4/D-6) | **decided** 2026-11-03 |
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Claude: owner screenshot (19:39) shows the native window with only the scaffold
+  rectangle — matches the literal L1 rendering criterion, but L1 is recorded only on Dion's
+  explicit confirmation; Keychain roundtrip still unverified. Neither gate is closed. Per Dion's
+  request for a substantial working app (≥ 90 % of own production code actually used, not a
+  coverage target): D-9 stacked lanes; new specs T-014 (local workspace slice, priority) and
+  T-007 (KQ-002 single 150 ms budget, KQ-003 bounded outcome enums); T-003 updated with KQ-009 →
+  ADR-012 (Meshyard-owned `portmapper =0.19.3`, honest `NotObserved`). GitHub: `gh` not
+  authenticated, mapping recorded in ROADMAP. Docs only, uncommitted in the T-002 worktree.
 
 - 2026-11-03 — Codex lead: Claude's re-review is confirmed complete (read-only run
   `d6837df0-8a3b-45a4-8805-2db0b8db3780`). All three code fixes accepted; wire v1 frozen;

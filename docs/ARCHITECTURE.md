@@ -304,6 +304,12 @@ Pattern matching runs on the **local** command string; the command string itself
   iroh port mapping is enabled and its result is shown in diagnostics. One active workspace per
   process, mode fixed by genesis (KQ-005). Tester builds are Strict-only (G-1 addendum).
   (accepted 2026-11-03, owner chose Strict-only for the colleague test)
+- **ADR-012** Port mapping has exactly one owner, Meshyard: direct `portmapper =0.19.3` client,
+  iroh's internal mapper off, external address fed via `Endpoint::add_external_addr`. Reason: iroh
+  1.3.0 exposes no public mapping state, and diagnostics must not guess. States
+  `Disabled | Probing | Mapped | NotObserved`; no router-refusal claim. Strict builder =
+  `presets::Minimal` + `RelayMode::Disabled` + `clear_address_lookup()`. (accepted 2026-11-03,
+  resolves KQ-009)
 
 ## 11. Pinned versions
 

@@ -21,9 +21,28 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | T-010 | Playground v1: tilemap, stations, avatars, movement, inspector, list view | T-009 | todo |
 | T-011 | Onboarding + diagnostics UI: create workspace, connect agent, invite (link + QR), join, SAS, peer status | T-009 | todo |
 | T-012 | System validation: two-node scripted test, `docs/VALIDATION.md` real-device protocol, results log, field test with the test partner (same LAN first, then different networks) | T-010, T-011, T-013 | todo |
+| T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | ready |
 | T-013 | Tester DMG: `aarch64-apple-darwin`, ad-hoc signed, stable id `ch.arifi.meshyard`, `meshyard://join` deep link, bundled `meshyard-hook`, Strict-only profile + bundle check for relay/n0 hosts, `docs/TESTER-GUIDE.md` (German) | T-011 | todo |
 
 Parallelizable: T-007 can run alongside T-003…T-006 (separate worktree).
+
+**Active lanes (D-9, 2026-11-03)** — all stacked on `t-002-core-store-identity` @ `c93fbe2`,
+reviewed lanes merge into `m1-integration` (normal merge commits); `main` receives t-001, t-002,
+then `m1-integration` once the T-001/T-002 owner gates close (D-6 unchanged):
+
+| Lane | Task | Branch | Owns |
+|---|---|---|---|
+| A (priority) | T-014 local workspace slice | `t-014-local-workspace-slice` | `app/**`, store read API |
+| B | T-007a hook + normalizer | `t-007a-hook-normalizer` | `crates/meshyard-hook`, `crates/meshyard-agents` |
+| C (when A/B have capacity) | T-003 Strict endpoint | `t-003-net-endpoint` | `crates/meshyard-net` |
+
+Lanes edit only their own crate manifests; `Cargo.lock` conflicts are resolved by regenerating it
+on merge, never by hand. Next after review: T-007b (app ingest + installer) on top of T-014, then
+T-004 → T-005 → T-006, T-009/T-010/T-011 extending T-014's files.
+
+**GitHub mapping (pending `gh auth login`; issues/milestones not inspectable yet):** milestone
+`M1 Working MVP` with one issue per T-ID above (T-014, T-007a/b, T-003…T-006, T-009…T-013), label
+`lane:A|B|C`; milestone `G-1 Release gate` with T-R1. Body = link to the spec file.
 
 Delivery target (owner, 2026-11-03): the **full MVP** goes to one named test partner (Apple
 Silicon Mac) as an ad-hoc signed DMG, **Strict P2P only** (no n0 or own relays). Owner
