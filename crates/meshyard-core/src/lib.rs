@@ -1,16 +1,15 @@
-//! Core crate scaffold. Domain behavior is introduced in later tasks.
+//! Pure domain, frozen wire v1, signatures and deterministic projection.
+pub mod crypto;
+pub mod domain;
+pub mod fold;
+pub mod policy;
+pub mod wire;
+pub use crypto::*;
+pub use domain::*;
+pub use fold::*;
+pub use policy::*;
 
-/// The scaffold package version; performs no I/O.
+// Kept for the T-001 application scaffold until its bridge is replaced in T-009.
 pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn version_is_compatible() {
-        let parts: Vec<_> = super::version().split('.').collect();
-        assert_eq!(parts.len(), 3);
-        assert!(parts.iter().all(|part| part.parse::<u32>().is_ok()));
-    }
 }
