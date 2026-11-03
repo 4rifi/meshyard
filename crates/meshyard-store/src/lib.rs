@@ -21,6 +21,8 @@ pub enum StoreError {
     Migration,
     #[error("workspace projection exceeds 100000 events")]
     ProjectionLimit,
+    #[error("agent binding must refer to an own registered agent")]
+    InvalidBinding,
     #[error("store worker is closed")]
     Closed,
     #[error("workspace not found")]
@@ -50,13 +52,15 @@ enum Command {
 #[derive(Clone)]
 pub struct Store {
     sender: mpsc::Sender<Command>,
+    directory: std::path::PathBuf,
 }
 impl Store {
     /// Initial filesystem/open/migration work is synchronous. Async runtimes may call
     /// `open_async`; all handle operations below use a bounded nonblocking channel.
     pub fn open(data_dir: impl AsRef<Path>) -> Result<Self, StoreError> {
         let lock = process_lock::DataDirLock::acquire(data_dir.as_ref())?;
-        let path = lock.directory().join("meshyard.sqlite");
+        let directory = lock.directory().to_owned();
+        let path = directory.join("meshyard.sqlite");
         let (sender, mut receiver) = mpsc::channel::<Command>(64);
         let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(1);
         std::thread::Builder::new()
@@ -86,7 +90,40 @@ impl Store {
             })
             .map_err(|_| StoreError::Io)?;
         ready_rx.recv().map_err(|_| StoreError::Closed)??;
-        Ok(Self { sender })
+        Ok(Self { sender, directory })
+    }
+    /// Canonical directory retained by the process lock; never an alias supplied by a caller.
+    pub fn directory(&self) -> &Path {
+        &self.directory
+    }
+    /// Local-only routing. The signer determines ownership; remote registrations cannot bind.
+    pub async fn bind_own_agent(
+        &self,
+        workspace: WorkspaceId,
+        agent_local_id: [u8; 16],
+        signer: Arc<dyn Signer>,
+    ) -> Result<(), StoreError> {
+        self.call(move |db| db.bind_own_agent(workspace, agent_local_id, signer.device_id()))
+            .await
+    }
+    pub async fn agent_binding(
+        &self,
+        workspace: WorkspaceId,
+        kind: AgentKind,
+        signer: Arc<dyn Signer>,
+    ) -> Result<Option<[u8; 16]>, StoreError> {
+        self.call(move |db| db.agent_binding(workspace, kind, signer.device_id()))
+            .await
+    }
+    /// Called after registration. Only the first own registration of a kind can auto-bind.
+    pub async fn bind_first_own_agent(
+        &self,
+        workspace: WorkspaceId,
+        agent_local_id: [u8; 16],
+        signer: Arc<dyn Signer>,
+    ) -> Result<(), StoreError> {
+        self.call(move |db| db.bind_first_own_agent(workspace, agent_local_id, signer.device_id()))
+            .await
     }
     pub async fn open_async(data_dir: std::path::PathBuf) -> Result<Self, StoreError> {
         tokio::task::spawn_blocking(move || Self::open(data_dir))

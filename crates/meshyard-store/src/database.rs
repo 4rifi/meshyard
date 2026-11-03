@@ -41,7 +41,16 @@ fn migrations() -> Migrations<'static> {
     "), M::up("
         CREATE TABLE membership_state (workspace BLOB PRIMARY KEY REFERENCES workspaces(id), owner BLOB NOT NULL CHECK(length(owner)=32), epoch INTEGER NOT NULL CHECK(epoch BETWEEN 0 AND 4294967295));
         CREATE TABLE members (workspace BLOB NOT NULL REFERENCES membership_state(workspace), device BLOB NOT NULL CHECK(length(device)=32), epoch_added INTEGER NOT NULL CHECK(epoch_added BETWEEN 0 AND 4294967295), removed INTEGER NOT NULL CHECK(removed IN (0,1)), PRIMARY KEY(workspace,device));
+    "), M::up("
+        CREATE TABLE agent_bindings (workspace BLOB NOT NULL REFERENCES workspaces(id), kind INTEGER NOT NULL CHECK(kind IN (0,1,2)), agent_local_id BLOB NOT NULL CHECK(length(agent_local_id)=16), PRIMARY KEY(workspace,kind));
     ")])
+}
+fn binding_kind(kind: AgentKind) -> i32 {
+    match kind {
+        AgentKind::ClaudeCode => 0,
+        AgentKind::Codex => 1,
+        AgentKind::Other => 2,
+    }
 }
 fn sql_seq(seq: u64) -> Result<i64, StoreError> {
     i64::try_from(seq).map_err(|_| StoreError::SequenceRange)
@@ -146,6 +155,79 @@ impl Database {
         }
         let state = fold(&genesis, &events).map_err(|_| StoreError::Database)?;
         Ok((genesis, state))
+    }
+    fn own_agent(
+        &self,
+        workspace: WorkspaceId,
+        local_id: [u8; 16],
+        own: DeviceId,
+    ) -> Result<Agent, StoreError> {
+        let (_, state) = self.workspace_state(workspace)?;
+        if !state.members.contains_key(&own) {
+            return Err(StoreError::InvalidBinding);
+        }
+        state
+            .agents
+            .get(&(own, local_id))
+            .cloned()
+            .ok_or(StoreError::InvalidBinding)
+    }
+    pub fn bind_own_agent(
+        &self,
+        workspace: WorkspaceId,
+        local_id: [u8; 16],
+        own: DeviceId,
+    ) -> Result<(), StoreError> {
+        let agent = self.own_agent(workspace, local_id, own)?;
+        self.conn.execute(
+            "INSERT INTO agent_bindings(workspace,kind,agent_local_id) VALUES(?1,?2,?3) ON CONFLICT(workspace,kind) DO UPDATE SET agent_local_id=excluded.agent_local_id",
+            params![workspace.0.as_slice(), binding_kind(agent.kind), local_id.as_slice()],
+        )?;
+        Ok(())
+    }
+    pub fn bind_first_own_agent(
+        &self,
+        workspace: WorkspaceId,
+        local_id: [u8; 16],
+        own: DeviceId,
+    ) -> Result<(), StoreError> {
+        let agent = self.own_agent(workspace, local_id, own)?;
+        let (_, state) = self.workspace_state(workspace)?;
+        if state
+            .agents
+            .values()
+            .filter(|a| a.author == own && a.kind == agent.kind)
+            .count()
+            == 1
+            && self.agent_binding(workspace, agent.kind, own)?.is_none()
+        {
+            self.bind_own_agent(workspace, local_id, own)?;
+        }
+        Ok(())
+    }
+    pub fn agent_binding(
+        &self,
+        workspace: WorkspaceId,
+        kind: AgentKind,
+        own: DeviceId,
+    ) -> Result<Option<[u8; 16]>, StoreError> {
+        let raw: Option<Vec<u8>> = self
+            .conn
+            .query_row(
+                "SELECT agent_local_id FROM agent_bindings WHERE workspace=?1 AND kind=?2",
+                params![workspace.0.as_slice(), binding_kind(kind)],
+                |row| row.get(0),
+            )
+            .optional()?;
+        raw.map(|bytes| {
+            let id = bytes.try_into().map_err(|_| StoreError::InvalidBinding)?;
+            let agent = self.own_agent(workspace, id, own)?;
+            if agent.kind != kind {
+                return Err(StoreError::InvalidBinding);
+            }
+            Ok(id)
+        })
+        .transpose()
     }
     fn seed_membership(&self, workspace: WorkspaceId, owner: DeviceId) -> Result<(), StoreError> {
         self.conn.execute(

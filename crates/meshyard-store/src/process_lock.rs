@@ -58,7 +58,7 @@ fn no_extended_access(_: &Path) -> Result<(), StoreError> {
     Err(StoreError::Permissions)
 }
 
-pub(crate) fn private_directory(path: &Path) -> Result<PathBuf, StoreError> {
+pub fn private_directory(path: &Path) -> Result<PathBuf, StoreError> {
     // Resolve aliases once, then inspect/use only this spelling. For a missing
     // leaf, validate its existing parent before creating anything.
     let canonical = match fs::symlink_metadata(path) {
