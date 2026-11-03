@@ -140,7 +140,20 @@ impl Drop for SocketFile {
         }
     }
 }
-fn listener(directory: &Path) -> std::io::Result<(UnixListener, SocketFile)> {
+struct Resources {
+    listener: UnixListener,
+    flush: time::Interval,
+    tick: time::Interval,
+}
+fn reactor_unavailable() -> std::io::Error {
+    std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "ingest reactor unavailable",
+    )
+}
+fn listener(directory: &Path) -> std::io::Result<(Resources, SocketFile)> {
+    // Presence alone does not guarantee that this runtime enables IO or time.
+    tokio::runtime::Handle::try_current().map_err(|_| reactor_unavailable())?;
     let directory = private_directory(&directory.join("ingest"))
         .map_err(|_| std::io::Error::from(std::io::ErrorKind::PermissionDenied))?;
     let path = directory.join("ingest.sock");
@@ -158,7 +171,7 @@ fn listener(directory: &Path) -> std::io::Result<(UnixListener, SocketFile)> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error),
     }
-    let listener = UnixListener::bind(&path)?;
+    let listener = std::os::unix::net::UnixListener::bind(&path)?;
     let meta = std::fs::symlink_metadata(&path)?;
     let file = SocketFile {
         path,
@@ -166,7 +179,23 @@ fn listener(directory: &Path) -> std::io::Result<(UnixListener, SocketFile)> {
         ino: meta.ino(),
     };
     std::fs::set_permissions(&file.path, std::fs::Permissions::from_mode(0o600))?;
-    Ok((listener, file))
+    listener.set_nonblocking(true)?;
+    // Tokio exposes no fallible driver query. Keep only newly owned resources in this
+    // boundary; the inode guard stays outside so an error/unwind removes our socket.
+    let resources = std::panic::catch_unwind(move || {
+        let listener = UnixListener::from_std(listener)?;
+        let mut flush = time::interval(APPEND_INTERVAL);
+        flush.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        let mut tick = time::interval(Duration::from_secs(5));
+        tick.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        Ok::<_, std::io::Error>(Resources {
+            listener,
+            flush,
+            tick,
+        })
+    })
+    .map_err(|_| reactor_unavailable())??;
+    Ok((resources, file))
 }
 
 pub(crate) struct Server {
@@ -198,21 +227,22 @@ impl Server {
             Ok(pair) => pair,
             Err(_) => {
                 status.unavailable.store(true, Ordering::Relaxed);
+                status.listening.store(false, Ordering::Relaxed);
                 return None;
             }
         };
-        status.unavailable.store(false, Ordering::Relaxed);
-        status.listening.store(true, Ordering::Relaxed);
         let (stop, stopped) = oneshot::channel();
         let task = tokio::spawn(serve(
             listener,
             file,
             core,
-            status,
+            status.clone(),
             expected_uid,
             clock,
             stopped,
         ));
+        status.unavailable.store(false, Ordering::Relaxed);
+        status.listening.store(true, Ordering::Relaxed);
         Some(Self {
             stop: Some(stop),
             task: Some(task),
@@ -300,7 +330,7 @@ async fn read_one_with<R: AsyncRead + Unpin>(
     }
 }
 async fn serve(
-    listener: UnixListener,
+    resources: Resources,
     _file: SocketFile,
     core: Weak<Core>,
     status: Arc<IngestStatus>,
@@ -311,10 +341,11 @@ async fn serve(
     let mut readers = JoinSet::new();
     let permits = Arc::new(Semaphore::new(8));
     let mut pipeline = Pipeline::new(clock);
-    let mut flush = time::interval(APPEND_INTERVAL);
-    flush.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
-    let mut tick = time::interval(Duration::from_secs(5));
-    tick.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+    let Resources {
+        listener,
+        mut flush,
+        mut tick,
+    } = resources;
     loop {
         tokio::select! {
             biased;

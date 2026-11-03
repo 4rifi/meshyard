@@ -179,6 +179,109 @@ fn start(dir: &Path, state: &AppState, uid: u32, clock: Arc<FakeClock>) -> Serve
     }
 }
 
+#[test]
+fn reactor_absent_runtime_fails_closed_before_socket_work() {
+    let outcome = std::panic::catch_unwind(|| {
+        let dir = private();
+        let status = Arc::new(IngestStatus::default());
+        // Even a previously published flag must be cleared on rejection.
+        status.listening.store(true, Ordering::Relaxed);
+        assert!(Server::start(dir.path(), Weak::new(), status.clone()).is_none());
+        assert!(status.unavailable.load(Ordering::Relaxed));
+        assert!(!status.listening.load(Ordering::Relaxed));
+        assert!(!dir.path().join("ingest").exists());
+        let error = listener(dir.path())
+            .err()
+            .expect("missing runtime rejected");
+        assert_eq!(error.kind(), std::io::ErrorKind::Unsupported);
+    });
+    assert!(outcome.is_ok(), "startup must not propagate a panic");
+}
+
+#[test]
+fn reactor_driver_matrix_preserves_workspace_and_cleans_socket() {
+    for (io, timers) in [(false, false), (true, false), (false, true), (true, true)] {
+        let outcome = std::panic::catch_unwind(|| {
+            let mut builder = tokio::runtime::Builder::new_current_thread();
+            match (io, timers) {
+                (true, true) => {
+                    builder.enable_all();
+                }
+                (true, false) => {
+                    builder.enable_io();
+                }
+                (false, true) => {
+                    builder.enable_time();
+                }
+                (false, false) => {}
+            }
+            let runtime = builder.build().unwrap();
+            runtime.block_on(async {
+                let dir = private();
+                let path = dir.path().join("ingest/ingest.sock");
+                let usable = io && timers;
+                // Inspect the typed boundary result too: EPERM must fail this test,
+                // never masquerade as a successfully caught missing-driver panic.
+                match listener(dir.path()) {
+                    Ok((resources, file)) => {
+                        assert!(usable, "missing driver incorrectly accepted");
+                        assert_eq!(resources.flush.period(), APPEND_INTERVAL);
+                        assert_eq!(resources.tick.period(), Duration::from_secs(5));
+                        assert_eq!(resources.flush.missed_tick_behavior(), time::MissedTickBehavior::Skip);
+                        assert_eq!(resources.tick.missed_tick_behavior(), time::MissedTickBehavior::Skip);
+                        assert_eq!(std::fs::metadata(&path).unwrap().mode() & 0o777, 0o600);
+                        drop(resources);
+                        drop(file);
+                    }
+                    Err(error) => {
+                        assert!(!usable, "enabled runtime must bind the actual OS socket: {error}");
+                        assert_eq!(error.kind(), std::io::ErrorKind::Unsupported,
+                            "actual OS bind/registration required; permission errors are not reactor evidence: {error}");
+                    }
+                }
+                assert!(!path.exists(), "resource rejection/drop must remove the owned socket");
+                let state = AppState::open(dir.path().to_owned(), true).await;
+                assert!(matches!(app_status(&state).await, AppStatus::Setup));
+                ready(create_workspace(&state, CreateWorkspace {
+                    name: "Reactor".into(), display_name: "Test".into(), mode: Mode::Strict,
+                }).await);
+                assert_eq!(state.2.unavailable.load(Ordering::Relaxed), !usable);
+                assert_eq!(state.2.listening.load(Ordering::Relaxed), usable);
+                assert_eq!(path.exists(), usable);
+                ready(app_status(&state).await);
+                let identity = std::fs::read(dir.path().join("identity")).unwrap();
+                state.close().await.unwrap();
+                assert!(!path.exists());
+
+                // Reopening an existing workspace also starts ingest; it must remain
+                // usable with a scheduler even when either optional driver is absent.
+                let reopened = AppState::open(dir.path().to_owned(), true).await;
+                assert_eq!(ready(app_status(&reopened).await).name, "Reactor");
+                assert_eq!(reopened.2.unavailable.load(Ordering::Relaxed), !usable);
+                assert_eq!(reopened.2.listening.load(Ordering::Relaxed), usable);
+                assert_eq!(path.exists(), usable);
+                assert_eq!(std::fs::read(dir.path().join("identity")).unwrap(), identity);
+                if usable {
+                    ready(register_agent(&reopened, RegisterAgent {
+                        kind: AgentKind::ClaudeCode, label: "main".into(),
+                    }).await);
+                    send(&path, PROMPT).await;
+                    wait_state(&reopened, S::Thinking).await;
+                    assert_eq!(reopened.2.received.load(Ordering::Relaxed), 1);
+                    assert_eq!(reopened.2.dropped_invalid.load(Ordering::Relaxed), 0);
+                    assert_eq!(events(&reopened).await.len(), 3);
+                }
+                reopened.close().await.unwrap();
+                assert!(!path.exists(), "shutdown must remove the owned socket");
+            });
+        });
+        assert!(
+            outcome.is_ok(),
+            "outer unwind or failed assertion: io={io} time={timers}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn prep_no_binding_no_event_and_identical_repeat_no_append() {
     let (_dir, state) = profile(false).await;
@@ -970,7 +1073,7 @@ async fn uds_darwin_buffered_closed_peer_records_old_errno_and_new_uid() {
         std::io::Write::write_all(&mut client, PROMPT).unwrap();
         client.shutdown(std::net::Shutdown::Both).unwrap();
     }
-    let (stream, _) = uds.accept().await.unwrap();
+    let (stream, _) = uds.listener.accept().await.unwrap();
     let old = stream.peer_cred();
     let new = peer_uid(&stream);
     let expected_uid = rustix::process::geteuid().as_raw();
