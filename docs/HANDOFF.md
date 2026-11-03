@@ -62,9 +62,10 @@ No prior task status, review decision or owner decision is changed by this path-
   Positive native Keychain acceptance remains pending; task status stays review. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
-  Current active implementation runs: T-007a `b90bb555` and T-003 `bf7148c0`;
-  T-014 `d09db809` finished with focused commits and a passing full offline check. Historical
-  runs are archived; do not resume them in temporary checkouts.
+  Current active implementation run: T-015 alignment follow-up `b8a76818` in its USB worktree.
+  T-003 final re-review `1cf33993` finished with verdict done; T-007a code is accepted but its
+  first-launch latency gate remains unmet. T-014 code is accepted, owner N-14 deferred.
+  Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
   It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
   temporary files under `/Volumes/MeshyardProjects/Meshyard-build`. Install frontend dependencies
@@ -81,7 +82,7 @@ No prior task status, review decision or owner decision is changed by this path-
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
-| T-003 net endpoint | review | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
+| T-003 net endpoint | done (Claude @ `df3b844`) | Claude accepted | Local default/Strict transport and TLS proofs accepted; L2/router/cross-network remain separate; no main merge |
 | T-014 local workspace slice | review | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
@@ -102,6 +103,19 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: Claude final T-003 review at `df3b844` accepts both fixes and
+  returns **done** for local endpoint scope. Review committed unchanged as `62391ae`, pushed
+  and remote-verified. ROADMAP/board now reflect that verdict; real router/cross-network L2,
+  native Keychain/owner and main merge gates remain separate. T-015 four visual fixes source
+  `bbe099e`; actual parent render found fractional canvas origin y=351.1875, so bounded alignment
+  follow-up `b8a76818` is active (no new art direction while reference is missing). Real native
+  T-015-only preview is open: launcher 50103, own Vite 1420 PID 50266, native 50284, onscreen
+  window 74084 at 960×680; same explicit USB file-key profile, HTTP 200 real main entry.
+  First detached launcher ended before verification; persistent dev session 6522 replaces it,
+  both logs preserved in `Meshyard-build/T015-final-source-preview-20261103T204908Z`.
+  Screen-capture preflight false, no screenshot or native action/acceptance claimed. Dion tests
+  later; no main merge. Next: verify crisp responsive rendering and exact-head visual re-review.
 
 - 2026-11-03 — Codex lead: T-003 approved relay/TLS fixes normally merged from `ee76afd`;
   normal isolated-target required loops pass **10/10 default + 10/10 strict-only**. Full check
