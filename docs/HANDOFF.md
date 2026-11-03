@@ -58,8 +58,8 @@ No prior task status, review decision or owner decision is changed by this path-
   Full USB offline check at `ce34a79`: exit 0, 68.657 s, 55 top-level Rust passes plus lock
   child, 3 frontend passes; 2 ignored entries. Report/status commit follows that checked source.
   Provider-capacity interruption and preserved WIP continuation are recorded in the report.
-  Lead inspection of the final changes and check evidence is complete; renewed Claude review
-  and positive native Keychain coverage remain pending. No merge or T-003 instruction is implied.
+  Lead inspection and Claude code re-review are complete; wire v1 is frozen.
+  Positive native Keychain acceptance remains pending; task status stays review. No merge or T-003 instruction is implied.
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   No Meshyard Smithers/`codex exec` worker is active at migration completion. Historical runs are
@@ -97,6 +97,13 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: Claude's re-review is confirmed complete (read-only run
+  `d6837df0-8a3b-45a4-8805-2db0b8db3780`). All three code fixes accepted; wire v1 frozen;
+  no code blockers. T-002 stays review until Dion's real native Keychain pass; T-001 still
+  needs recorded L1 and explicit merge instruction. Owner-status question pending; no evidence
+  assumed from elapsed time. Published review `21fbf2f`; updated T-001 commands `d76f2c1`.
+  No merge/T-003; KQ-009 is the remaining separate architect prerequisite before T-003.
 
 - 2026-11-03 — Codex lead: inspected the completed projects migration and actual offline
   check (exit 0; 55 Rust + lock child, 3 Vitest). Active checkout is now
