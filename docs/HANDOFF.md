@@ -63,6 +63,17 @@ agreed below).
 
 ## 6. Log
 
+- 2026-11-03 07:46 CET — Codex lead status ping: no active Meshyard Smithers/`codex exec`
+  processes. T-002 fix run `ecc5ea73-ecc2-4cea-baec-1a1fe31d3348` completed implementation/checks;
+  its final-source audit failed on a 600-second idle timeout. Unrelated OpenTwin Smithers watcher
+  PID 2358 (`thinker-team-watch-20261031-1216`) remains active, untouched. Latest task commits:
+  `t-001-scaffold` / `ac125bb`, `t-002-core-store-identity` / `9889c7b`, both pushed; this
+  status-only commit follows. Blockers: low system disk (~1 GB reported, 2.1 GiB measured;
+  external build volume 55 GiB free), last Computer Use app-access denial and automatic-review
+  rejection of alternate Terminal launch (shell now unrestricted; GUI not retested), hook first
+  start above original <20 ms limit, Keychain positive check unavailable. Next: final-source
+  T-002 audit then Claude review; native T-001 recheck after app approval. No new run started.
+
 - 2026-11-03 — Bounded T-001 review cleanup: make the existing external headless CSP check
   discoverable, use portable README setup, allow unwrap/expect only in tests through Clippy
   configuration, and build only an rlib for the desktop app. Dependencies and production CSP
