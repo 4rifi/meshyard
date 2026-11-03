@@ -20,5 +20,12 @@ tauri.workspace = true
 tracing.workspace = true
 meshyard-core.workspace = true
 meshyard-store.workspace = true
-meshyard-net.workspace = true
-meshyard-agents.workspace = true
+tokio.workspace = true
+serde.workspace = true
+ts-rs.workspace = true
+postcard.workspace = true
+getrandom.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+rusqlite.workspace = true

@@ -2534,13 +2534,18 @@ dependencies = [
 name = "meshyard-app"
 version = "0.1.0"
 dependencies = [
- "meshyard-agents",
+ "getrandom 0.4.3",
  "meshyard-core",
- "meshyard-net",
  "meshyard-store",
+ "postcard",
+ "rusqlite",
+ "serde",
  "tauri",
  "tauri-build",
+ "tempfile",
+ "tokio",
  "tracing",
+ "ts-rs",
 ]
 
 [[package]]
