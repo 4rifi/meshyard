@@ -59,6 +59,21 @@ fn no_extended_access(_: &Path) -> Result<(), StoreError> {
 }
 
 pub fn private_directory(path: &Path) -> Result<PathBuf, StoreError> {
+    owned_directory(path, 0o077)
+}
+
+/// User settings may be readable by others, but only the effective UID may write.
+/// Missing leaves are created privately; existing directories are never chmodded.
+pub fn settings_directory(path: &Path) -> Result<PathBuf, StoreError> {
+    owned_directory(path, 0o022)
+}
+
+#[cfg(unix)]
+fn owned_directory_mode(uid: u32, mode: u32, forbidden: u32) -> bool {
+    uid == current_uid() && mode & forbidden == 0
+}
+
+fn owned_directory(path: &Path, forbidden: u32) -> Result<PathBuf, StoreError> {
     // Resolve aliases once, then inspect/use only this spelling. For a missing
     // leaf, validate its existing parent before creating anything.
     let canonical = match fs::symlink_metadata(path) {
@@ -88,7 +103,7 @@ pub fn private_directory(path: &Path) -> Result<PathBuf, StoreError> {
     trusted_ancestors(&canonical)?;
     let metadata = fs::symlink_metadata(&canonical).map_err(|_| StoreError::Io)?;
     #[cfg(unix)]
-    if metadata.uid() != current_uid() || metadata.mode() & 0o077 != 0 {
+    if !owned_directory_mode(metadata.uid(), metadata.mode(), forbidden) {
         return Err(StoreError::Permissions);
     }
     Ok(canonical)
@@ -310,6 +325,24 @@ mod tests {
         assert!(trusted_owner_mode(current, 0o700, current));
         assert!(trusted_owner_mode(0, 0o1777, current));
         assert!(!trusted_owner_mode(0, 0o777, current));
+    }
+
+    #[test]
+    fn settings_leaf_policy_requires_actual_euid_even_for_readonly_foreign_owners() {
+        let current = rustix::process::geteuid().as_raw();
+        let other = if current == 12345 { 12346 } else { 12345 };
+        for mode in [0o700, 0o750, 0o755] {
+            assert!(owned_directory_mode(current, mode, 0o022));
+            assert!(!owned_directory_mode(other, mode, 0o022));
+            if current != 0 {
+                assert!(!owned_directory_mode(0, mode, 0o022));
+            }
+        }
+        for mode in [0o775, 0o777, 0o1777] {
+            assert!(!owned_directory_mode(current, mode, 0o022));
+        }
+        assert!(owned_directory_mode(current, 0o700, 0o077));
+        assert!(!owned_directory_mode(current, 0o755, 0o077));
     }
 }
 

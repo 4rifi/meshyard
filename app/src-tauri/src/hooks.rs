@@ -1,6 +1,6 @@
 //! Explicit, reviewed user-scope installer. Construction/planning never writes.
 use crate::view::{AppError, HookAction, HookPlan, HookView};
-use meshyard_store::process_lock::private_directory;
+use meshyard_store::process_lock::settings_directory;
 use serde::{
     Deserialize, Deserializer,
     de::{MapAccess, Visitor},
@@ -135,7 +135,7 @@ impl Installer {
             quote(&self.socket)?
         ))
     }
-    fn binary_available(&self) -> bool {
+    pub(crate) fn binary_available(&self) -> bool {
         self.binary.as_ref().is_some_and(|path| {
             path.is_absolute()
                 && path.to_str().is_some()
@@ -260,7 +260,7 @@ impl Installer {
             return Err(AppError::HookBinaryMissing);
         }
         let parent = self.settings.parent().ok_or(AppError::Configuration)?;
-        let parent = private_directory(parent).map_err(|_| AppError::UnsafePermissions)?;
+        let parent = settings_directory(parent).map_err(|_| AppError::UnsafePermissions)?;
         let mut temp = tempfile::NamedTempFile::new_in(&parent).map_err(|_| AppError::Storage)?;
         temp.as_file()
             .set_permissions(fs::Permissions::from_mode(0o600))

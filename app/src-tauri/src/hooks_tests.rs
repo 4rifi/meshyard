@@ -204,3 +204,90 @@ fn shell_quote_each_argument_and_reject_symlink_settings() {
     assert_eq!(installer.plan(false), Err(AppError::UnsafePermissions));
     assert_eq!(fs::read(target).unwrap(), b"{}");
 }
+
+#[test]
+fn readable_settings_parent_installs_with_private_backup_without_chmod() {
+    for mode in [0o755, 0o750] {
+        let (_dir, mut installer) = fixture();
+        let before = b"{\"keep\":true}\n";
+        write(&installer, before);
+        let parent = installer.settings.parent().unwrap().to_owned();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(mode)).unwrap();
+        let plan = installer.plan(false).unwrap();
+        installer.apply(&plan.plan_id).unwrap();
+        assert!(installer.view().unwrap().installed);
+        assert_eq!(fs::metadata(&parent).unwrap().mode() & 0o777, mode);
+        assert_eq!(
+            fs::metadata(&installer.settings).unwrap().mode() & 0o777,
+            0o600
+        );
+        let backups: Vec<_> = fs::read_dir(parent)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path != &installer.settings)
+            .collect();
+        assert_eq!(backups.len(), 1, "only the backup remains beside settings");
+        assert!(
+            backups[0]
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .starts_with("settings.json.meshyard-backup-")
+        );
+        assert_eq!(fs::read(&backups[0]).unwrap(), before);
+        assert_eq!(fs::metadata(&backups[0]).unwrap().mode() & 0o777, 0o600);
+    }
+}
+
+#[test]
+fn writable_settings_parent_is_rejected_without_changes() {
+    for mode in [0o775, 0o777] {
+        let (_dir, mut installer) = fixture();
+        write(&installer, b"{}");
+        let parent = installer.settings.parent().unwrap().to_owned();
+        fs::set_permissions(&parent, fs::Permissions::from_mode(mode)).unwrap();
+        let plan = installer.plan(false).unwrap();
+        assert_eq!(
+            installer.apply(&plan.plan_id),
+            Err(AppError::UnsafePermissions)
+        );
+        assert_eq!(fs::read(&installer.settings).unwrap(), b"{}");
+        assert_eq!(fs::metadata(&parent).unwrap().mode() & 0o777, mode);
+        assert_eq!(fs::read_dir(parent).unwrap().count(), 1);
+    }
+}
+
+#[test]
+fn symlink_settings_parent_is_rejected_even_after_planning() {
+    let (dir, mut installer) = fixture();
+    write(&installer, b"{}");
+    let plan = installer.plan(false).unwrap();
+    let parent = installer.settings.parent().unwrap().to_owned();
+    let target = dir.path().join("original-settings-parent");
+    fs::rename(&parent, &target).unwrap();
+    std::os::unix::fs::symlink(&target, &parent).unwrap();
+    assert_eq!(installer.plan(false), Err(AppError::UnsafePermissions));
+    assert_eq!(
+        installer.apply(&plan.plan_id),
+        Err(AppError::UnsafePermissions)
+    );
+    assert_eq!(fs::read(target.join("settings.json")).unwrap(), b"{}");
+    assert_eq!(fs::read_dir(target).unwrap().count(), 1);
+}
+
+#[test]
+fn missing_settings_parent_is_created_private_only_on_apply() {
+    let (_dir, mut installer) = fixture();
+    let plan = installer.plan(false).unwrap();
+    let parent = installer.settings.parent().unwrap().to_owned();
+    assert!(!parent.exists());
+    installer.apply(&plan.plan_id).unwrap();
+    assert!(installer.view().unwrap().installed);
+    assert_eq!(fs::metadata(&parent).unwrap().mode() & 0o777, 0o700);
+    assert_eq!(
+        fs::metadata(&installer.settings).unwrap().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(fs::read_dir(parent).unwrap().count(), 1);
+}

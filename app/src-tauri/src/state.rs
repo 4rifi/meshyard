@@ -199,8 +199,12 @@ impl AppCore {
         let hook = self
             .installer
             .as_ref()
-            .map(Installer::view)
-            .transpose()?
+            .map(|installer| {
+                installer.view().unwrap_or_else(|_| HookView {
+                    installed: false,
+                    binary_available: installer.binary_available(),
+                })
+            })
             .unwrap_or(HookView {
                 installed: false,
                 binary_available: false,

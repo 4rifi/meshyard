@@ -144,7 +144,9 @@ export function ConnectClaudeCode({
       </button>
       <p role="status">
         {bound
-          ? connectionLabels[bound.connection]
+          ? bound.connection === 'WaitingForFirstEvent'
+            ? 'Start Claude Code or send a message in an existing session. Waiting for the first event.'
+            : connectionLabels[bound.connection]
           : 'Choose your own Claude Code agent to continue.'}
       </p>
       {!workspace.hook.binary_available && (

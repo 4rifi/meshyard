@@ -33,6 +33,79 @@ fn ready(status: AppStatus) -> WorkspaceView {
         other => panic!("expected Ready, got {other:?}"),
     }
 }
+
+#[tokio::test]
+async fn bad_hook_config_keeps_real_workspace_status_register_and_profile_usable() {
+    for symlink in [false, true] {
+        let dir = profile();
+        let state = AppState::open(dir.path().to_owned(), true).await;
+        let initial = ready(create_workspace(&state, create_input()).await);
+        assert!(!initial.hook.installed && !initial.hook.binary_available);
+        assert_eq!(hook_plan(&state).await, Err(AppError::HookBinaryMissing));
+        assert!(!dir.path().join(".claude").exists());
+
+        let settings_parent = dir.path().join(".claude");
+        std::fs::create_dir(&settings_parent).unwrap();
+        std::fs::set_permissions(&settings_parent, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let settings = settings_parent.join("settings.json");
+        let target = dir.path().join("untouched-settings-target");
+        let expected = if symlink {
+            std::fs::write(&target, b"{}").unwrap();
+            std::os::unix::fs::symlink(&target, &settings).unwrap();
+            AppError::UnsafePermissions
+        } else {
+            std::fs::write(&settings, b"invalid JSON").unwrap();
+            std::fs::set_permissions(&settings, std::fs::Permissions::from_mode(0o600)).unwrap();
+            AppError::HookConfigInvalid
+        };
+        let binary = dir.path().join("explicit hook fixture");
+        std::fs::write(&binary, b"test fixture; never executed").unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        state
+            .configure_hooks(settings.clone(), Some(binary.clone()))
+            .await;
+        let view = ready(app_status(&state).await);
+        assert!(!view.hook.installed && view.hook.binary_available);
+        assert_eq!(hook_plan(&state).await, Err(expected.clone()));
+        let registered = ready(
+            register_agent(
+                &state,
+                RegisterAgent {
+                    kind: AgentKind::ClaudeCode,
+                    label: "still usable".into(),
+                },
+            )
+            .await,
+        );
+        assert_eq!(registered.agents.len(), 1);
+        let bound = ready(bind_agent(&state, registered.agents[0].id.clone()).await);
+        assert!(bound.agents[0].bound);
+        assert_eq!(bound.agents[0].connection, AgentConnection::NotConnected);
+        let updated = ready(update_profile(&state, "Still editable".into()).await);
+        assert_eq!(updated.members[0].display_name, "Still editable");
+        assert!(!updated.hook.installed && updated.hook.binary_available);
+        assert_eq!(hook_plan(&state).await, Err(expected.clone()));
+
+        // Availability comes from the injected file, independently of config parsing.
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let unavailable = ready(app_status(&state).await);
+        assert!(!unavailable.hook.installed && !unavailable.hook.binary_available);
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(hook_plan(&state).await, Err(expected));
+        if symlink {
+            assert!(
+                std::fs::symlink_metadata(&settings)
+                    .unwrap()
+                    .file_type()
+                    .is_symlink()
+            );
+            assert_eq!(std::fs::read(target).unwrap(), b"{}");
+        } else {
+            assert_eq!(std::fs::read(settings).unwrap(), b"invalid JSON");
+        }
+        state.close().await.unwrap();
+    }
+}
 #[tokio::test]
 async fn signed_create_profile_register_reopen_and_exclusive_profile() {
     let dir = profile();
