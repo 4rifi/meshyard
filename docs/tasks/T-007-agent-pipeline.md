@@ -26,12 +26,16 @@ defaults. Where this file and PROTOCOL §9 differ, PROTOCOL wins.
   Codex error are not in scope), so they are added only together with their consuming rule.
 
 ## T-007a scope (all rules: PROTOCOL §9 v1.2)
-- `crates/meshyard-hook/src/main.rs`: std + serde/serde_json only. `--socket <abs path>` argument;
+- `crates/meshyard-hook/src/main.rs`: std + serde/serde_json, plus the workspace-pinned `rustix`
+  (`process` feature) solely for `geteuid()`; no root-manifest version change. `--socket <abs path>` argument;
   reads stdin (1 MiB cap); forwards only the 7 `HookEvent` names; maps `tool_name` → tool category;
   for shell tools classifies `tool_input.command` (first 4 KiB) into `command_class`
   `test | git_merge | other` **in the hook** and drops the string; validates correlation IDs
   (`session_id` required; `turn_id`, `tool_use_id`, `agent_id` optional; 1–128 bytes
-  `[A-Za-z0-9._:-]`); hook-side socket owner check (socket type, parent dir `0700`, same owner);
+  `[A-Za-z0-9._:-]`); hook-side socket owner check (no symlinks, socket type, parent dir mode
+  `0700`, socket UID **and** parent UID == `rustix::process::geteuid().as_raw()`; proves ownership
+  only, see PROTOCOL §9); T-007b's server reuses `meshyard-store` `private_directory` for the
+  socket dir and keeps the peer-UID check;
   writes one newline-terminated JSON envelope ≤ 1 KiB. No cwd, no hash of cwd, no outcome fields.
 - `crates/meshyard-agents/src/{ingest,state}.rs`: envelope type parsed into the existing
   `meshyard-core` `HookEvent`/`ToolCategory` (no duplicate enums except the local `CommandClass`);
@@ -57,8 +61,11 @@ defaults. Where this file and PROTOCOL §9 differ, PROTOCOL wins.
   test`, `FOO=1 npm test`), precedence `git_merge` > `test`, and lookalikes (`echo cargo test` →
   `other`).
 - Hook binary tests: empty stdin, malformed JSON, > 1 MiB stdin, invalid/missing `session_id`,
-  absent socket, blocked socket, symlinked socket, parent dir not `0700` — each exits 0 within the
-  budget without writing where required (generous in-test margin; real timings in report).
+  absent socket, blocked socket, symlinked socket, parent dir not `0700`, and an **injected UID
+  mismatch** (owner check takes the expected effective UID as a parameter; test passes a different
+  value for socket and for parent separately) — each exits 0 / rejects within the budget without
+  writing (generous in-test margin; real timings in report). No real cross-user or root test is
+  required or claimed.
 - Privacy test: no fixture string from prompt/command/path/cwd fields appears in any envelope.
 - `npm run check` green; files touched only `crates/meshyard-hook/**`, `crates/meshyard-agents/**`,
   their manifests, `docs/reports/T-007.md`.

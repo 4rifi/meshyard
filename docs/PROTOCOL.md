@@ -209,7 +209,8 @@ v1.2 clarification (2026-11-03, KQ-002/KQ-003, T-007): local ingest only; the si
 unchanged and frozen. Everything below is local to one machine and never signed or shared.
 
 - **Invocation:** `meshyard-hook <claude-code|codex> --socket <absolute path>` (the installer writes
-  the path; missing/relative path → exit 0 silently). Dependencies: std + serde/serde_json only.
+  the path; missing/relative path → exit 0 silently). Dependencies: std + serde/serde_json, plus
+  the workspace's already-pinned `rustix` with the `process` feature for the effective UID only.
 - **Budget (KQ-002):** one end-to-end budget of 150 ms from process start: stdin ≤ 100 ms with a
   **1 MiB** cap (over cap, timeout or invalid JSON → drop), connect ≤ 20 ms, write ≤ 20 ms. Any
   failure: drop the event, print nothing, exit 0. Empty stdin exits immediately (first launch
@@ -217,12 +218,18 @@ unchanged and frozen. Everything below is local to one machine and never signed 
 - **Forwarded events:** only the seven `HookEvent` names of `meshyard-core` (`SessionStart`,
   `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `StopFailure`, `SessionEnd`). Any other
   hook name → exit 0 without connecting.
-- **Socket owner check (hook side, std only):** `symlink_metadata` on the socket path must be a
-  socket (not a symlink); its parent directory must be a real directory with mode exactly `0700`
-  and the same owner UID as the socket. Since a non-root process can only reach entries inside a
-  `0700` directory it owns, this proves the socket belongs to the current user without libc. On
-  any mismatch → exit 0 without writing.
-- **Server side:** the app additionally checks peer UID (safe wrapper, no `unsafe` in our code).
+- **Socket owner check (hook side):** `symlink_metadata` on the socket path must be a socket (not
+  a symlink); its parent directory (`symlink_metadata`, not a symlink) must be a real directory
+  with mode bits exactly `0700`; **both** the socket's and the parent's owner UID must equal
+  `rustix::process::geteuid().as_raw()` (effective UID, not the real UID). Any mismatch → exit 0
+  without writing. What this proves: at check time the socket and its parent directory are owned
+  by the hook's effective user. It does **not** prove ancestor-directory trust, absence of ACL
+  grants, freedom from check-then-connect races (TOCTOU), or the identity of the process
+  listening on the socket; no root or same-user race resistance is promised. Mode bits alone do
+  not exclude ACL access, which is why the UID comparison is direct.
+- **Server side (still required):** the app creates the socket directory with the existing
+  ACL-aware `meshyard-store` `private_directory` check and checks the connecting peer's UID (safe
+  wrapper, no `unsafe` in our code).
   This protects against **other OS users only**, not other processes of the same user; "verified"
   means "observed via a hook-shaped message on the local socket".
 - **Command classification happens in the hook, at the earliest boundary.** For shell tools

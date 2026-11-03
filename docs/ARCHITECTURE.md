@@ -219,11 +219,13 @@ agent CLI ──hook (async)──► meshyard-hook ──UDS──► IngestSer
    ──► AgentEvent (raw, local only) ──► StateMachine ──► SharingPolicy ──► EventKind::AgentState
 ```
 - `meshyard-hook <agent-kind> --socket <path>` reads stdin JSON (cap 1 MiB), classifies a shell
-  command in memory and drops it, checks socket ownership, writes one allowlisted JSON line to
+  command in memory and drops it, checks that socket and parent dir are owned by its effective UID
+  (pinned `rustix` `process`; besides that std + serde/serde_json only), writes one allowlisted JSON line to
   `<app_data>/ingest.sock` (dir `0700`, socket `0600`), exits 0 within the single 150 ms budget.
   It never blocks or alters the agent (registered with `async: true`; never emits decision output).
   **Normative details (envelope, budget, classification, correlation, staleness): PROTOCOL §9 v1.2.**
-- Ingest server verifies peer UID equals the current user.
+- Ingest server creates the socket dir via the ACL-aware `private_directory` and verifies peer UID
+  equals the current user (required; the hook-side check proves only ownership at check time).
 
 ### 7.2 Adapter trait
 ```rust
