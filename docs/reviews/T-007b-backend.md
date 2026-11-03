@@ -74,6 +74,38 @@ once the fix and a green full check exist. T-007b stays in progress; not done.
   reads no longer scale with N; acceptable as a carried-over policy, revisit with compaction (M2).
 - Projection blobs are postcard-encoded domain values with key cross-checks on decode — fine.
 
+## Re-review 2026-11-03 — source `dc01799a7bf2702da8edf8016f18f278f20e1e61`
+Current head `c3433b75909267509646a3e98a262036ec1176c5` (root proof/report only after the source).
+Scope: fix 1 only — fixture `3e37c48`, production `dc01799`. Source read: `ingest.rs`
+`Resources`/`listener`/`Server::start_with`, `tests/local_workspace.rs` child runtime. I ran nothing.
+
+- **(a) resolved.** The child runtime is `new_current_thread().enable_all()`; no assertion changed.
+- **(b) resolved.** `listener()` checks for a current Tokio handle before touching the filesystem;
+  binds a **std** `UnixListener`, records the inode guard, sets `0600` and non-blocking outside
+  the unwind boundary; only `UnixListener::from_std` and the two existing intervals are created
+  inside a narrow `catch_unwind` over freshly owned values (no shared state, no `AssertUnwindSafe`,
+  no global hook, no `unsafe`). Any error or contained unwind returns `reactor_unavailable`, the
+  guard removes only our socket inode, and `start_with` sets `unavailable = true`,
+  `listening = false` and returns `None`; the workspace opens normally. The prepared intervals are
+  moved into `serve`, so no later missing-time-driver panic; `listening` is published only after the
+  task is spawned. The socket inherits the `0700` parent until `chmod 0600`, so the short window is
+  not exposed. Known limit, stated by the implementer: with `panic = "abort"` a driver panic cannot
+  be contained — acceptable for the current profiles; the dependency's default panic message still
+  reaches stderr for misconfigured runtimes.
+- **Evidence (root, normal shell, not re-run by me):** reactor matrix `reactor_` tests exit 0
+  (2.627 s; no runtime, neither driver, IO only, time only, `enable_all` → unavailable/not listening,
+  no orphan socket, workspace usable; valid positive case). Full `CARGO_NET_OFFLINE=true npm run
+  check` on `dc01799` **exit 0** (50.272 s; 110 top-level Rust + lock child, 46 Vitest, 2 ignored),
+  including the two-fresh-process create/reopen test and all 16 app tests (six real UDS, the
+  original immediate-drop flow within 6 s, live peer, wrong UID, bounds, closed-peer errno 57 proof).
+  The earlier red runs (`dd11f8b` exit 101, older parent failures, worker EPERM) stay in the record.
+
+**Verdict: backend foundation code accepted at `dc01799`** (projection/ADR-014 and peer
+credential/ADR-015 unchanged from the first review). Hand-off granted to the **single** next writer
+for §4–6 (DTOs exactly as spec §6, Connect panel, installer with explicit Install). T-007b remains
+**in progress — not done**. No real CLI capture, native, owner Install, N-14, B-1 or reference
+acceptance is implied; `main` stays unmerged.
+
 ## Gates
 - After fix 1 + green full check: **backend foundation code accepted** for the single combined
   §4–6 Connect/installer writer (DTOs exactly as spec §6).
