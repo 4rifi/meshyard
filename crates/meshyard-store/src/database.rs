@@ -28,6 +28,7 @@ pub struct Diagnostics {
 }
 pub(crate) struct Database {
     conn: Connection,
+    verifier: Box<dyn Verifier>,
 }
 fn migrations() -> Migrations<'static> {
     Migrations::new(vec![M::up("
@@ -37,6 +38,9 @@ fn migrations() -> Migrations<'static> {
         CREATE TABLE peers (workspace BLOB NOT NULL REFERENCES workspaces(id), device BLOB NOT NULL, equivocated INTEGER NOT NULL DEFAULT 0, protocol_violation INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(workspace,device));
         CREATE TABLE pairings (workspace BLOB NOT NULL REFERENCES workspaces(id), invite_id BLOB NOT NULL, token_hash BLOB NOT NULL, state TEXT NOT NULL CHECK(state IN ('Open','Reserved','Completed','Aborted','Expired')), expires_ms INTEGER NOT NULL, joiner BLOB, joiner_nonce BLOB, inviter_nonce BLOB, reserved_ms INTEGER, inviter_confirmed INTEGER NOT NULL DEFAULT 0, joiner_confirmed INTEGER NOT NULL DEFAULT 0, transcript_hash BLOB, PRIMARY KEY(workspace,invite_id));
         CREATE TABLE meta (key TEXT PRIMARY KEY, value BLOB NOT NULL);
+    "), M::up("
+        CREATE TABLE membership_state (workspace BLOB PRIMARY KEY REFERENCES workspaces(id), owner BLOB NOT NULL CHECK(length(owner)=32), epoch INTEGER NOT NULL CHECK(epoch BETWEEN 0 AND 4294967295));
+        CREATE TABLE members (workspace BLOB NOT NULL REFERENCES membership_state(workspace), device BLOB NOT NULL CHECK(length(device)=32), epoch_added INTEGER NOT NULL CHECK(epoch_added BETWEEN 0 AND 4294967295), removed INTEGER NOT NULL CHECK(removed IN (0,1)), PRIMARY KEY(workspace,device));
     ")])
 }
 fn sql_seq(seq: u64) -> Result<i64, StoreError> {
@@ -54,6 +58,10 @@ fn decode_genesis(raw: &[u8]) -> Result<SignedGenesisV1, StoreError> {
 }
 impl Database {
     pub fn open(path: &Path) -> Result<Self, StoreError> {
+        Self::open_with_verifier(path, Box::new(Ed25519Verifier))
+    }
+    // Private injection lets tests count real strict verification without bypassing it.
+    fn open_with_verifier(path: &Path, verifier: Box<dyn Verifier>) -> Result<Self, StoreError> {
         // Only the canonical directory retained by DataDirLock reaches this API.
         // Validate existing sidecars too; SQLite creates future ones inside that
         // private, non-substitutable directory, inheriting the database mode.
@@ -73,9 +81,114 @@ impl Database {
         migrations()
             .to_latest(&mut conn)
             .map_err(|_| StoreError::Migration)?;
-        let db = Self { conn };
+        let db = Self { conn, verifier };
+        // Backfill must precede quota cleanup: historical grants protect removed
+        // members too. A missing state row is the durable, retryable backfill marker.
+        db.backfill_membership()?;
         db.discard_oversized_unconfirmed()?;
         Ok(db)
+    }
+    fn seed_membership(&self, workspace: WorkspaceId, owner: DeviceId) -> Result<(), StoreError> {
+        self.conn.execute(
+            "INSERT INTO membership_state(workspace,owner,epoch) VALUES(?1,?2,0)",
+            params![workspace.0.as_slice(), owner.0.as_slice()],
+        )?;
+        self.conn.execute(
+            "INSERT INTO members(workspace,device,epoch_added,removed) VALUES(?1,?2,0,0)",
+            params![workspace.0.as_slice(), owner.0.as_slice()],
+        )?;
+        Ok(())
+    }
+    fn backfill_membership(&self) -> Result<(), StoreError> {
+        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
+        let mut workspaces = self.conn.prepare(
+            "SELECT id,genesis_blob FROM workspaces WHERE id NOT IN (SELECT workspace FROM membership_state)",
+        )?;
+        let rows = workspaces.query_map([], |row| {
+            Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, Vec<u8>>(1)?))
+        })?;
+        for row in rows {
+            let (id, raw) = row?;
+            let (workspace, genesis) =
+                verify_genesis(&decode_genesis(&raw)?, self.verifier.as_ref())?;
+            if id != workspace.0 {
+                return Err(StoreError::Database);
+            }
+            self.seed_membership(workspace, genesis.owner)?;
+            let mut query = self.conn.prepare(
+                "SELECT seq,signed_blob FROM events WHERE workspace=?1 AND author=?2 ORDER BY seq",
+            )?;
+            let owner_rows = query.query_map(
+                params![workspace.0.as_slice(), genesis.owner.0.as_slice()],
+                |row| Ok((row.get::<_, i64>(0)?, row.get::<_, Vec<u8>>(1)?)),
+            )?;
+            let mut expected = 1u64;
+            for row in owner_rows {
+                let (seq, raw) = row?;
+                let event = verify_and_decode(&decode_signed_event(&raw)?, self.verifier.as_ref())?;
+                event.validate_received()?;
+                if event.workspace != workspace
+                    || event.author != genesis.owner
+                    || event.seq != expected
+                    || sql_seq(event.seq)? != seq
+                {
+                    return Err(StoreError::Database);
+                }
+                self.apply_contiguous_membership(&event)?;
+                expected = expected.checked_add(1).ok_or(StoreError::SequenceRange)?;
+            }
+        }
+        transaction.commit()?;
+        Ok(())
+    }
+    fn owner(&self, workspace: WorkspaceId) -> Result<DeviceId, StoreError> {
+        let bytes: Vec<u8> = self
+            .conn
+            .query_row(
+                "SELECT owner FROM membership_state WHERE workspace=?1",
+                [workspace.0.as_slice()],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::UnknownWorkspace)?;
+        Ok(DeviceId(
+            bytes.try_into().map_err(|_| StoreError::Database)?,
+        ))
+    }
+    // Called only for newly accepted contiguous events (or once during upgrade),
+    // inside the same transaction as the event row and any gap promotions.
+    fn apply_contiguous_membership(&self, event: &VerifiedEvent) -> Result<(), StoreError> {
+        let owner = self.owner(event.workspace)?;
+        if matches!(event.body, EventBody::MemberRemoved { device } if device == owner) {
+            self.flag(event.workspace, event.author, false)?;
+        }
+        if event.author != owner {
+            return Ok(());
+        }
+        let (device, removed) = match event.body {
+            EventBody::MemberAdded { device, .. } if device != owner => (device, false),
+            EventBody::MemberRemoved { device } if device != owner => (device, true),
+            _ => return Ok(()),
+        };
+        let epoch = self
+            .current_epoch(event.workspace)?
+            .checked_add(1)
+            .ok_or(StoreError::SequenceRange)?;
+        self.conn.execute(
+            "UPDATE membership_state SET epoch=?2 WHERE workspace=?1",
+            params![event.workspace.0.as_slice(), epoch],
+        )?;
+        if removed {
+            // A removal alone never establishes the ever-confirmed quota exemption.
+            self.conn.execute(
+                "UPDATE members SET removed=1 WHERE workspace=?1 AND device=?2",
+                params![event.workspace.0.as_slice(), device.0.as_slice()],
+            )?;
+        } else {
+            self.conn.execute("INSERT INTO members(workspace,device,epoch_added,removed) VALUES(?1,?2,?3,0) ON CONFLICT(workspace,device) DO UPDATE SET removed=0",
+                params![event.workspace.0.as_slice(), device.0.as_slice(), epoch])?;
+        }
+        Ok(())
     }
     // Upgrade existing T-002 databases as well: an old oversized unconfirmed log
     // must not survive reopen and become an unbounded projection input.
@@ -108,7 +221,7 @@ impl Database {
     }
     pub fn add_workspace(&mut self, raw: &[u8]) -> Result<WorkspaceId, StoreError> {
         let signed = decode_genesis(raw)?;
-        let (id, _) = verify_genesis(&signed, &Ed25519Verifier)?;
+        let (id, genesis) = verify_genesis(&signed, self.verifier.as_ref())?;
         if let Some(old) = self
             .conn
             .query_row(
@@ -123,10 +236,13 @@ impl Database {
             }
             return Ok(id);
         }
+        let transaction = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
         self.conn.execute(
             "INSERT INTO workspaces VALUES (?1,?2)",
             params![id.0.as_slice(), raw],
         )?;
+        self.seed_membership(id, genesis.owner)?;
+        transaction.commit()?;
         Ok(id)
     }
     pub fn genesis(&self, workspace: WorkspaceId) -> Result<Vec<u8>, StoreError> {
@@ -192,7 +308,7 @@ impl Database {
             Ok(value) => value,
             Err(_) => return Ok(InsertOutcome::Rejected(RejectReason::Malformed)),
         };
-        let event = match verify_and_decode(&signed, &Ed25519Verifier) {
+        let event = match verify_and_decode(&signed, self.verifier.as_ref()) {
             Ok(event) => event,
             Err(error) => {
                 // A verified malformed UTF-8 body still identifies the violating author.
@@ -239,15 +355,6 @@ impl Database {
             self.flag(event.workspace, event.author, false)?;
             return Ok(InsertOutcome::Rejected(RejectReason::InvalidField));
         }
-        if let EventBody::MemberRemoved { device } = event.body {
-            let (_, genesis) = verify_genesis(
-                &decode_genesis(&self.genesis(event.workspace)?)?,
-                &Ed25519Verifier,
-            )?;
-            if device == genesis.owner {
-                self.flag(event.workspace, event.author, false)?;
-            }
-        }
         let head = self.head(event.workspace, event.author)?;
         let gapped = event.seq != head.checked_add(1).ok_or(StoreError::SequenceRange)?;
         // Ever-confirmed authors keep their history, including after reserved M2
@@ -279,6 +386,10 @@ impl Database {
             }
         }
         if gapped {
+            if matches!(event.body, EventBody::MemberRemoved { device } if device == self.owner(event.workspace)?)
+            {
+                self.flag(event.workspace, event.author, false)?;
+            }
             self.conn.execute(
                 "INSERT INTO pending_events VALUES(?1,?2,?3,?4)",
                 params![w, a, seq, raw],
@@ -289,12 +400,30 @@ impl Database {
             "INSERT INTO events VALUES(?1,?2,?3,?4)",
             params![w, a, seq, raw],
         )?;
+        self.apply_contiguous_membership(&event)?;
         let mut next = seq;
         while let Some(candidate) = next.checked_add(1) {
-            let changed = self.conn.execute("INSERT INTO events SELECT * FROM pending_events WHERE workspace=?1 AND author=?2 AND seq=?3",params![w,a,candidate])?;
-            if changed == 0 {
+            let pending: Option<Vec<u8>> = self.conn.query_row(
+                "SELECT signed_blob FROM pending_events WHERE workspace=?1 AND author=?2 AND seq=?3",
+                params![w,a,candidate], |row| row.get(0),
+            ).optional()?;
+            let Some(raw) = pending else {
                 break;
+            };
+            // Only this newly promoted event is reverified; never the old log.
+            let promoted = verify_and_decode(&decode_signed_event(&raw)?, self.verifier.as_ref())?;
+            promoted.validate_received()?;
+            if promoted.workspace != event.workspace
+                || promoted.author != event.author
+                || sql_seq(promoted.seq)? != candidate
+            {
+                return Err(StoreError::Database);
             }
+            self.conn.execute(
+                "INSERT INTO events VALUES(?1,?2,?3,?4)",
+                params![w, a, candidate, raw],
+            )?;
+            self.apply_contiguous_membership(&promoted)?;
             self.conn.execute(
                 "DELETE FROM pending_events WHERE workspace=?1 AND author=?2 AND seq=?3",
                 params![w, a, candidate],
@@ -308,36 +437,11 @@ impl Database {
         workspace: WorkspaceId,
         author: DeviceId,
     ) -> Result<bool, StoreError> {
-        let (_, genesis) = verify_genesis(
-            &decode_genesis(&self.genesis(workspace)?)?,
-            &Ed25519Verifier,
-        )?;
-        if author == genesis.owner {
-            return Ok(true);
-        }
-        let mut query = self.conn.prepare(
-            "SELECT signed_blob FROM events WHERE workspace=?1 AND author=?2 ORDER BY seq",
-        )?;
-        let rows = query.query_map(
-            params![workspace.0.as_slice(), genesis.owner.0.as_slice()],
-            |row| row.get::<_, Vec<u8>>(0),
-        )?;
-        let mut expected = 1u64;
-        for row in rows {
-            let event = verify_and_decode(&decode_signed_event(&row?)?, &Ed25519Verifier)?;
-            event.validate_received()?;
-            if event.workspace != workspace
-                || event.author != genesis.owner
-                || event.seq != expected
-            {
-                return Err(StoreError::Database);
-            }
-            if matches!(event.body, EventBody::MemberAdded { device, .. } if device == author) {
-                return Ok(true);
-            }
-            expected = expected.checked_add(1).ok_or(StoreError::SequenceRange)?;
-        }
-        Ok(false)
+        Ok(self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM members WHERE workspace=?1 AND device=?2)",
+            params![workspace.0.as_slice(), author.0.as_slice()],
+            |row| row.get(0),
+        )?)
     }
     pub fn append_own(
         &mut self,
@@ -381,24 +485,16 @@ impl Database {
         Ok(value)
     }
     pub fn current_epoch(&self, workspace: WorkspaceId) -> Result<u32, StoreError> {
-        let raw = self.genesis(workspace)?;
-        let (_, genesis) = verify_genesis(&decode_genesis(&raw)?, &Ed25519Verifier)?;
-        let mut query = self.conn.prepare(
-            "SELECT signed_blob FROM events WHERE workspace=?1 AND author=?2 ORDER BY seq",
-        )?;
-        let rows = query.query_map(
-            params![workspace.0.as_slice(), genesis.owner.0.as_slice()],
-            |row| row.get::<_, Vec<u8>>(0),
-        )?;
-        let mut events = vec![];
-        for row in rows {
-            events.push(
-                verify_and_decode(&decode_signed_event(&row?)?, &Ed25519Verifier)?.into_event(),
-            );
-        }
-        fold(&genesis, &events)
-            .map(|state| state.epoch)
-            .map_err(|_| StoreError::SequenceRange)
+        let epoch: i64 = self
+            .conn
+            .query_row(
+                "SELECT epoch FROM membership_state WHERE workspace=?1",
+                [workspace.0.as_slice()],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or(StoreError::UnknownWorkspace)?;
+        u32::try_from(epoch).map_err(|_| StoreError::SequenceRange)
     }
     pub fn heads(&self, workspace: WorkspaceId) -> Result<BTreeMap<DeviceId, u64>, StoreError> {
         self.check_workspace(workspace)?;
@@ -451,3 +547,6 @@ impl Database {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests;

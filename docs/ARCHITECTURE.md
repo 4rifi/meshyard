@@ -464,13 +464,25 @@ Implementation choices pending review:
   both held sets transactionally, and removes that head (absent means zero); T-006 must
   re-request from zero. An own-append overflow commits the same drop and returns AppendRejected.
   Opening an older database also transactionally discards oversized never-confirmed holdings.
-  No new table or wire change is needed: the durable rows themselves are the accounting source.
+  The durable event rows remain the quota-accounting source; derived membership is stored
+  separately as described below. No wire change is needed.
 - Confirmation authority is verified genesis plus a verified contiguous prefix of the owner's
   `events` log only. A peer grant or an owner grant still in `pending_events` cannot exempt an
   author. For retention purposes confirmation means ever validly added, so reserved M2
-  MemberRemoved never deletes established logs. Current membership for projection still uses
-  the full owner fold. Established authors retain the separate gap-only quota; its overflow
-  never erases their contiguous history.
+  MemberRemoved never deletes established logs. Append-only SQLite migration 2 adds
+  `membership_state(workspace, owner, epoch)` and `members(workspace, device, epoch_added,
+  removed)` with primary-key lookups for owner, epoch and ever-confirmed status. Genesis
+  seeds the owner at epoch 0 atomically with workspace creation. Newly contiguous owner
+  membership events update this state in the event-insert/promotion transaction; a removal
+  alone never inserts a member row. Self-add/remove preserve owner authority and epoch;
+  authenticated owner-removal attempts flag existing protocol diagnostics. Epoch arithmetic
+  is checked. SQL/promotion/epoch failures roll back derived state and inserted events together.
+  An upgrade verifies and replays the existing contiguous owner prefix once, before quota
+  cleanup, in a retryable transaction; completed workspace state prevents replay on reopen.
+  Live inserts verify only their new event and newly promoted events, never historical owner
+  rows. Full projection still uses the pure fold; this change is not an incremental agent
+  projection. Established authors retain the separate gap-only quota; its overflow never
+  erases their contiguous history. Direct SQL modification of derived state is unsupported.
 - Inserted means persisted contiguously, not membership authorization; Pending means a gap.
   This preserves the public API and protocol definition of contiguous heads. Bounded unknown
   contiguous rows can be returned for folding but are never speculatively applied. A later
