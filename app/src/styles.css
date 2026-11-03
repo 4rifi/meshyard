@@ -61,6 +61,7 @@ h1 {
 h2 {
   margin: 0 0 20px;
   font-size: 20px;
+  line-height: 28px;
 }
 p {
   line-height: 1.6;
@@ -158,6 +159,7 @@ p {
   grid-column: 1 / -1;
   margin: 0;
   font-size: 12px;
+  line-height: 20px;
   overflow-wrap: anywhere;
 }
 code {
@@ -207,6 +209,7 @@ code {
 .yard-heading p {
   margin: 0;
   font-size: 12px;
+  line-height: 20px;
 }
 .yard-viewport {
   overflow-x: auto;
