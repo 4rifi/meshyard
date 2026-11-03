@@ -15,6 +15,22 @@ use tokio::{
     time::{Instant, sleep_until},
 };
 
+/// Clock and event source are separate seams: lifecycle tests need neither a
+/// router nor wall-clock sleeps. Production uses the runtime's monotonic clock.
+trait MappingClock: Send + Sync + 'static {
+    fn now(&self) -> Instant;
+    fn wait_until(&self, at: Instant) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>;
+}
+struct TokioClock;
+impl MappingClock for TokioClock {
+    fn now(&self) -> Instant {
+        Instant::now()
+    }
+    fn wait_until(&self, at: Instant) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+        Box::pin(sleep_until(at))
+    }
+}
+
 pub(crate) enum MappingEvent {
     External(Option<SocketAddrV4>),
     NetworkChanged,
@@ -129,8 +145,16 @@ impl MapperTask {
         sink: Arc<dyn AddressSink>,
         state: watch::Sender<PortMapping>,
     ) -> Self {
+        Self::spawn_with_clock(source, sink, state, Arc::new(TokioClock))
+    }
+    fn spawn_with_clock(
+        source: impl MappingSource,
+        sink: Arc<dyn AddressSink>,
+        state: watch::Sender<PortMapping>,
+        clock: Arc<dyn MappingClock>,
+    ) -> Self {
         let (stop, rx) = watch::channel(false);
-        let task = tokio::spawn(run(source, sink, state, rx));
+        let task = tokio::spawn(run(source, sink, state, rx, clock));
         Self { stop, task }
     }
     pub(crate) async fn shutdown(&mut self) {
@@ -149,9 +173,10 @@ async fn run(
     sink: Arc<dyn AddressSink>,
     state: watch::Sender<PortMapping>,
     mut stop: watch::Receiver<bool>,
+    clock: Arc<dyn MappingClock>,
 ) {
     let mut advertised = None;
-    let mut deadline = Some(Instant::now() + Duration::from_secs(10));
+    let mut deadline = Some(clock.now() + Duration::from_secs(10));
     state.send_replace(PortMapping::Probing);
     loop {
         tokio::select! {
@@ -172,13 +197,13 @@ async fn run(
                         // Repeated empty observations do not postpone the initial
                         // 10-second observation window indefinitely.
                         if previous.is_some() {
-                            deadline = Some(Instant::now() + Duration::from_secs(10));
+                            deadline = Some(clock.now() + Duration::from_secs(10));
                             state.send_replace(PortMapping::Probing);
                         }
                     }
                     Some(MappingEvent::NetworkChanged) => {
                         source.restart();
-                        deadline = Some(Instant::now() + Duration::from_secs(10));
+                        deadline = Some(clock.now() + Duration::from_secs(10));
                         state.send_replace(PortMapping::Probing);
                     }
                     None => {
@@ -188,7 +213,7 @@ async fn run(
                     }
                 }
             }
-            _ = async { match deadline { Some(at) => sleep_until(at).await, None => std::future::pending().await } } => {
+            _ = async { match deadline { Some(at) => clock.wait_until(at).await, None => std::future::pending().await } } => {
                 deadline = None;
                 state.send_replace(PortMapping::NotObserved { after_secs: 10 });
             }
@@ -254,6 +279,16 @@ mod tests {
             })
         }
     }
+    struct InjectedClock(AtomicUsize);
+    impl MappingClock for InjectedClock {
+        fn now(&self) -> Instant {
+            Instant::now()
+        }
+        fn wait_until(&self, at: Instant) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Box::pin(sleep_until(at))
+        }
+    }
     #[tokio::test(start_paused = true)]
     async fn mapping_change_expiry_network_shutdown_and_honest_ten_seconds() {
         let (tx, rx) = mpsc::channel(8);
@@ -266,7 +301,8 @@ mod tests {
         };
         let sink = Arc::new(Sink::default());
         let (state_tx, mut state) = watch::channel(PortMapping::Disabled);
-        let mut task = MapperTask::spawn(source, sink.clone(), state_tx);
+        let clock = Arc::new(InjectedClock(AtomicUsize::new(0)));
+        let mut task = MapperTask::spawn_with_clock(source, sink.clone(), state_tx, clock.clone());
         state
             .wait_for(|s| *s == PortMapping::Probing)
             .await
@@ -318,6 +354,7 @@ mod tests {
         assert_eq!(*state.borrow(), PortMapping::Disabled);
         assert_eq!(stops.load(Ordering::SeqCst), 1);
         assert_eq!(lock(&sink.actions).len(), 8);
+        assert!(clock.0.load(Ordering::SeqCst) > 0);
     }
     #[tokio::test(start_paused = true)]
     async fn drop_signals_cleanup_without_a_router() {
