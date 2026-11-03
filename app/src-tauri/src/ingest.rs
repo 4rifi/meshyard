@@ -15,12 +15,12 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Weak,
-        atomic::{AtomicBool, AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering},
     },
     time::{Duration, Instant},
 };
 use tokio::{
-    io::AsyncReadExt,
+    io::{AsyncRead, AsyncReadExt},
     net::{UnixListener, UnixStream},
     sync::{Mutex, Semaphore, oneshot},
     task::{JoinHandle, JoinSet},
@@ -43,8 +43,56 @@ pub(crate) struct IngestStatus {
     pub(crate) storage_errors: AtomicU32,
     pub(crate) active_readers: AtomicU32,
     pub(crate) received: AtomicU32,
+    rejections: Rejections,
     #[cfg(test)]
     trace: TestTrace,
+}
+/// Only stage counts and an OS errno; never stores error text or input bytes.
+#[derive(Debug, Default)]
+struct Rejections {
+    peercred_error: AtomicU32,
+    // Zero means no raw errno was available (or no lookup error has occurred).
+    peercred_raw_errno: AtomicI32,
+    uid_mismatch: AtomicU32,
+    read_io: AtomicU32,
+    eof_empty: AtomicU32,
+    timeout: AtomicU32,
+    oversize: AtomicU32,
+    parse: AtomicU32,
+    reader_task_error: AtomicU32,
+}
+#[derive(Clone, Copy)]
+enum Rejection {
+    Peercred(Option<i32>),
+    UidMismatch,
+    ReadIo,
+    EofEmpty,
+    Timeout,
+    Oversize,
+    Parse,
+    ReaderTask,
+}
+impl IngestStatus {
+    fn reject(&self, reason: Rejection) {
+        let stages = &self.rejections;
+        let counter = match reason {
+            Rejection::Peercred(errno) => {
+                stages
+                    .peercred_raw_errno
+                    .store(errno.unwrap_or(0), Ordering::Relaxed);
+                &stages.peercred_error
+            }
+            Rejection::UidMismatch => &stages.uid_mismatch,
+            Rejection::ReadIo => &stages.read_io,
+            Rejection::EofEmpty => &stages.eof_empty,
+            Rejection::Timeout => &stages.timeout,
+            Rejection::Oversize => &stages.oversize,
+            Rejection::Parse => &stages.parse,
+            Rejection::ReaderTask => &stages.reader_task_error,
+        };
+        count(counter);
+        count(&self.dropped_invalid);
+    }
 }
 /// Bounded scheduling context for test failures only; no payloads or production logging.
 #[cfg(test)]
@@ -190,26 +238,66 @@ impl Drop for Server {
         }
     }
 }
-async fn read_one(mut stream: UnixStream, expected_uid: u32) -> Option<Envelope> {
-    if stream.peer_cred().ok()?.uid() != expected_uid {
-        return None;
-    }
-    time::timeout(READ_BUDGET, async {
-        // Fixed storage, one byte at a time: cannot allocate/read past the line cap.
-        let mut bytes = [0; READ_LIMIT];
-        for end in 0..READ_LIMIT {
-            if stream.read(&mut bytes[end..end + 1]).await.ok()? != 1 {
-                return None;
-            }
-            if bytes[end] == b'\n' {
-                return ingest::parse(&bytes[..=end]).ok();
-            }
+/// macOS getpeereid uses cached credentials after a one-shot peer has closed.
+/// Tokio's macOS accessor first requires LOCAL_PEEREPID, which is not our boundary.
+#[cfg(target_os = "macos")]
+fn peer_uid(stream: &UnixStream) -> std::io::Result<u32> {
+    nix::unistd::getpeereid(stream)
+        .map(|(uid, _)| uid.as_raw())
+        .map_err(std::io::Error::from)
+}
+#[cfg(not(target_os = "macos"))]
+fn peer_uid(stream: &UnixStream) -> std::io::Result<u32> {
+    stream.peer_cred().map(|cred| cred.uid())
+}
+async fn read_one(
+    stream: UnixStream,
+    expected_uid: u32,
+    status: &IngestStatus,
+) -> Option<Envelope> {
+    read_one_with(stream, expected_uid, status, peer_uid).await
+}
+/// The injected lookup/reader lets tests prove failures happen before even polling a read.
+async fn read_one_with<R: AsyncRead + Unpin>(
+    mut stream: R,
+    expected_uid: u32,
+    status: &IngestStatus,
+    lookup: impl FnOnce(&R) -> std::io::Result<u32>,
+) -> Option<Envelope> {
+    let result = async {
+        let uid = lookup(&stream).map_err(|error| Rejection::Peercred(error.raw_os_error()))?;
+        if uid != expected_uid {
+            return Err(Rejection::UidMismatch);
         }
-        None
-    })
-    .await
-    .ok()
-    .flatten()
+        time::timeout(READ_BUDGET, async {
+            // Fixed storage, one byte at a time: cannot allocate/read past the line cap.
+            let mut bytes = [0; READ_LIMIT];
+            for end in 0..READ_LIMIT {
+                let size = stream
+                    .read(&mut bytes[end..end + 1])
+                    .await
+                    .map_err(|_| Rejection::ReadIo)?;
+                if size == 0 {
+                    // Includes a truncated frame: EOF before a complete newline-delimited line.
+                    return Err(Rejection::EofEmpty);
+                }
+                if bytes[end] == b'\n' {
+                    return ingest::parse(&bytes[..=end]).map_err(|_| Rejection::Parse);
+                }
+            }
+            Err(Rejection::Oversize)
+        })
+        .await
+        .map_err(|_| Rejection::Timeout)?
+    }
+    .await;
+    match result {
+        Ok(input) => Some(input),
+        Err(reason) => {
+            status.reject(reason);
+            None
+        }
+    }
 }
 async fn serve(
     listener: UnixListener,
@@ -243,7 +331,8 @@ async fn serve(
                             count(&status.received);
                         }
                     }
-                    _ => count(&status.dropped_invalid),
+                    Some(Ok(None)) => {}, // Reader already counted its exact rejection stage.
+                    _ => status.reject(Rejection::ReaderTask),
                 }
             }
             _ = tick.tick() => {
@@ -270,7 +359,8 @@ async fn serve(
                     // including results waiting for the serialized store writer.
                     if readers.len() == 8 { count(&status.dropped_excess); drop(stream); }
                     else if let Ok(permit) = permits.clone().try_acquire_owned() {
-                        readers.spawn(async move { let _permit = permit; read_one(stream, uid).await });
+                        let reader_status = status.clone();
+                        readers.spawn(async move { let _permit = permit; read_one(stream, uid, &reader_status).await });
                         status.active_readers.store(readers.len() as u32, Ordering::Relaxed);
                     } else { count(&status.dropped_excess); }
                 }

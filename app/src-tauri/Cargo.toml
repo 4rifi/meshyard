@@ -28,6 +28,10 @@ ts-rs.workspace = true
 postcard.workspace = true
 getrandom.workspace = true
 
+# ADR-015: Darwin UID lookup must not require a live peer PID.
+[target.'cfg(target_os = "macos")'.dependencies]
+nix = { version = "=0.31.3", default-features = false, features = ["socket", "user"] }
+
 [dev-dependencies]
 meshyard-store = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true

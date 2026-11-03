@@ -138,7 +138,7 @@ async fn wait_state(state: &AppState, expected: S) {
     .await;
     assert!(
         result.is_ok(),
-        "state deadline: expected={expected:?} last_state={last_state:?} last_error={last_error:?} received={} invalid={} unbound={} storage={} readers={} excess={} listening={} unavailable={} ticks={} flushes={} received_ms={} tick_ms={} flush_ms={}",
+        "state deadline: expected={expected:?} last_state={last_state:?} last_error={last_error:?} received={} invalid={} unbound={} storage={} readers={} excess={} listening={} unavailable={} ticks={} flushes={} received_ms={} tick_ms={} flush_ms={} rejections={:?}",
         state.2.received.load(Ordering::Relaxed),
         state.2.dropped_invalid.load(Ordering::Relaxed),
         state.2.dropped_unbound.load(Ordering::Relaxed),
@@ -151,7 +151,8 @@ async fn wait_state(state: &AppState, expected: S) {
         state.2.trace.flushes.load(Ordering::Relaxed),
         state.2.trace.received_ms.load(Ordering::Relaxed),
         state.2.trace.tick_ms.load(Ordering::Relaxed),
-        state.2.trace.flush_ms.load(Ordering::Relaxed)
+        state.2.trace.flush_ms.load(Ordering::Relaxed),
+        state.2.rejections
     );
 }
 async fn send(path: &Path, line: &[u8]) {
@@ -422,6 +423,9 @@ async fn uds_wrong_expected_uid_is_rejected() {
         .unwrap();
     let _ = stream.write_all(PROMPT).await; // peer may close before the rejected writer runs
     wait_counter(&state.2.dropped_invalid, 1).await;
+    assert_eq!(state.2.rejections.uid_mismatch.load(Ordering::Relaxed), 1);
+    assert_eq!(state.2.rejections.peercred_error.load(Ordering::Relaxed), 0);
+    assert_eq!(state.2.received.load(Ordering::Relaxed), 0);
     assert_eq!(events(&state).await.len(), 2);
     server.stop().await;
     assert!(!dir.path().join("ingest/ingest.sock").exists());
@@ -441,6 +445,10 @@ async fn uds_oversized_slow_malformed_and_ninth_connection_are_bounded() {
     send(&path, b"not-json\n").await;
     let _slow = UnixStream::connect(&path).await.unwrap();
     wait_counter(&state.2.dropped_invalid, 3).await;
+    assert_eq!(state.2.rejections.oversize.load(Ordering::Relaxed), 1);
+    assert_eq!(state.2.rejections.parse.load(Ordering::Relaxed), 1);
+    assert_eq!(state.2.rejections.timeout.load(Ordering::Relaxed), 1);
+    assert_eq!(state.2.rejections.peercred_error.load(Ordering::Relaxed), 0);
     let mut held = Vec::new();
     for _ in 0..8 {
         held.push(UnixStream::connect(&path).await.unwrap());
@@ -801,4 +809,191 @@ async fn prep_rate_deadline_starts_after_async_persistence_not_receive_sample() 
         Some(S::Testing)
     );
     store.close().await.unwrap();
+}
+
+// Pure reader probes exercise the production authorization/read path without OS sockets.
+struct ReadProbe<R> {
+    inner: R,
+    polls: Arc<AtomicU32>,
+}
+impl<R: AsyncRead + Unpin> AsyncRead for ReadProbe<R> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        count(&self.polls);
+        std::pin::Pin::new(&mut self.inner).poll_read(cx, buf)
+    }
+}
+fn rejection_counts(status: &IngestStatus) -> [u32; 8] {
+    let r = &status.rejections;
+    [
+        &r.peercred_error,
+        &r.uid_mismatch,
+        &r.read_io,
+        &r.eof_empty,
+        &r.timeout,
+        &r.oversize,
+        &r.parse,
+        &r.reader_task_error,
+    ]
+    .map(|n| n.load(Ordering::Relaxed))
+}
+#[tokio::test]
+async fn prep_credential_error_and_wrong_uid_reject_before_read_or_state_mutation() {
+    let (_dir, state) = profile(true).await;
+    let before = events(&state).await;
+    let expected = rustix::process::geteuid().as_raw();
+    // An entire valid frame is already available. Any attempted read is a failure.
+    for lookup in [
+        Err(std::io::Error::from_raw_os_error(57)),
+        Ok(expected.wrapping_add(1)),
+    ] {
+        let polls = Arc::new(AtomicU32::new(0));
+        let reader = ReadProbe {
+            inner: PROMPT,
+            polls: polls.clone(),
+        };
+        let mut pipeline = Pipeline::new(Arc::new(FakeClock::default()));
+        if let Some(input) = read_one_with(reader, expected, &state.2, |_| lookup).await {
+            pipeline
+                .receive(state.0.lock().await.as_ref().unwrap(), input, &state.2)
+                .await
+                .unwrap();
+        }
+        assert_eq!(
+            polls.load(Ordering::Relaxed),
+            0,
+            "authentication must precede all reads"
+        );
+        assert_eq!(events(&state).await, before);
+        assert_eq!(state.2.received.load(Ordering::Relaxed), 0);
+    }
+    assert_eq!(rejection_counts(&state.2), [1, 1, 0, 0, 0, 0, 0, 0]);
+    assert_eq!(
+        state
+            .2
+            .rejections
+            .peercred_raw_errno
+            .load(Ordering::Relaxed),
+        57
+    );
+    assert_eq!(state.2.dropped_invalid.load(Ordering::Relaxed), 2);
+    state.close().await.unwrap();
+}
+struct BrokenRead;
+impl AsyncRead for BrokenRead {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+        _buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::task::Poll::Ready(Err(std::io::ErrorKind::ConnectionReset.into()))
+    }
+}
+#[tokio::test]
+async fn prep_reader_stages_count_once_and_accept_exact_limit_without_retaining_text() {
+    let status = IngestStatus::default();
+    let uid = rustix::process::geteuid().as_raw();
+    assert!(
+        read_one_with(BrokenRead, uid, &status, |_| Ok(uid))
+            .await
+            .is_none()
+    );
+    for line in [b"".as_slice(), b"truncated", b"not-json\n"] {
+        assert!(
+            read_one_with(line, uid, &status, |_| Ok(uid))
+                .await
+                .is_none()
+        );
+    }
+    assert!(
+        read_one_with(&[b'x'; READ_LIMIT][..], uid, &status, |_| Ok(uid))
+            .await
+            .is_none()
+    );
+    let (reader, _held_writer) = tokio::io::duplex(1);
+    assert!(
+        read_one_with(reader, uid, &status, |_| Ok(uid))
+            .await
+            .is_none()
+    );
+    assert_eq!(rejection_counts(&status), [0, 0, 1, 2, 1, 1, 1, 0]);
+    assert_eq!(status.dropped_invalid.load(Ordering::Relaxed), 6);
+    // A frame exactly 1 KiB, including its newline, is permitted.
+    let mut exact = PROMPT[..PROMPT.len() - 1].to_vec();
+    exact.resize(READ_LIMIT - 1, b' ');
+    exact.push(b'\n');
+    assert!(
+        read_one_with(exact.as_slice(), uid, &status, |_| Ok(uid))
+            .await
+            .is_some()
+    );
+    assert_eq!(status.dropped_invalid.load(Ordering::Relaxed), 6);
+    assert_eq!(
+        status.rejections.peercred_raw_errno.load(Ordering::Relaxed),
+        0
+    );
+}
+#[tokio::test]
+async fn uds_live_peer_reaches_signed_thinking_before_client_closes() {
+    let (dir, state) = profile(true).await;
+    let server = start(
+        dir.path(),
+        &state,
+        rustix::process::geteuid().as_raw(),
+        Arc::default(),
+    );
+    let mut client = UnixStream::connect(dir.path().join("ingest/ingest.sock"))
+        .await
+        .unwrap();
+    client.write_all(PROMPT).await.unwrap();
+    // This is the separate live-peer case. The original send()/fixture lifetime is unchanged.
+    wait_state(&state, S::Thinking).await;
+    assert_eq!(state.2.received.load(Ordering::Relaxed), 1);
+    assert_eq!(state.2.dropped_invalid.load(Ordering::Relaxed), 0);
+    assert_eq!(events(&state).await.len(), 3);
+    drop(client);
+    server.stop().await;
+    state.close().await.unwrap();
+}
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn uds_darwin_buffered_closed_peer_records_old_errno_and_new_uid() {
+    let dir = private();
+    let (uds, _file) = listener(dir.path()).unwrap();
+    // Synchronous client: close/drop before the first server accept/poll. No sleeps or ACK.
+    {
+        let mut client =
+            std::os::unix::net::UnixStream::connect(dir.path().join("ingest/ingest.sock")).unwrap();
+        std::io::Write::write_all(&mut client, PROMPT).unwrap();
+        client.shutdown(std::net::Shutdown::Both).unwrap();
+    }
+    let (stream, _) = uds.accept().await.unwrap();
+    let old = stream.peer_cred();
+    let new = peer_uid(&stream);
+    let expected_uid = rustix::process::geteuid().as_raw();
+    let old_errno = old.as_ref().err().and_then(std::io::Error::raw_os_error);
+    let expected_errno = nix::errno::Errno::ENOTCONN as i32;
+    eprintln!(
+        "closed_peer old_peercred_error={} old_raw_errno={old_errno:?} expected_raw_errno={expected_errno} new_uid_matches_euid={} new_raw_errno={:?}",
+        old.is_err(),
+        new.as_ref().is_ok_and(|uid| *uid == expected_uid),
+        new.as_ref().err().and_then(std::io::Error::raw_os_error)
+    );
+    assert!(
+        old.is_err(),
+        "cause gate: old Tokio accessor must fail on the closed peer"
+    );
+    assert_eq!(
+        old_errno,
+        Some(expected_errno),
+        "cause gate: preserve any unexpected old-path errno"
+    );
+    assert_eq!(new.unwrap(), expected_uid);
+    let status = IngestStatus::default();
+    assert!(read_one(stream, expected_uid, &status).await.is_some());
+    assert_eq!(status.dropped_invalid.load(Ordering::Relaxed), 0);
+    assert_eq!(rejection_counts(&status), [0; 8]);
 }
