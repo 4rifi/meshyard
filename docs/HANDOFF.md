@@ -81,9 +81,9 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
 | T-003 net endpoint | ready | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
-| T-014 local workspace slice | ready | Codex lane A | **priority**; `docs/tasks/T-014-local-workspace-slice.md`; branch from `c93fbe2` |
-| T-007a hook + normalizer | ready | Codex lane B | `docs/tasks/T-007-agent-pipeline.md` (KQ-002/003 decided); branch from `c93fbe2` |
-| T-004…T-013 | todo | Claude (specs) | specs written one task ahead of the worker; T-013 = tester DMG |
+| T-014 local workspace slice | in-progress | Codex lane A | `t-014-local-workspace-slice` from `c93fbe2`; real store/IPC/UI, no native acceptance assumed |
+| T-007a hook/normalizer | in-progress | Codex lane B | Clean run interrupted for a bounded normative-spec clarification; resumes after Claude resolves it; no app ingest/installer yet |
+| T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
 
@@ -100,6 +100,19 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: committed Claude's six delivery-planning files unchanged as
+  `415c69c` and pushed; remote SHA verified. D-9 now authorizes stacked implementation while
+  the original native L1/Keychain/main gates remain open. T-014 lane A is actively implementing
+  on `t-014-local-workspace-slice` from `c93fbe2` (Smithers
+  `d09db809-77d6-40eb-bc82-28d508976880`). T-007a lane B started
+  `3989a6fe-5d36-42e6-a711-ff928f254dba`, then was interrupted cleanly before code after KNOWER
+  identified conflicts with PROTOCOL §9 (correlation, stale state, socket UID). Claude's bounded
+  clarification run `2ecf3f32-c6b6-4ae2-bfcf-1e0dde35a5f6` is active; A continues. Worktrees,
+  workflows, caches and logs stay under `/Volumes/MeshyardProjects`. T-001 dev app remains open
+  (native PID 90403; own Vite 1420 PID 90396); this proves startup, not owner acceptance.
+  Next: resume B from corrected spec, inspect A's real persisted flow, then exact-head review.
+  No new checks, native Keychain test, merge, hook installation or network acceptance claimed.
 
 - 2026-11-03 — Claude: owner screenshot (19:39) shows the native window with only the scaffold
   rectangle — matches the literal L1 rendering criterion, but L1 is recorded only on Dion's

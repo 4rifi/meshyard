@@ -15,13 +15,13 @@ Status legend: `todo` · `ready` (spec complete, can be picked up) · `in-progre
 | T-005 | Pairing protocol `pair/1`: ticket, single-use token, SAS, membership | T-003, T-004 | todo |
 | T-006 | Sync protocol `sync/1` per PROTOCOL §8: Hello/workspace admission, cursor-based catch-up + live, reconnect supervisor, prefer-direct window (ADR-006) | T-005 | todo |
 | T-006b | Field test 2: headless pairing, catch-up, disconnect, sleep/wake on two networks | T-006 | todo |
-| T-007 | Agent pipeline per PROTOCOL §9: `meshyard-hook`, ingest socket, Claude Code adapter, correlation/staleness state machine, hook installer (diff + approval) | T-002 | todo |
+| T-007 | Agent pipeline per PROTOCOL §9: `meshyard-hook`, ingest socket, Claude Code adapter, correlation/staleness state machine, hook installer (diff + approval) | T-002 | in-progress (T-007a hook/normalizer started; T-007b after T-014 review) |
 | T-008 | Codex adapter (hooks.json, trust instructions) | T-007 | todo (M1 stretch) |
 | T-009 | Tauri bridge: commands/events, ts-rs types, view-model store | T-006, T-007 | todo |
 | T-010 | Playground v1: tilemap, stations, avatars, movement, inspector, list view | T-009 | todo |
 | T-011 | Onboarding + diagnostics UI: create workspace, connect agent, invite (link + QR), join, SAS, peer status | T-009 | todo |
 | T-012 | System validation: two-node scripted test, `docs/VALIDATION.md` real-device protocol, results log, field test with the test partner (same LAN first, then different networks) | T-010, T-011, T-013 | todo |
-| T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | ready |
+| T-014 | **Local workspace slice** (pulls forward minimal T-009 bridge + T-011 create): create/reopen persisted workspace, own profile, register local agent, yard + list from real store state, honest error screens. Spec `docs/tasks/T-014-local-workspace-slice.md` | T-002 (stacked, D-9) | in-progress |
 | T-013 | Tester DMG: `aarch64-apple-darwin`, ad-hoc signed, stable id `ch.arifi.meshyard`, `meshyard://join` deep link, bundled `meshyard-hook`, Strict-only profile + bundle check for relay/n0 hosts, `docs/TESTER-GUIDE.md` (German) | T-011 | todo |
 
 Parallelizable: T-007 can run alongside T-003…T-006 (separate worktree).
