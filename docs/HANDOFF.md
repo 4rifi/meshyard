@@ -84,7 +84,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
 | T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
-| T-016 living yard | ready · **priority 1** | Codex lane A | `docs/tasks/T-016-yard-motion.md`; branch from `a859ed4`; frontend playground only |
+| T-016 living yard | in-progress · **priority 1** | Codex lane A | `docs/tasks/T-016-yard-motion.md`; branch from `a859ed4`; frontend playground only |
 | T-007b connect Claude Code | in-progress (§1–3 backend prep) | Codex lane B | spec §6 adds connect flow + exact DTOs; frontend after T-016; install button = owner gate; live CLI capture = L4 |
 | T-007a hook/normalizer | in-progress | Codex lane B | Corrected PROTOCOL §9 v1.2 implementation active (`b90bb555`); no app ingest/installer yet |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
