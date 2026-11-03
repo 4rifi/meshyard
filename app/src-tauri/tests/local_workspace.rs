@@ -424,6 +424,7 @@ fn command_process_child() {
     let dir = std::path::PathBuf::from(std::env::var_os("MESHYARD_DATA_DIR").unwrap());
     assert!(dir.starts_with("/Volumes/MeshyardProjects/"));
     tokio::runtime::Builder::new_current_thread()
+        .enable_all()
         .build()
         .unwrap()
         .block_on(async {
