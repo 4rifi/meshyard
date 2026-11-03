@@ -84,7 +84,6 @@ let status: AppStatus =
         : { Ready: workspace };
 const listeners = new Map<number, number>();
 const commands: { command: string; args: unknown }[] = [];
-let nextListener = 0;
 let nextPlan = 0;
 let planned: HookPlan | null = null;
 let failure: AppError | null = null;
@@ -135,9 +134,10 @@ function emitChanged() {
 mockIPC(async (command, args) => {
   commands.push({ command, args: structuredClone(args) });
   if (command === 'plugin:event|listen') {
-    const id = ++nextListener;
-    listeners.set(id, (args as { handler: number }).handler);
-    return id;
+    // The pinned Tauri mock unregisters the callback using the returned event ID.
+    const callback = (args as { handler: number }).handler;
+    listeners.set(callback, callback);
+    return callback;
   }
   if (command === 'plugin:event|unlisten') {
     listeners.delete((args as { eventId: number }).eventId);
