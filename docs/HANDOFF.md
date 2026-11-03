@@ -63,7 +63,8 @@ No prior task status, review decision or owner decision is changed by this path-
 - Smithers workspace: `/Volumes/MeshyardProjects/meshyard-smithers`; existing run databases/logs:
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   T-007b backend and merged T-016 are checked at `dc01799`; no implementation writer is active
-  at this checkpoint. Next: bounded backend re-review, then Connect/installer integration.
+  at the previous checkpoint. Backend re-review is accepted; the single Connect/installer
+  integration writer is now the active implementation phase.
   T-007a code is accepted but first-launch latency is unmet; N-14/reference gates remain open.
   Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
@@ -87,7 +88,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
 | T-016 living yard | review (code accepted `b535dbc`) | Dion (native/reference) | Claude re-review `090257d`; renderer movement/occupancy labels accepted; no native/live-hook acceptance |
 | T-007a hook/normalizer | review (code accepted) | Codex lane B | Claude re-review `584cf0c`; B-2 resolved, B-1 first-launch <20 ms remains unmet; no live installation |
-| T-007b connect Claude Code | in-progress | Codex lane B | ingest/projection/closed-peer UID implemented; normal socket cases pass; combined check and Connect frontend/installer next; owner Install/L4 pending |
+| T-007b connect Claude Code | in-progress (Connect UI and installer) | Codex lane B | Backend accepted at `dc01799`; full check green; single writer adds exact DTOs, live refresh and explicit Install; owner gates remain |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -107,6 +108,13 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
 
 ## 6. Log
+
+- 2026-11-03 — Codex lead: Claude backend re-review `a88ba8cd` accepts source `dc01799`;
+  review committed unchanged as `dd841b0`. Reactor/child-runtime finding closed with actual
+  normal full check 0 / 50.272 s. Starting the single combined §4–6 Connect/installer writer
+  on this branch, after reviewed motion was merged normally. Generated DTOs follow the spec;
+  test settings are injected under USB, never owner config. Real Install remains an explicit
+  owner button action. No main/native/CLI/N-14/B-1/reference acceptance is inferred.
 
 - 2026-11-03 — Codex lead: backend plus accepted T-016 normally merged `dd11f8b`; full
   combined check first failed on the old non-I/O child runtime (101 / 73.281 s), retained.
