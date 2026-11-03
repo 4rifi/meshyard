@@ -460,8 +460,22 @@ try {
               (el) => el === document.activeElement,
             ),
           );
-          await tabTo(page.locator('#agent-kind'));
+          const kind = page.locator('#agent-kind');
+          await tabTo(kind);
+          entry.codexSelection = { beforeEnd: await kind.inputValue() };
           await page.keyboard.press('End');
+          entry.codexSelection.afterEnd = await kind.inputValue();
+          // macOS does not reliably select the last native option with End.
+          // Open the menu, advance to its final option and commit with Enter.
+          await page.keyboard.press('Space');
+          await page.keyboard.press('ArrowDown');
+          await page.keyboard.press('Enter');
+          entry.codexSelection.afterKeyboard = await kind.inputValue();
+          assert.equal(
+            entry.codexSelection.afterKeyboard,
+            'Codex',
+            'Keyboard must select Codex before registration',
+          );
           await tabTo(page.locator('#agent-label'));
           await page.keyboard.press('ControlOrMeta+A');
           await page.keyboard.type('Codex unavailable');
@@ -470,10 +484,30 @@ try {
             .getByText('Codex unavailable', { exact: true })
             .first()
             .waitFor();
+          assert.equal(
+            (await fixture()).workspace.agents.find(
+              (agent) => agent.label === 'Codex unavailable',
+            )?.kind,
+            'Codex',
+            'The registered fixture agent must actually be Codex',
+          );
           assert.ok(
             (await page.locator('main').textContent()).includes(
               'Codex connection is not available yet.',
             ),
+          );
+          const codexRow = page
+            .getByRole('listitem')
+            .filter({ hasText: 'Codex unavailable' });
+          assert.ok(
+            (await codexRow.textContent()).includes(
+              'Codex connection is not available yet.',
+            ),
+          );
+          assert.equal(
+            await codexRow.getByRole('button').count(),
+            0,
+            'Unsupported Codex has no Connect or selection button',
           );
           await capture('codex-unavailable');
         } else {
