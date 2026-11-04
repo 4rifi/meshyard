@@ -64,8 +64,10 @@ No prior task status, review decision or owner decision is changed by this path-
   `/Volumes/MeshyardProjects/Meshyard-build/orchestration` (initial `t001.db` migrated with the workspace).
   T-007b Connect/installer and merged T-016 are checked at `f5c8861`; all implementation
   writers are finished. Actual normal full check passed after review fixes (50.807 s) and browser fixtures
-  passed six cases / 12 PNGs. Original Claude bounded installer/status re-review is next; native preview
-  is still T-015 until the combined app is reviewed and started.
+  passed six cases / 12 PNGs. Original Claude accepted code `32bc929` (review committed unchanged `68a4eca`). The combined
+  native preview is now open from this task worktree: launcher 24455, native 24624, Vite 24606,
+  onscreen window 74428. Current startup pointer: `Meshyard-build/Meshyard-active-start.json`.
+  Existing USB file-key profile retained; no lead Install/native acceptance.
   T-007a code is accepted but first-launch latency is unmet; N-14/reference gates remain open.
   Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
@@ -89,7 +91,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
 | T-016 living yard | review (code accepted `b535dbc`) | Dion (native/reference) | Claude re-review `090257d`; renderer movement/occupancy labels accepted; no native/live-hook acceptance |
 | T-007a hook/normalizer | review (code accepted) | Codex lane B | Claude re-review `584cf0c`; B-2 resolved, B-1 first-launch <20 ms remains unmet; no live installation |
-| T-007b connect Claude Code | review | Codex → Claude | Source `32bc929`, report `f5c8861`; review items 1–2 fixed; actual full check 0 / 50.807 s, 56 Vitest; six browser mock cases / 12 PNGs; bounded re-review next; owner gates remain |
+| T-007b connect Claude Code | review (code accepted `32bc929`) | Dion (L4/native) | Review `68a4eca`; full check 0 / 50.807 s, 56 Vitest; six browser mock cases / 12 PNGs; actual combined native preview open; owner gates remain |
 | T-004…T-013 | todo | Claude (specs) | other tasks follow their specs/dependencies; T-013 = tester DMG |
 
 ## 5. Open decisions
@@ -109,6 +111,18 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
 
 ## 6. Log
+
+- 2026-11-04 — Codex lead: Claude re-review `366982d1` accepts code `32bc929`; review
+  committed unchanged `68a4eca`, pushed/remote verified. Started actual combined native app via
+  USB `npm run dev` (persistent session 36061), same existing file-key profile + real built
+  hook binary. Previous owned six-process T-015 tree stopped, port/lock release verified.
+  Native build succeeds (24.04 s); launcher 24455, own Vite-1420 listener 24606, native 24624,
+  onscreen window 74428 confirmed; real main/Connect HTTP 200, no startup error markers.
+  Window left open for Dion. Capture preflight false → no screenshot/permission bypass; no
+  native content inspection or lead Install. Current evidence/pointer:
+  `Meshyard-build/T007b-owner-preview-20261104/`, `Meshyard-active-start.json`. No implementation
+  or review agent remains active. Task review/code accepted; L4/N-14/B-1 first20ms/Keychain/
+  reference still open, no main merge/full MVP claim. Next owner manual test when convenient.
 
 - 2026-11-04 — Codex lead: original Connect review committed unchanged `f444ca0` and pushed;
   two required fixes in `32bc929`, report `f5c8861`: normal 0755 settings parent works without
