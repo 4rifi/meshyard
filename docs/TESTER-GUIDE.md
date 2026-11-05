@@ -1,8 +1,9 @@
 # Meshyard testen
 
-Diese Anleitung beschreibt den vorgesehenen Paketablauf. Ein geprüftes DMG und
-der erste produktive Keychain-Paketstart gehören zur nachfolgenden Paketabnahme;
-sie sind durch die Quellcode-Tests allein nicht validiert.
+Das Paket `Meshyard_0.2.0_aarch64.dmg` liegt neben dieser Anleitung.
+DMG-Prüfsumme, schreibgeschütztes Einhängen und die strenge Signaturprüfung
+der kopierten App wurden geprüft. Der erste produktive Keychain-Paketstart
+bleibt der unten beschriebene persönliche Checkpoint.
 
 1. DMG öffnen, Meshyard nach `/Applications` ziehen, DMG auswerfen.
 2. Meshyard in Programme mit Rechtsklick → Öffnen starten. Bei einer Quarantäne-

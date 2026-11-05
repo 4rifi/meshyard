@@ -57,15 +57,36 @@ app behavior. Real CLI capture, Keychain and packaged GUI acceptance need separa
 evidence. Codex fixture provenance and unsupported events are recorded beside the
 fixtures. No PostModelRequest outcome is invented from error text.
 
-## Packaging handoff
+## Production packaging
 
-Phase 3 must bundle the target-suffixed Tauri external binary so its installed
-name is `Contents/MacOS/meshyard-hook`, ad-hoc sign it with the app, and rerun the
-smoke using the copied app executable. The resolver derives this sibling path.
+```sh
+source /Volumes/TokensAbuse/env.sh
+npm run build:production
+```
+
+This builds the real hook for `aarch64-apple-darwin`, stages the target-suffixed
+Tauri external binary, runs the synthetic strict-host guard, and invokes
+`tauri build --target aarch64-apple-darwin --bundles app,dmg`. Both executables
+are ad-hoc signed. The package uses `ch.arifi.meshyard`, registers `meshyard://`,
+and preserves the original pixel icon and DMG window art. URL registration does
+not implement invite/join; networking remains unavailable in the solo app.
+
+The final guard scans every bundle file and fails the production command on
+forbidden host bytes. Its parent-domain list comes from locked iroh 1.3.0
+`src/defaults.rs`, `src/address_lookup/pkarr.rs` and iroh-dns 1.4.1 `src/dns.rs`:
+production/staging relay regions, `dns.iroh.link` and `staging-dns.iroh.link`.
+`iroh.link`, `n0.computer` and `pkarr.org` are forbidden, including subdomains.
+No strings are rewritten or hidden: the solo app does not depend on meshyard-net
+or construct a network endpoint. An inspection failure must be fixed before export.
+
+The helper resolves to `Contents/MacOS/meshyard-hook`, a stable installed path.
 Installation from a DMG, App Translocation or any app outside `/Applications` is
-blocked with move-and-reopen guidance. A development binary outside an app can be
-selected explicitly. Keychain positive acceptance is still required; do not replace
-its backend in response to an environment failure.
+blocked with move-and-reopen guidance. For APFS test copies, extract the exact
+signed bundled hook to a temporary path outside `.app`, prove byte equality, and
+set `MESHYARD_TEST_HOOK_BIN` to it. Set `MESHYARD_TEST_PACKAGED_HOOK_BIN` to the
+original bundled file as well: the harness asserts byte equality and the original
+app location rejection before testing temporary installers and real UDS ingest.
+This is backend evidence sharing the production app core, never native UI evidence.
 
 `npm run build:frontend` only builds frontend assets. `npm run check:csp` uses
 externally supplied image-local Playwright/Chromium/PNG tools; see its script for
@@ -76,7 +97,7 @@ required environment variables. Browser mocks never count as native acceptance.
 `assets/meshyard-icon.svg` is original pixel geometry; `npm run icons` generates
 the platform icons. `assets/dmg-background.svg` is the original 640×440 installer
 window source. `node scripts/render-dmg-background.mjs` renders its licensed local pixel font
-and produces the 640×440 PNG. Phase 3 configures DMG icon locations. Local
+and produces the 640×440 PNG. The production configuration fixes DMG icon locations. Local
 Pixelify Sans and its exact OFL are in `app/src/assets/fonts/`; body text stays
 system sans for readability. No remote assets are requested.
 

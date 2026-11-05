@@ -618,3 +618,114 @@ Default packaged Keychain first launch remains the architect owner checkpoint;
 DMG/native/bundled-helper/actual CLI acceptance is not claimed. This completes
 the assigned pixel/documentation implementation and hands off directly to the
 mandatory Phase 3 writer. No push, no nested writer, no P2P, no real configs.
+
+## Phase 3 — production DMG, 2026-11-05
+
+Implementation commit `de90016` builds version 0.2.0 for aarch64-apple-darwin with
+Tauri's real external hook binary, ad-hoc signing, identifier ch.arifi.meshyard,
+meshyard URL scheme registration, and the accepted original pixel icon/background
+in a 640×440 DMG window. Cargo/npm generated the version-only lockfile updates.
+No wire-v1 or production runtime behavior was changed. No T-013 task spec exists
+in this checkout; the current owner brief and normative protocol govern this work.
+
+`npm run build:production` builds the release hook, stages the target-suffixed
+binary, self-tests the strict guard, runs `tauri build --target
+aarch64-apple-darwin --bundles app,dmg`, and scans all resulting app files. The
+host list derives from locked iroh 1.3.0 defaults.rs/address_lookup/pkarr.rs and
+locked iroh-dns 1.4.1 dns.rs: production/staging regional relays and DNS/pkarr
+services. Parent domains iroh.link, n0.computer and pkarr.org are forbidden.
+No strings are hidden/rewritten. The solo app has no meshyard-net dependency and
+constructs no network endpoint; Auto and joining remain unsupported. URL scheme
+registration is metadata evidence, not a runtime invite/join implementation.
+
+### Commands and actual results
+
+Every shell sourced `/Volumes/TokensAbuse/env.sh`. Full output, exact commands,
+exit files and package JSON evidence live in `/Volumes/TokensAbuse/logs/phase3/`.
+
+- `npm install --package-lock-only --ignore-scripts` and
+  `cargo generate-lockfile --offline`: exit 0, version-only regeneration.
+  Logs `npm-lock.log`, `cargo-lock.log`.
+- Initial configuration-writing Python had a syntax error; corrected before the
+  final build. An accidentally duplicated build was identified with a narrowly
+  scoped normal-context process inventory and terminated. No other run touched.
+- Sandboxed `npm run build:production`: app compiled and signed, DMG failed
+  `hdiutil create` with device-not-configured. Preserved `build-sandbox.log`.
+- Normal-context `npm run build:production`: **exit 0**, two release bundles,
+  app 13.25 MiB and DMG 4.35 MiB, actual strict scan **5 files pass**.
+  `build-normal.log`, `build-normal.exit`.
+- `node scripts/check-strict-bundle.mjs --self-test`: **exit 0**, every forbidden
+  synthetic host rejected, clean control accepted. `guard-self-test.log`.
+- Same guard on `/Volumes/TokensAbuse/tmp/phase3-forbidden.app` containing a
+  synthetic n0 relay URL: **expected exit 1**. `guard-forbidden.log/.exit`.
+- Sandboxed `npm run check`: **exit 101**, known netmon sandbox denial in nine
+  network tests; fmt/Clippy and preceding crate tests passed. `check.log/.exit`.
+  No assertions skipped/removed; no repeated sandbox network run.
+- After current parent feedback explicitly authorized normal-context validation,
+  unchanged `npm run check`: **exit 0**, fmt, all-target Clippy, full Rust workspace,
+  all 15 network tests, TypeScript, ESLint, **60 frontend tests**, Prettier.
+  `check-normal.log/.exit`.
+- Separate normal-context `cargo test --workspace`: **exit 0**,
+  `workspace-normal.log/.exit`. Existing ignored entries remain reported; the
+  executable hook smoke is run explicitly below and the production-service
+  Keychain checkpoint is not bypassed.
+- Separate `npm run check:frontend`, `npm run format:check`: **exit 0** each,
+  `frontend.log/.exit`, `format.log/.exit`. Focused store/node tests also exit 0:
+  `cargo test --locked -p meshyard-store -p meshyard-node`, `remaining-crates.log`.
+- `python3 /Volumes/TokensAbuse/logs/phase3/accept-package.py`: **exit 0** in normal
+  context. Individual argument arrays/exits/logs in `package-results.json`:
+  `hdiutil verify` 0; attach `-readonly -nobrowse -mountpoint` 0; `ditto` app to
+  APFS Applications-like directory 0; detach 0; `codesign --verify --deep --strict
+  --verbose=2` 0; codesign details 0 (adhoc/runtime, arm64); `spctl --assess --type
+  execute --verbose=4` **expected 3/rejected**; `plutil -p` 0 (version, id, URL);
+  `file` on both main/helper 0 (arm64); strict scan of copied app 0.
+- Actual signed bundled hook extracted byte-for-byte to temporary APFS path.
+  `MESHYARD_TEST_HOOK_BIN=/Volumes/TokensAbuse/tmp/phase3-package-020/extracted/meshyard-hook
+  MESHYARD_TEST_PACKAGED_HOOK_BIN=/Volumes/TokensAbuse/tmp/phase3-package-020/Applications/Meshyard.app/Contents/MacOS/meshyard-hook
+  cargo test --locked -p meshyard-app --test local_workspace
+  isolated_hook_executable_routes_both_agent_kinds_and_reopens_state -- --ignored
+  --exact --nocapture`: **exit 0, one test passed**, `bundled-hook-e2e.log/.exit`.
+  Original outside-/Applications .app path rejects HookInstallLocation; extracted
+  bytes equal original. Temporary HOME/settings/project only, reviewed installer
+  apply/removal for both kinds, golden fixtures through real executable and UDS,
+  production signed append/view pipeline Thinking→Building→Finished with provenance
+  and Connected, other kind unchanged, persistence/reopen verified. This is backend
+  evidence using the production app core, not native UI or actual CLI emission.
+
+### Export and native smoke
+
+Built/exported `Meshyard_0.2.0_aarch64.dmg` SHA-256:
+`abade83367b6988db0ef69193c9ace6300ea2bbf582698fa591d78dcc5030df8`.
+APFS source, APFS dist copy and exFAT export match; `dmg-export.json` records
+source/export. Hook hash `472e226b9674734f06131cc752f45f727ce4b81a17fce2f93cee253573581ab5`
+for original and extraction, `hook-hash.json`.
+
+Exact copied native app: `/Volumes/TokensAbuse/tmp/phase3-package-020/Applications/Meshyard.app`.
+Smoke PID **28537**, stayed alive after 12 seconds, empty `native-smoke.log`.
+`native-smoke.json` records executable, PID, time and environment: explicit TEST
+file key; data `/Volumes/TokensAbuse/tmp/phase3-package-020/native-data`, HOME and
+hook HOME `/Volumes/TokensAbuse/tmp/phase3-package-020/home`. Parent requested this
+one instance remain running for CUA selection; no other app should be opened.
+Process survival/empty output are not native screen or default-Keychain evidence.
+
+Unchanged accepted browser mock screenshots: 68 scenarios, 136 paired PNGs plus
+four viewport contact sheets, manifest/README; 142 exported files hash-compared
+with APFS originals, `screenshot-export.json`. Personally reviewed all four
+viewport contact sheets and original pixel DMG background. Required states and
+both installer diffs are covered. DPR2 is browser emulation, not native Retina.
+Native CUA capture/inspection is delegated to parent; no permission bypass here.
+
+German report and tester guide are written in `/Volumes/TokensAbuse/dist/` and
+exported beside the DMG to `/Volumes/Untitled/projects/tokens-abuse/dist/`.
+
+### Remaining acceptance boundaries
+
+The architect forbids unattended production-service Keychain identity creation.
+Keychain remains default, no fallback. Earlier real-HOME unique-service probe
+passed; default installed-app first launch is still an owner checkpoint, **not
+validated** by explicit-file smoke. Native UI/Retina/resize and installer clicks,
+real Claude/Codex CLI hook capture, runtime deep-link handling and P2P/cross-network
+remain not validated here. Known Vite >500 kB chunk advisory remains. Phase 3
+**complete=false**, no phase3-acceptance.json success claim, no Phase 4, no push.
+Git sandbox denied .git/index.lock; local focused commit used authorized normal
+context. No real agent configs, global memory or protected projects modified.
