@@ -10,3 +10,4 @@ node_modules/
 /app-data/
 *.log
 ._*
+/app/src-tauri/binaries/

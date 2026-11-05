@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-agents"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "meshyard-core",
  "meshyard-hook",
@@ -2864,7 +2864,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -2888,7 +2888,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "ed25519-dalek",
@@ -2902,7 +2902,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-hook"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rustix",
  "serde",
@@ -2911,7 +2911,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-net"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "futures-util",
  "iroh",
@@ -2929,7 +2929,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "meshyard-agents",
  "meshyard-core",
@@ -2939,7 +2939,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "exacl",
  "getrandom 0.4.3",

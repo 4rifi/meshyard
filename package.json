@@ -1,6 +1,6 @@
 {
   "name": "meshyard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -18,7 +18,9 @@
     "dev:frontend": "vite --config app/vite.config.ts",
     "build:frontend": "tsc --noEmit -p app/tsconfig.json && vite build --config app/vite.config.ts",
     "icons": "tauri icon assets/meshyard-icon.svg --output app/src-tauri/icons",
-    "bindings:generate": "cargo run --offline -p meshyard-core --example export_bindings && cargo run --offline -p meshyard-app --example export_app_bindings && prettier --write app/src/ipc/generated"
+    "bindings:generate": "cargo run --offline -p meshyard-core --example export_bindings && cargo run --offline -p meshyard-app --example export_app_bindings && prettier --write app/src/ipc/generated",
+    "build:production": "node scripts/build-production.mjs",
+    "check:bundle": "node scripts/check-strict-bundle.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.12.4",

@@ -578,6 +578,21 @@ async fn isolated_hook_executable_routes_both_agent_kinds_and_reopens_state() {
         std::env::var_os("MESHYARD_TEST_HOOK_BIN").expect("explicit built hook"),
     );
     assert!(binary.starts_with("/Volumes/TokensAbuse/"));
+    if let Some(packaged) = std::env::var_os("MESHYARD_TEST_PACKAGED_HOOK_BIN") {
+        let packaged = std::path::PathBuf::from(packaged);
+        assert!(packaged.starts_with("/Volumes/TokensAbuse/"));
+        assert_eq!(
+            std::fs::read(&packaged).unwrap(),
+            std::fs::read(&binary).unwrap()
+        );
+        let location_profile = profile();
+        let mut installer = meshyard_app::hooks::Installer::new(
+            location_profile.path().join("home/.claude/settings.json"),
+            Some(packaged),
+            location_profile.path().join("ingest.sock"),
+        );
+        assert_eq!(installer.plan(false), Err(AppError::HookInstallLocation));
+    }
     let dir = profile();
     let home = dir.path().join("home");
     std::fs::create_dir(&home).unwrap();

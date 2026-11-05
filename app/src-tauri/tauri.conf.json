@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Meshyard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "ch.arifi.meshyard",
   "build": {
     "beforeDevCommand": "npm --prefix .. run dev:frontend",
@@ -28,13 +28,33 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app"],
+    "targets": ["app", "dmg"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "externalBin": ["binaries/meshyard-hook"],
+    "macOS": {
+      "signingIdentity": "-",
+      "infoPlist": "Info.plist",
+      "dmg": {
+        "background": "../../assets/dmg-background.png",
+        "windowSize": {
+          "width": 640,
+          "height": 440
+        },
+        "appPosition": {
+          "x": 160,
+          "y": 220
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 220
+        }
+      }
+    }
   }
 }
