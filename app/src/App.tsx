@@ -120,7 +120,7 @@ export function App() {
       <p className="footnote" role="status">
         {busy
           ? 'Saving to this device…'
-          : 'Local data only · Claude Code status comes from local hook events. Networking is not available yet.'}
+          : 'Local data only · Claude Code and Codex status comes from local hook events. Networking is not available yet.'}
       </p>
     </main>
   );

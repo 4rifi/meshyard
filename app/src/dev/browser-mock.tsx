@@ -44,25 +44,30 @@ let workspace: WorkspaceView = {
     },
   ],
   ingest: { status: 'Listening', dropped_unbound: 0, dropped_invalid: 0 },
-  codex_hook: { installed: false, binary_available: false },
+  codex_hook: { installed: false, binary_available: true },
   hook: { installed: false, binary_available: true },
   agents:
     scenario === 'agents'
       ? [
-          agent('fixture-arrival', 'main'),
+          {
+            ...agent('fixture-build', 'Claude builder'),
+            state: 'Building',
+            provenance: { Inferred: { rule: 'ToolEdit' } },
+          },
           {
             ...agent('fixture-testing', 'test runner', 'Codex'),
             state: 'Testing',
             provenance: { Inferred: { rule: 'ToolShell' } },
           },
-          {
-            ...agent('fixture-finished', 'review complete'),
-            state: 'Finished',
-            provenance: { Verified: { source: 'Stop' } },
-          },
         ]
       : [],
 };
+if (scenario === 'agents')
+  workspace.agents = workspace.agents.map((a) => ({
+    ...a,
+    bound: true,
+    connection: a.state ? 'Connected' : 'NotConnected',
+  }));
 if (scenario === 'connected') {
   workspace.hook.installed = true;
   workspace.agents = [
@@ -106,10 +111,28 @@ const fixtureHooks = Object.fromEntries(
     [{ hooks: [{ type: 'command', command: hookCommand, async: true }] }],
   ]),
 );
-function fixtureDiff(remove: boolean) {
-  const before = JSON.stringify({ hooks: remove ? fixtureHooks : {} }, null, 2);
-  const after = JSON.stringify({ hooks: remove ? {} : fixtureHooks }, null, 2);
-  return `--- ~/.claude/settings.json (hooks)\n+++ ~/.claude/settings.json (hooks)\n@@ -1,${String(before.split('\n').length)} +1,${String(after.split('\n').length)} @@\n${before
+function fixtureDiff(remove: boolean, kind: string) {
+  const path =
+    kind === 'Codex' ? '~/.codex/hooks.json' : '~/.claude/settings.json';
+  const hooks =
+    kind === 'Codex'
+      ? Object.fromEntries(
+          Object.entries(fixtureHooks)
+            .filter(([event]) => event !== 'StopFailure')
+            .map(([event, value]) => [
+              event,
+              value.map((entry) => ({
+                hooks: entry.hooks.map((hook) => ({
+                  ...hook,
+                  command: hook.command.replace('claude-code', 'codex'),
+                })),
+              })),
+            ]),
+        )
+      : fixtureHooks;
+  const before = JSON.stringify({ hooks: remove ? hooks : {} }, null, 2);
+  const after = JSON.stringify({ hooks: remove ? {} : hooks }, null, 2);
+  return `--- ${path} (hooks)\n+++ ${path} (hooks)\n@@ -1,${String(before.split('\n').length)} +1,${String(after.split('\n').length)} @@\n${before
     .split('\n')
     .map((line) => `-${line}`)
     .join('\n')}\n${after
@@ -163,9 +186,11 @@ mockIPC(async (command, args) => {
       return Promise.reject(error);
     }
     const remove = command === 'hook_remove';
+    const kind = (args as { kind: string }).kind;
     planned = {
       plan_id: `fixture-plan-${String(++nextPlan)}`,
-      settings_path_display: '~/.claude/settings.json',
+      settings_path_display:
+        kind === 'Codex' ? '~/.codex/hooks.json' : '~/.claude/settings.json',
       base_sha256: 'a'.repeat(64),
       action: remove
         ? 'Remove'
@@ -175,7 +200,7 @@ mockIPC(async (command, args) => {
       diff:
         workspace.hook.installed && !remove
           ? `No changes to hooks.\n${JSON.stringify({ hooks: fixtureHooks }, null, 2)}\n`
-          : fixtureDiff(remove),
+          : fixtureDiff(remove, kind),
     };
     return structuredClone(planned);
   }

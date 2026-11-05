@@ -34,10 +34,10 @@ export function yardZones(
 export const stations = [
   { state: null, label: 'Arrival', prop: 'arrival' },
   { state: 'Thinking', label: 'Thinking', prop: 'desk' },
-  { state: 'Building', label: 'Building', prop: 'workbench' },
-  { state: 'Testing', label: 'Testing', prop: 'test' },
+  { state: 'Building', label: 'Build', prop: 'workbench' },
+  { state: 'Testing', label: 'Test', prop: 'test' },
   { state: 'Idle', label: 'Idle', prop: 'bench' },
-  { state: 'Merging', label: 'Merging', prop: 'gate' },
+  { state: 'Merging', label: 'Merge', prop: 'gate' },
   { state: 'Finished', label: 'Finished', prop: 'flag' },
   { state: 'Error', label: 'Error', prop: 'alarm' },
 ] as const;

@@ -237,12 +237,22 @@ describe('persistent yard scene', () => {
     app().advance(0.2);
     expect(position('a')).not.toEqual([12, 46]);
     expect(position('b')).toEqual(bPosition);
-    expect(avatar?.children.map((pose) => pose.visible)).toEqual([false, true]);
+    expect(avatar?.children.map((pose) => pose.visible)).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
     app().advance(3);
     expect(position('a')).toEqual([92, 46]);
     expect(position('b')).toEqual(bPosition);
     expect(app().ticker.started).toBe(false);
-    expect(avatar?.children.map((pose) => pose.visible)).toEqual([true, false]);
+    expect(avatar?.children.map((pose) => pose.visible)).toEqual([
+      true,
+      false,
+      false,
+      false,
+    ]);
     yard.destroy();
   });
   it('retargets from the current integer position; label/provenance/order-only updates never restart it', async () => {
@@ -423,6 +433,46 @@ describe('persistent yard scene', () => {
       yard.destroy();
     },
   );
+  it('animates cosmetic idle and work poses without changing positions, and reduced motion disables them', async () => {
+    vi.useFakeTimers();
+    const yard = mount();
+    try {
+      yard.update([dto('idle', 'Idle'), dto('work', 'Building')]);
+      await flush();
+      app().advance(3);
+      const positions = [position('idle'), position('work')];
+      vi.advanceTimersByTime(800);
+      const bodies = app().stage.children[1]?.children ?? [];
+      expect(bodies[0]?.children.map((pose) => pose.visible)).toEqual([
+        false,
+        false,
+        true,
+        false,
+      ]);
+      expect(bodies[1]?.children.map((pose) => pose.visible)).toEqual([
+        false,
+        false,
+        false,
+        true,
+      ]);
+      expect([position('idle'), position('work')]).toEqual(positions);
+      expect(app().ticker.started).toBe(false);
+      media.matches = true;
+      media.addEventListener.mock.calls[0]?.[1]();
+      vi.advanceTimersByTime(1600);
+      expect(bodies[1]?.children.map((pose) => pose.visible)).toEqual([
+        true,
+        false,
+        false,
+        false,
+      ]);
+      expect([position('idle'), position('work')]).toEqual(positions);
+    } finally {
+      yard.destroy();
+      expect(vi.getTimerCount()).toBe(0);
+      vi.useRealTimers();
+    }
+  });
   it('cleans ticker, observer, listener, canvas and tags once; ignores updates after destroy', async () => {
     const yard = mount();
     yard.update([dto('a', 'Testing')]);

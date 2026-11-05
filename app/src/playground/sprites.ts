@@ -184,6 +184,24 @@ const maps = {
     '................',
     '................',
   ],
+  codexAgent: [
+    '......llll......',
+    '......lccl......',
+    '...llllllllll...',
+    '..lccccccccccl..',
+    '..lcddddddddcl..',
+    '..lcdkkddkkdcl..',
+    '..lcddddddddcl..',
+    '..lccccccccccl..',
+    '...llllllllll...',
+    '..llccccccccll..',
+    '..lclcckkcclcl..',
+    '..lclcckkcclcl..',
+    '..lllcccccclll..',
+    '....llllllll....',
+    '....lddllddl....',
+    '....llllllll....',
+  ],
   agent: [
     '.....llllll.....',
     '....laaaaaal....',
@@ -203,7 +221,7 @@ const maps = {
     '....llllllll....',
   ],
 } as const;
-export type Prop = Exclude<keyof typeof maps, 'agent'>;
+export type Prop = Exclude<keyof typeof maps, 'agent' | 'codexAgent'>;
 const colours: Record<string, PixelColour> = {
   l: 'line',
   m: 'muted',
@@ -222,30 +240,42 @@ export function pixelSprite(
   x: number,
   y: number,
   kind?: AgentKind,
-  pose: 0 | 1 = 0,
+  pose: 0 | 1 | 2 | 3 = 0,
 ): Graphics {
   const drawing = new Graphics();
-  maps[prop].forEach((row, py) => {
-    for (let px = 0; px < row.length; px += 1) {
-      const pixel = row.charAt(px);
-      const colour =
-        pixel === 'a'
-          ? kind === 'Codex'
-            ? 'codex'
-            : 'claude'
-          : colours[pixel];
-      if (colour)
-        drawing
-          .rect(
-            x + px,
-            y +
-              py -
-              (prop === 'agent' && pose === 1 && py >= 14 && px < 8 ? 1 : 0),
-            1,
-            1,
-          )
-          .fill(ink[colour]);
-    }
-  });
+  maps[prop === 'agent' && kind === 'Codex' ? 'codexAgent' : prop].forEach(
+    (row, py) => {
+      for (let px = 0; px < row.length; px += 1) {
+        const pixel =
+          prop === 'agent' && pose === 2 && py === 5 && (px === 6 || px === 9)
+            ? 't'
+            : row.charAt(px);
+        const colour =
+          pixel === 'a'
+            ? kind === 'Codex'
+              ? 'codex'
+              : 'claude'
+            : colours[pixel];
+        if (colour)
+          drawing
+            .rect(
+              x +
+                px +
+                (prop === 'agent' && pose === 1 && py >= 9 && py <= 11 && px < 4
+                  ? 1
+                  : 0),
+              y +
+                py -
+                (prop === 'agent' && pose === 1 && py >= 14 && px < 8 ? 1 : 0) -
+                (prop === 'agent' && pose === 3 && py >= 9 && py <= 11 && px < 4
+                  ? 2
+                  : 0),
+              1,
+              1,
+            )
+            .fill(ink[colour]);
+      }
+    },
+  );
   return drawing;
 }

@@ -28,7 +28,7 @@ export type Yard = {
 type Character = {
   agent: AgentView;
   body: Container;
-  poses: [Graphics, Graphics];
+  poses: [Graphics, Graphics, Graphics, Graphics];
   tag: HTMLSpanElement;
   tagOffset: number;
   position: Point;
@@ -52,6 +52,8 @@ export function createYard(
   let ready = false;
   let disposed = false;
   let observer: ResizeObserver | undefined;
+  let poseTimer: ReturnType<typeof setInterval> | undefined;
+  let restFrame = 0;
   let media: MediaQueryList | undefined;
   let columns: 2 | 4 = 4;
   let basePages = 1;
@@ -98,9 +100,16 @@ export function createYard(
     const pose =
       character.walk && !character.walk.done
         ? Math.floor(character.walk.elapsed * 8) % 2
-        : 0;
-    character.poses[0].visible = pose === 0;
-    character.poses[1].visible = pose === 1;
+        : restFrame === 0
+          ? 0
+          : character.agent.state === 'Building' ||
+              character.agent.state === 'Testing' ||
+              character.agent.state === 'Merging'
+            ? 3
+            : 2;
+    character.poses.forEach((drawing, index) => {
+      drawing.visible = index === pose;
+    });
   };
   const moving = () =>
     [...characters.values()].some((character) => character.walk !== null);
@@ -120,6 +129,7 @@ export function createYard(
   };
   const reducedMotion = () => {
     if (media?.matches) {
+      restFrame = 0;
       for (const character of characters.values()) {
         character.position = character.target;
         character.walk = null;
@@ -273,9 +283,11 @@ export function createYard(
               plotHeight +
             46,
         };
-        const poses: [Graphics, Graphics] = [
+        const poses: [Graphics, Graphics, Graphics, Graphics] = [
           pixelSprite('agent', 0, 0, agent.kind),
           pixelSprite('agent', 0, 0, agent.kind, 1),
+          pixelSprite('agent', 0, 0, agent.kind, 2),
+          pixelSprite('agent', 0, 0, agent.kind, 3),
         ];
         const body = new Container();
         body.eventMode = 'static';
@@ -311,6 +323,11 @@ export function createYard(
       for (const pose of character.poses) pose.alpha = agent.stale ? 0.55 : 1;
       character.tag.title = `${agent.label} · ${agent.stale ? `Unknown (no events for 10 min) · Last: ${activityLabel(agent.state)}` : activityLabel(agent.state)}`;
       character.tag.dataset.kind = agent.kind;
+      character.tag.dataset.provenance = agent.provenance
+        ? 'Verified' in agent.provenance
+          ? 'verified'
+          : 'inferred'
+        : 'none';
       const tagWidth = tagWidths.get(agent.id) ?? 36;
       character.tag.style.width = `${String(tagWidth)}px`;
       // A lone second-slot occupant uses the whole station without moving its body.
@@ -376,6 +393,16 @@ export function createYard(
         media = window.matchMedia('(prefers-reduced-motion: reduce)');
         media.addEventListener('change', reducedMotion);
         columns = (host.parentElement?.clientWidth ?? 320) >= 640 ? 4 : 2;
+        // Cosmetic poses never change station, state, provenance or position.
+        // A low-rate timer leaves the movement ticker stopped after arrival.
+        poseTimer = setInterval(() => {
+          if (media?.matches || document.visibilityState === 'hidden') return;
+          restFrame = 1 - restFrame;
+          for (const character of characters.values()) {
+            if (!character.walk && !character.agent.stale) place(character);
+          }
+          app.render();
+        }, 800);
         ready = true;
         reconcile();
         align();
@@ -388,10 +415,14 @@ export function createYard(
           align();
         });
         if (host.parentElement) observer.observe(host.parentElement);
+        // Preceding panels can move the canvas without changing its viewport size.
+        const layout = host.parentElement?.parentElement?.parentElement;
+        if (layout) observer.observe(layout);
       },
       destroy: () => {
         ready = false;
         observer?.disconnect();
+        clearInterval(poseTimer);
         media?.removeEventListener('change', reducedMotion);
         app.ticker.stop();
         app.ticker.remove(tick);

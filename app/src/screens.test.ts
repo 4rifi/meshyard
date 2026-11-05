@@ -228,10 +228,10 @@ describe('real-state screen contract', () => {
       expect(plot?.stations.map(({ label }) => label)).toEqual([
         'Arrival',
         'Thinking',
-        'Building',
-        'Testing',
+        'Build',
+        'Test',
         'Idle',
-        'Merging',
+        'Merge',
         'Finished',
         'Error',
       ]);

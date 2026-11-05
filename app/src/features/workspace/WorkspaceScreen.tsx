@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentKind } from '../../ipc/generated/AgentKind';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { RegisterAgent as RegisterInput } from '../../ipc/generated/RegisterAgent';
@@ -9,6 +9,7 @@ import type { AppStatus } from '../../ipc/generated/AppStatus';
 import { ConnectClaudeCode, IngestNotice } from '../connect/ConnectClaudeCode';
 import { activityLabel } from '../../playground/yardData';
 import { RegisterAgent } from './RegisterAgent';
+import fontLicense from '../../assets/fonts/OFL.txt?raw';
 export function WorkspaceScreen({
   workspace,
   busy,
@@ -25,6 +26,15 @@ export function WorkspaceScreen({
   onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const selectAgent = useCallback((id: string) => {
+    opener.current =
+      document.activeElement instanceof HTMLElement &&
+      document.activeElement !== document.body
+        ? document.activeElement
+        : (host.current?.parentElement ?? null);
+    setSelected(id);
+  }, []);
   const inspector = useRef<HTMLElement>(null);
   const inspected = workspace.agents.find((agent) => agent.id === selected);
   const inspectedId = inspected?.id;
@@ -47,14 +57,14 @@ export function WorkspaceScreen({
       () => {
         setRendererFailed(true);
       },
-      setSelected,
+      selectAgent,
     );
     yard.current = scene;
     return () => {
       scene.destroy();
       yard.current = null;
     };
-  }, [workspace.id_short]);
+  }, [workspace.id_short, selectAgent]);
   useEffect(() => {
     yard.current?.update(workspace.agents);
   }, [workspace.id_short, workspace.agents]);
@@ -149,12 +159,20 @@ export function WorkspaceScreen({
             Graphics are unavailable. Every agent is listed below.
           </p>
         )}
+        <div className="station-reserved" aria-label="Unsupported stations">
+          {['Review', 'Fix', 'Waiting'].map((station) => (
+            <span key={station}>
+              <strong>{station}</strong>
+              <small>Not reported by current hooks</small>
+            </span>
+          ))}
+        </div>
       </section>
       {inspected && (
         <section
           ref={inspector}
           tabIndex={-1}
-          className="panel"
+          className="panel inspector"
           aria-labelledby="inspector-heading"
         >
           <h2 id="inspector-heading">Agent inspector · {inspected.label}</h2>
@@ -182,6 +200,7 @@ export function WorkspaceScreen({
             type="button"
             onClick={() => {
               setSelected(null);
+              opener.current?.focus();
             }}
           >
             Close inspector
@@ -200,7 +219,7 @@ export function WorkspaceScreen({
           <AgentList
             agents={workspace.agents}
             busy={busy}
-            onInspect={setSelected}
+            onInspect={selectAgent}
             onSelect={setConnecting}
           />
           <IngestNotice workspace={workspace} />
@@ -223,6 +242,10 @@ export function WorkspaceScreen({
               Hooks share only activity categories and provenance. Prompts,
               paths, commands and tool output stay out of Meshyard events.
             </p>
+            <details className="font-license">
+              <summary>Pixelify Sans · Font license</summary>
+              <pre>{fontLicense}</pre>
+            </details>
             <form
               onSubmit={(e) => {
                 e.preventDefault();

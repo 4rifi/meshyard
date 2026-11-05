@@ -1,3 +1,9 @@
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('./assets/fonts/PixelifySans.ttf') format('truetype');
+  font-weight: 400 700;
+  font-display: swap;
+}
 :root {
   --ground: #14111f;
   --deep: #1f1a33;
@@ -17,6 +23,7 @@
   --danger: #e5534b;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
+  line-height: 24px;
   color: var(--text);
   background: var(--ground);
   font-synthesis: none;
@@ -50,7 +57,7 @@ button,
 .badge,
 .footnote,
 .yard-caption {
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: 'Pixelify Sans', ui-monospace, monospace;
 }
 h1 {
   margin: 12px 0 16px;
@@ -63,8 +70,13 @@ h2 {
   font-size: 20px;
   line-height: 28px;
 }
+h3 {
+  margin: 16px 0;
+  font-size: 20px;
+  line-height: 28px;
+}
 p {
-  line-height: 1.6;
+  line-height: 24px;
   color: var(--muted);
   margin: 12px 0 20px;
 }
@@ -236,7 +248,7 @@ code {
   position: absolute;
   color: var(--text);
   background: var(--deep);
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: 'Pixelify Sans', ui-monospace, monospace;
   font-size: 11px;
   line-height: 12px;
   padding: 0 2px;
@@ -375,7 +387,7 @@ button,
   box-shadow:
     4px 4px 0 var(--line),
     inset 0 -4px 0 var(--wood);
-  font-family: ui-monospace, Menlo, monospace;
+  font-family: 'Pixelify Sans', ui-monospace, monospace;
   font-size: 15px;
   font-weight: 700;
 }
@@ -543,4 +555,112 @@ h1:focus {
 .connect-panel p,
 .connect-panel h3 {
   line-height: 24px;
+}
+
+/* Native control behavior, with the same pixel frame as the yard. */
+select {
+  appearance: none;
+  padding-right: 40px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text) 50%),
+    linear-gradient(135deg, var(--text) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 20px,
+    calc(100% - 14px) 20px;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+* {
+  scrollbar-color: var(--path) var(--deep);
+  scrollbar-width: auto;
+}
+::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+::-webkit-scrollbar-track {
+  background: var(--deep);
+  border: 2px solid var(--line);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--path);
+  border: 4px solid var(--deep);
+}
+a {
+  color: var(--warn);
+  text-underline-offset: 4px;
+}
+[role='alert'] {
+  border-left: 4px solid var(--danger);
+  background: var(--deep);
+  padding: 12px;
+}
+.station-reserved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.station-reserved span {
+  border: 2px solid var(--wood);
+  padding: 8px 12px;
+  background: var(--deep);
+}
+.station-reserved strong {
+  font:
+    20px 'Pixelify Sans',
+    monospace;
+  color: var(--text);
+}
+.station-reserved small {
+  display: block;
+  color: var(--muted);
+  line-height: 24px;
+}
+.agent-tag {
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 10px;
+}
+.station-label {
+  font-size: 12px;
+}
+.agent-tag[data-provenance='verified']::before {
+  content: 'V ';
+  color: var(--ok);
+}
+.agent-tag[data-provenance='inferred']::before {
+  content: '~ ';
+  color: var(--warn);
+}
+.inspector {
+  border-color: var(--codex);
+  margin-bottom: 24px;
+}
+.inspector code {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 681px) {
+  .workspace-header > div:first-child {
+    grid-row: 2 / 5;
+    align-self: start;
+  }
+}
+
+.font-license {
+  background: var(--deep);
+  border: 2px solid var(--light);
+}
+.font-license summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px;
+  font-family: 'Pixelify Sans', monospace;
+}
+.font-license pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 20px;
 }
