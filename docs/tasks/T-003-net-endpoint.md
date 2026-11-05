@@ -48,6 +48,13 @@ routes ALPNs, enforces the member allowlist, and reports honest path diagnostics
   path within 10 s") from **suspected cause** ("likely: both peers behind NAT without port mapping").
 - Two-stage admission per PROTOCOL §6 (device admission before decoding any frame; workspace
   admission via `Hello` is wired in T-006). Disable 0-RTT. Per-device connection/stream limits.
+- **0-RTT (ADR-013, added 2026-11-03):** authorized extra file scope for this task:
+  `vendor/iroh-1.3.0/**` (unmodified crates.io archive + `PROVENANCE.md`),
+  `vendor/iroh-1.3.0.patch` (two-value TLS diff), root `Cargo.toml` `[patch.crates-io]` +
+  `exclude = ["vendor"]`, `.prettierignore`, Cargo-generated `Cargo.lock`. Nothing else in vendor
+  may change. Signed wire v1 unchanged.
+- **Auto net report (ADR-013 addendum):** Auto uses `https_probes: true, captive_portal_check:
+  false`; Strict keeps `minimal()`.
 - Test endpoints MUST be built without public discovery (no `presets::N0`/staging in tests: build
   the endpoint manually with no address lookup, explicit local relay map, explicit addresses).
 

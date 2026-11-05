@@ -140,6 +140,11 @@ Two-stage admission:
    heads, epoch }`. The remote MUST be a member of *that* workspace; else `NOT_MEMBER` + close.
    A device key gives no access to workspaces it was not paired into.
 - 0-RTT data MUST NOT be accepted for any state-changing message (disable 0-RTT on all ALPNs in v1).
+  Clarification 2026-11-03 (ADR-013): "disabled" means the server TLS config advertises
+  `max_early_data_size = 0` and our client never offers early data, proven by a capable
+  independent client test with a positive control. Awaiting the full handshake or `max_tls_tickets(0)`
+  alone does not satisfy this rule. Until proven, `pair/1` and `sync/1` handlers that mutate state
+  stay closed (T-005/T-006 must not merge before the T-003 0-RTT proof is reviewed).
 - Limits per remote device: ≤ 4 concurrent connections, ≤ 16 streams, ingress ≤ 1 MiB/s burst
   4 MiB, pending buffers per §3.
 

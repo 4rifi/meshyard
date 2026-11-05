@@ -69,6 +69,7 @@ No prior task status, review decision or owner decision is changed by this path-
   onscreen window 74428. Current startup pointer: `Meshyard-build/Meshyard-active-start.json`.
   Existing USB file-key profile retained; no lead Install/native acceptance.
   T-007a code is accepted but first-launch latency is unmet; N-14/reference gates remain open.
+  T-003 final re-review accepted the endpoint code at `df3b844`.
   Historical runs are archived; do not resume them in temporary checkouts.
 - Before project or Smithers commands, source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
   It sets `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, npm/Bun caches, `TMPDIR` and SQLite
@@ -86,7 +87,7 @@ No prior task status, review decision or owner decision is changed by this path-
 |---|---|---|---|
 | T-001 scaffold | review | Codex → Claude | Full check/build pass; corrected CSP rendering proven headlessly; Dion performs native checkpoint L1; unchanged hook latency requirement moved to T-007; no acceptance claimed |
 | T-002 core/store/identity | review | Dion → Claude | Claude re-review 2026-11-03: code accepted, fixes 1–3 resolved, wire v1 frozen (`docs/reviews/T-002.md`). Only gate to `done`: Dion's native Keychain roundtrip (unverified). Merge after T-001 merge |
-| T-003 net endpoint | in-progress | Codex lane C | stacked per D-9 (no longer waits for merge); KQ-009 decided (ADR-012 own mapper), ADR-011, strict-only switch |
+| T-003 net endpoint | done (Claude @ `df3b844`) | Claude accepted | Local default/Strict transport and TLS proofs accepted; L2/router/cross-network remain separate; no main merge |
 | T-014 local workspace slice | review (code accepted @ `1f90a07`) | Dion (N-14) | identity fix resolved; native gate N-14 pending ("Ich teste später"); no `main` merge |
 | T-015 pixel app redesign | review (code accepted `a859ed4`) | Dion (reference image, N-14) | art direction frozen until the original image arrives |
 | T-016 living yard | review (code accepted `b535dbc`) | Dion (native/reference) | Claude re-review `090257d`; renderer movement/occupancy labels accepted; no native/live-hook acceptance |
@@ -106,6 +107,7 @@ No prior task status, review decision or owner decision is changed by this path-
 | D-6 | Merge to `main` | After Claude's review verdict `done`, Codex merges the task branch into `main` with a normal merge commit and pushes. Stacked branches merge in order (t-001, then t-002, …). No force push, no rebase of published branches. | Dion | **decided** 2026-11-03 |
 | D-7 | Test-partner build | Full MVP (T-001…T-013) as ad-hoc signed `aarch64` DMG, **Strict P2P only** (ADR-011, G-1 addendum), owner checkpoints L1–L5 first (ROADMAP) | Dion | **decided** 2026-11-03 |
 | D-9 | Stacked development while T-001/T-002 owner gates are open | Owner request 2026-11-03 ("substantial working app") → lanes A/B/C branch from `c93fbe2`; reviewed lanes merge into `m1-integration`, not `main`; if T-002 changes later, merge it into the lanes (no rebase). Gates for `main` unchanged | Claude (within D-4/D-6) | **decided** 2026-11-03 |
+| D-10 | 0-RTT disable for pinned iroh 1.3.0 | ADR-013: vendored unmodified crates.io archive + two-value TLS patch via `[patch.crates-io]`, vendor excluded from workspace; proof by independent capable client with positive control; T-005/T-006 mutations closed until reviewed | Claude (architect) | **decided** 2026-11-03 |
 | D-8 | KQ-008 "Join the Agent H+" action meaning/label | pending owner answer; needed before T-011 spec | Dion | open |
 | D-12 | macOS ingest peer credential | ADR-015: safe `nix::unistd::getpeereid` (target-only `nix =0.31.3`) instead of tokio `peer_cred()` (which needs `LOCAL_PEEREPID` and fails after the one-shot hook closes); euid check before read, all errors reject, no fallback | Claude (architect) | **decided** 2026-11-03 (cause to be confirmed by the diagnostic run) |
 | D-11 | Live-ingest read performance | ADR-014: persisted agent/profile projection maintained only on contiguous promotion in the same transaction, membership filtered at read, one-time verified backfill, cached verified genesis; `workspace_snapshot`/`own_agent` replace hot-path `workspace_state`; counting-verifier test (≥ 5 000 events → 0 historical verifications per read). Required before live onboarding is accepted | Claude (architect) | **decided** 2026-11-03 |
@@ -253,6 +255,33 @@ No prior task status, review decision or owner decision is changed by this path-
   USB control/signing measurements. No waiver/done/live-hook acceptance. Next exact-head
   re-review; T-015 pixel redesign is the current exclusive frontend writer on its own branch.
   Main/native/Keychain gates remain open; owner deferred N-14 testing.
+
+- 2026-11-03 — Codex lead: Claude final T-003 review at `df3b844` accepts both fixes and
+  returns **done** for local endpoint scope. Review committed unchanged as `62391ae`, pushed
+  and remote-verified. ROADMAP/board now reflect that verdict; real router/cross-network L2,
+  native Keychain/owner and main merge gates remain separate. T-015 four visual fixes source
+  `bbe099e`; actual parent render found fractional canvas origin y=351.1875, so bounded alignment
+  follow-up `b8a76818` is active (no new art direction while reference is missing). Real native
+  T-015-only preview is open: launcher 50103, own Vite 1420 PID 50266, native 50284, onscreen
+  window 74084 at 960×680; same explicit USB file-key profile, HTTP 200 real main entry.
+  First detached launcher ended before verification; persistent dev session 6522 replaces it,
+  both logs preserved in `Meshyard-build/T015-final-source-preview-20261103T204908Z`.
+  Screen-capture preflight false, no screenshot or native action/acceptance claimed. Dion tests
+  later; no main merge. Next: verify crisp responsive rendering and exact-head visual re-review.
+
+- 2026-11-03 — Codex lead: T-003 approved relay/TLS fixes normally merged from `ee76afd`;
+  normal isolated-target required loops pass **10/10 default + 10/10 strict-only**. Full check
+  exit 0 (342.104 s; 69 top-level Rust + lock child, 3 Vitest, 2 ignored). Independent parent
+  archive comparison confirms 84 original files, only TLS source changed plus provenance;
+  runtime patch is two fields, cfg(test) additions explicit. Next exact-head Claude review.
+  No router/cross-network/native acceptance, no pair/sync mutations or main merge. T-015
+  frontend visual fixes run independently; owner deferred N-14, reference image remains absent.
+
+- 2026-11-03 — Claude: T-003 review at `7eb5c58` (source only) → changes-requested. Real
+  relay-suite failure (parent normal shell, exit 101) traced in pinned source to Auto's
+  `NetReportConfig::minimal()` + no-QUIC relay + no IP transports (no home-relay measurement);
+  fix = ADR-013 addendum (Auto https probes to configured relays). D-10/ADR-013: 0-RTT disabled via
+  vendored iroh 1.3.0 with a two-value TLS patch; PROTOCOL §6 clarified. Docs uncommitted.
 
 - 2026-11-03 — Codex lead: T-014 implementation run
   `d09db809-77d6-40eb-bc82-28d508976880` finished; focused commits `e375076`, `9b6bd95`,
