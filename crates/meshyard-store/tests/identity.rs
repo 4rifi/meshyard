@@ -165,9 +165,17 @@ fn writable_ancestor_rejects_identity_lock_and_database_before_writing() {
 #[cfg(unix)]
 #[tokio::test]
 async fn canonical_tmp_aliases_work_under_root_owned_sticky_parent() {
+    // Allow external-only builds to supply an equivalent root-owned sticky fixture.
+    let root = std::env::var_os("MESHYARD_STICKY_TEST_ROOT")
+        .or_else(|| std::env::var_os("TMPDIR"))
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from("/tmp"));
+    let metadata = std::fs::metadata(&root).unwrap();
+    assert_eq!(std::os::unix::fs::MetadataExt::uid(&metadata), 0);
+    assert_eq!(metadata.permissions().mode() & 0o1777, 0o1777);
     let dir = tempfile::Builder::new()
         .permissions(std::fs::Permissions::from_mode(0o700))
-        .tempdir_in("/tmp")
+        .tempdir_in(root)
         .unwrap();
     let key = load_or_create(&FileKeyStore::new(dir.path().join("identity"))).unwrap();
     assert_eq!(
