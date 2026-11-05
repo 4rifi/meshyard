@@ -156,11 +156,17 @@ pub fn normalize(agent: &str, input: &[u8]) -> Option<Vec<u8>> {
     ) {
         return None;
     }
+    // Codex has no StopFailure hook. Model request failures can be retried and
+    // cannot honestly be relabelled as a verified StopFailure in frozen wire v1.
+    if agent == "codex" && event == "StopFailure" {
+        return None;
+    }
     let id = |key: &str| raw.get(key).and_then(Value::as_str).filter(|s| valid_id(s));
     let tool = raw
         .get("tool_name")
         .and_then(Value::as_str)
         .map(|name| match name {
+            "apply_patch" if agent == "codex" => "edit",
             "Edit" | "Write" | "MultiEdit" | "NotebookEdit" => "edit",
             "Bash" => "shell",
             "exec_command" if agent == "codex" => "shell",
@@ -535,14 +541,10 @@ mod tests {
             "StopFailure",
             "SessionEnd",
         ] {
-            assert!(
-                normalize(
-                    "codex",
-                    &serde_json::to_vec(&json!({"session_id":"s", "hook_event_name":event}))
-                        .unwrap()
-                )
-                .is_some()
-            );
+            let raw =
+                serde_json::to_vec(&json!({"session_id":"s", "hook_event_name":event})).unwrap();
+            assert!(normalize("claude_code", &raw).is_some());
+            assert_eq!(normalize("codex", &raw).is_some(), event != "StopFailure");
         }
         for invalid in [
             json!(null),

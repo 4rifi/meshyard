@@ -1,0 +1,7 @@
+{
+  "hook_event_name": "PostToolUse",
+  "session_id": "codex-doc-session",
+  "tool_name": "apply_patch",
+  "tool_input": {},
+  "tool_use_id": "call-doc-edit"
+}

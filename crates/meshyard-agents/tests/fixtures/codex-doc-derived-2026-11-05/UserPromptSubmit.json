@@ -1,0 +1,4 @@
+{
+  "hook_event_name": "UserPromptSubmit",
+  "session_id": "codex-doc-session"
+}

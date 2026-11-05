@@ -443,3 +443,94 @@ fn parser_drops_unknown_events_and_ignores_unknown_private_fields() {
     assert_eq!(m.apply(&codex, at(0)), None);
     assert_eq!(m.session_count(), 0);
 }
+
+#[test]
+fn codex_documentation_fixtures_route_without_inventing_provenance() {
+    let mut machine = StateMachine::new(AgentKind::Codex);
+    for (index, (name, expected)) in [
+        (
+            "SessionStart",
+            Some((
+                S::Idle,
+                P::Verified {
+                    source: H::SessionStart,
+                },
+                None,
+            )),
+        ),
+        (
+            "UserPromptSubmit",
+            Some((
+                S::Thinking,
+                P::Verified {
+                    source: H::UserPromptSubmit,
+                },
+                None,
+            )),
+        ),
+        (
+            "PreToolUse",
+            Some((
+                S::Building,
+                P::Inferred { rule: R::ToolEdit },
+                Some(T::Edit),
+            )),
+        ),
+        ("PostToolUse", None),
+        (
+            "Stop",
+            Some((S::Finished, P::Verified { source: H::Stop }, None)),
+        ),
+        (
+            "SessionEnd",
+            Some((
+                S::Idle,
+                P::Verified {
+                    source: H::SessionEnd,
+                },
+                None,
+            )),
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let raw = std::fs::read(format!(
+            "{}/tests/fixtures/codex-doc-derived-2026-11-05/{name}.json",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap();
+        let line = meshyard_hook::normalize("codex", &raw).unwrap();
+        let envelope = parse(&line).unwrap();
+        assert_eq!(
+            machine.apply(&envelope, at(index as u64)),
+            expected,
+            "{name}"
+        );
+    }
+    for name in [
+        "PermissionRequest",
+        "PostModelRequest",
+        "Interrupt",
+        "StopFailure",
+    ] {
+        let raw = serde_json::to_vec(
+            &json!({"hook_event_name":name,"session_id":"codex-doc-session","error":"private"}),
+        )
+        .unwrap();
+        assert!(meshyard_hook::normalize("codex", &raw).is_none());
+    }
+    let line = meshyard_hook::normalize(
+        "codex",
+        &serde_json::to_vec(&json!({
+            "hook_event_name":"PreToolUse", "session_id":"synthetic", "tool_name":"exec_command",
+            "tool_input":{"command":"cargo test", "private":"do not forward"}, "cwd":"private-path"
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+    let value: Value = serde_json::from_slice(&line).unwrap();
+    assert_eq!(value["tool"], "shell");
+    assert_eq!(value["command_class"], "test");
+    assert!(!String::from_utf8(line).unwrap().contains("private"));
+}
