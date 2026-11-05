@@ -3,4 +3,4 @@ import type { AppError } from './AppError';
 import type { WorkspaceView } from './WorkspaceView';
 
 export type AppStatus =
-  'Setup' | { Ready: WorkspaceView } | { Error: AppError };
+  'Joining' | 'Setup' | { Ready: WorkspaceView } | { Error: AppError };

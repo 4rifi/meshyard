@@ -97,13 +97,15 @@ if (scenario === 'connected') {
   ];
 }
 let status: AppStatus =
-  scenario === 'setup'
-    ? 'Setup'
-    : scenario === 'error'
-      ? { Error: 'IdentityMissing' }
-      : scenario === 'partial-create'
-        ? { Error: 'PartialCreate' }
-        : { Ready: workspace };
+  scenario === 'joining'
+    ? 'Joining'
+    : scenario === 'setup' || scenario === 'join'
+      ? 'Setup'
+      : scenario === 'error'
+        ? { Error: 'IdentityMissing' }
+        : scenario === 'partial-create'
+          ? { Error: 'PartialCreate' }
+          : { Ready: workspace };
 const listeners = new Map<number, number>();
 const commands: { command: string; args: unknown }[] = [];
 let nextPlan = 0;
@@ -171,8 +173,80 @@ function emitChanged() {
       payload: null,
     });
 }
+const peerScenario = scenario?.startsWith('peer-') ?? false;
+const mockNetwork = {
+  running: peerScenario || scenario === 'joining',
+  mode: 'Strict P2P · no relay or public discovery',
+  peers: peerScenario
+    ? [
+        {
+          device_short: 'ab12cd34',
+          path: ['peer-disconnected', 'peer-error'].includes(scenario ?? '')
+            ? 'Offline'
+            : 'Direct P2P',
+        },
+      ]
+    : [],
+  error:
+    scenario === 'peer-error'
+      ? 'Strict: no direct path observed within 10 s; possible causes include NAT without port mapping or a firewall'
+      : null,
+  pairings:
+    peerScenario && !['peer-invite', 'peer-error'].includes(scenario ?? '')
+      ? [
+          {
+            id: 'mock-pairing-id',
+            peer_short: 'ab12cd34',
+            words: [
+              'clearpine',
+              'coralacorn',
+              'duskelm',
+              'navywolf',
+              'calmpine',
+              'azurefinch',
+            ],
+            is_inviter: true,
+            local_confirmed: scenario === 'peer-confirmed',
+            state:
+              scenario === 'peer-rejected'
+                ? 'Aborted'
+                : scenario === 'peer-disconnected'
+                  ? 'Disconnected'
+                  : 'Reserved',
+          },
+        ]
+      : [],
+};
 mockIPC(async (command, args) => {
-  commands.push({ command, args: structuredClone(args) });
+  commands.push({
+    command,
+    args:
+      command === 'network_join' ? { redacted: true } : structuredClone(args),
+  });
+  if (command === 'network_status') return structuredClone(mockNetwork);
+  if (command === 'network_start') {
+    mockNetwork.running = true;
+    return structuredClone(mockNetwork);
+  }
+  if (command === 'network_stop') {
+    mockNetwork.running = false;
+    mockNetwork.pairings = [];
+    return;
+  }
+  if (command === 'network_invite')
+    return 'meshyard://join/MOCK-ONLY-NOT-A-CAPABILITY-' + 'A'.repeat(650);
+  if (command === 'network_join') {
+    mockNetwork.running = true;
+    return;
+  }
+  if (command === 'network_confirm') {
+    const { matches } = args as { matches: boolean };
+    mockNetwork.pairings.forEach((p) => {
+      p.local_confirmed = matches;
+      if (!matches) p.state = 'Aborted';
+    });
+    return;
+  }
   if (command === 'plugin:event|listen') {
     // The pinned Tauri mock unregisters the callback using the returned event ID.
     const callback = (args as { handler: number }).handler;
@@ -315,6 +389,11 @@ const fixture = {
           }
         : a,
     );
+    ready();
+    emitChanged();
+  },
+  setAgents: (agents: AgentView[]) => {
+    workspace.agents = agents;
     ready();
     emitChanged();
   },

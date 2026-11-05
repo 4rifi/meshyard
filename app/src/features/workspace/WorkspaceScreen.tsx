@@ -1,3 +1,4 @@
+import { PeerPanel } from '../peers/PeerPanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AgentKind } from '../../ipc/generated/AgentKind';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
@@ -26,7 +27,9 @@ export function WorkspaceScreen({
   onBind: (id: string) => Promise<AppStatus | undefined>;
   onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
-  const [view, setView] = useState<'yard' | 'agents' | 'settings'>('yard');
+  const [view, setView] = useState<'yard' | 'agents' | 'settings' | 'peers'>(
+    'yard',
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const selectAgent = useCallback((id: string) => {
@@ -135,7 +138,7 @@ export function WorkspaceScreen({
         </p>
       </header>
       <nav className="view-tabs" aria-label="Workspace views">
-        {(['yard', 'agents', 'settings'] as const).map((tab) => (
+        {(['yard', 'agents', 'settings', 'peers'] as const).map((tab) => (
           <button
             type="button"
             key={tab}
@@ -149,10 +152,17 @@ export function WorkspaceScreen({
               ? 'Yard'
               : tab === 'agents'
                 ? 'Agent list'
-                : 'Settings'}
+                : tab === 'settings'
+                  ? 'Settings'
+                  : 'Peers'}
           </button>
         ))}
       </nav>
+      {view === 'peers' && !connecting && (
+        <PeerPanel
+          owner={workspace.members.some((m) => m.is_you && m.role === 'Owner')}
+        />
+      )}
       <div id="connection-panel" hidden={!connecting}>
         {connecting && (
           <ConnectClaudeCode
@@ -191,6 +201,10 @@ export function WorkspaceScreen({
         )}
         <p className="yard-caption">
           <span>{workspace.agents.length} registered agents</span>
+          <span>3 visible per station; all in Agent list</span>
+          <span>
+            Pan with touch, scrollbar or arrow keys · Agent list for all details
+          </span>
           <span>Review / Fix / Waiting: reserved, no hook activity</span>
         </p>
         {rendererFailed && (
@@ -299,7 +313,8 @@ export function WorkspaceScreen({
               <p>
                 Workspace mode:{' '}
                 {workspace.mode === 'Strict' ? 'Strict P2P' : 'Auto'}. Peer
-                pairing is not available.
+                pairing uses private invitations and a six-word comparison under
+                Peers.
               </p>
               <p>
                 Local-first storage. Device identity uses macOS Keychain by
@@ -318,7 +333,10 @@ export function WorkspaceScreen({
           </section>
           <section className="panel" aria-labelledby="peers-heading">
             <h2 id="peers-heading">Peers</h2>
-            <p>No peers. Networking is not built yet.</p>
+            <p>
+              Open Peers to pair devices with a private invitation and six-word
+              comparison. Direct connections only; no relay.
+            </p>
           </section>
         </div>
       </div>

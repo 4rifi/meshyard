@@ -3,22 +3,22 @@ import type { AgentKind } from '../ipc/generated/AgentKind';
 
 // Original 16px art. Every pixel uses the same sixteen-colour application palette.
 export const ink = {
-  ground: '#14111f',
-  deep: '#1f1a33',
-  panel: '#2b2645',
-  light: '#3d3663',
-  line: '#0b0912',
-  text: '#f4ecd8',
-  muted: '#b9b0d0',
-  grass: '#3e8948',
-  grassDark: '#265c42',
-  path: '#c28b56',
-  wood: '#8a5a3b',
-  claude: '#e8823a',
-  codex: '#4fa4e8',
-  ok: '#7bd389',
-  warn: '#f4c542',
-  danger: '#e5534b',
+  ground: '#132f35',
+  deep: '#1d4145',
+  panel: '#2c4b4d',
+  light: '#52716b',
+  line: '#10292c',
+  text: '#f1e7c7',
+  muted: '#c0cfba',
+  grass: '#478744',
+  grassDark: '#255a40',
+  path: '#c9a26b',
+  wood: '#805832',
+  claude: '#e89c48',
+  codex: '#49bdd1',
+  ok: '#9cc75b',
+  warn: '#81e7e8',
+  danger: '#e56757',
 } as const;
 type PixelColour = keyof typeof ink;
 const maps = {
@@ -331,5 +331,41 @@ export function pixelSprite(
       }
     },
   );
+  return drawing;
+}
+
+/** Original people-sized 8×10 sprites; every painted cell is one native map pixel. */
+export function personSprite(kind: AgentKind, pose: 0 | 1 | 2 | 3): Graphics {
+  const drawing = new Graphics();
+  const paint = (
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    colour: string,
+  ) => {
+    drawing.rect(x, y, w, h).fill(colour);
+  };
+  const codex = kind === 'Codex';
+  const coat = codex ? ink.codex : kind === 'ClaudeCode' ? ink.claude : ink.ok;
+  paint(2, 0, 4, 4, ink.line);
+  if (codex) {
+    paint(2, 1, 4, 2, coat);
+    paint(3, 1, 1, 1, ink.text);
+    paint(5, 1, 1, 1, ink.text);
+    paint(6, 1, 1, 2, ink.line);
+  } else {
+    paint(2, 0, 4, 1, ink.wood);
+    paint(2, 1, 4, 2, ink.path);
+    paint(5, 1, 1, 1, ink.line);
+  }
+  paint(2, 4, 4, 4, coat);
+  paint(3, 4, 1, 3, ink.text);
+  paint(1, pose === 3 ? 3 : 5, 1, 2, coat);
+  paint(6, pose === 3 ? 2 : 5, 1, 2, coat);
+  paint(2, 8, 2, pose === 1 ? 1 : 2, ink.deep);
+  paint(5, 8, 1, pose === 1 ? 2 : 1, ink.deep);
+  if (pose === 2) paint(4, 3, 1, 1, ink.text);
+  if (pose === 3) paint(7, 1, 1, 2, ink.warn);
   return drawing;
 }

@@ -4,6 +4,7 @@ import type { CreateWorkspace as CreateInput } from './ipc/generated/CreateWorks
 import type { RegisterAgent as RegisterInput } from './ipc/generated/RegisterAgent';
 import { workspaceSync, type WorkspaceSync } from './ipc/workspaceSync';
 import * as client from './ipc/client';
+import { PeerPanel } from './features/peers/PeerPanel';
 import { CreateWorkspace } from './features/setup/CreateWorkspace';
 import { ErrorScreen } from './features/errors/ErrorScreen';
 import { WorkspaceScreen } from './features/workspace/WorkspaceScreen';
@@ -25,6 +26,13 @@ export function StatusScreen({
   busy: boolean;
   actions: Actions;
 }) {
+  if (status === 'Joining')
+    return (
+      <section className="setup panel">
+        <h1 tabIndex={-1}>Waiting for owner</h1>
+        <PeerPanel recovering />
+      </section>
+    );
   if (status === 'Setup')
     return <CreateWorkspace busy={busy} onCreate={actions.create} />;
   if ('Error' in status)
@@ -120,7 +128,7 @@ export function App() {
       <p className="footnote" role="status">
         {busy
           ? 'Saving to this device…'
-          : 'Local data only · Claude Code and Codex status comes from local hook events. Networking is not available yet.'}
+          : 'Local hook activity · Peers share signed activity only after invitation and six-word confirmation. Strict P2P has no relay fallback.'}
       </p>
     </main>
   );

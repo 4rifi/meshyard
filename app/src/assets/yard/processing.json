@@ -1,0 +1,22 @@
+{
+  "sourceProvenance": "Provided by Dion Arifi, 2026-11-05; original AI-assisted artwork",
+  "sourceSha256": "21fa7db04a8f6e2eb964518d09101c509be9cfa151a39d2cda52bf5de9b16fda",
+  "sourceSize": [1672, 941],
+  "nativeSize": [418, 235],
+  "crop": [0, 0, 1672, 940],
+  "resample": "nearest neighbour; 4 source pixels per logical pixel",
+  "palette": "96 colours, median cut, no dither",
+  "nativeSha256": "565658a7e3e86f128c55691dcd4f9e73aac4364bd714021983fc97efad20a1ec",
+  "sourceColours": 671059,
+  "nativeColours": 96,
+  "edgeEnergyByCandidateBlock": {
+    "2": [31.557, 31.557],
+    "3": [31.555, 31.555, 31.716],
+    "4": [31.45, 31.45, 31.242, 31.664],
+    "5": [31.456, 31.456, 31.407, 31.363, 31.814],
+    "6": [31.522, 31.522, 31.525, 31.243, 31.588, 31.907]
+  },
+  "choice": "4-pixel native grid matches the dominant apparent art scale; original has mixed AI-assisted block sizes. Compare both equally scaled review PNGs.",
+  "stations": 11,
+  "review": "Path/entrance overlay requires visual review; not a pixel-mask collision proof."
+}

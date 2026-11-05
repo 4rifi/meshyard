@@ -8,7 +8,8 @@ class Element {
   textContent = '';
   title = '';
   className = '';
-  classList = { toggle: vi.fn() };
+  classList = { toggle: vi.fn(), add: vi.fn() };
+  hidden = false;
   dataset: Record<string, string> = {};
   style: Record<string, string | ((name: string, value: string) => void)> = {
     setProperty: (name: string, value: string) => {
@@ -138,6 +139,8 @@ vi.doMock('pixi.js', () => ({
   Application: MockApp,
   Container: Display,
   Graphics: Display,
+  Sprite: Display,
+  Assets: { init: () => Promise.resolve(), load: () => Promise.resolve({}) },
   TextureStyle: { defaultOptions: {} },
 }));
 const { createYard } = await import('./yard');
@@ -179,8 +182,8 @@ const app = () => {
   return current;
 };
 const flush = async () => {
-  await Promise.resolve();
-  await Promise.resolve();
+  // Asset loads precede Pixi initialization; drain the bounded initialization chain.
+  for (let i = 0; i < 8; i++) await Promise.resolve();
 };
 beforeEach(() => {
   mocks.apps = [];
@@ -235,7 +238,7 @@ describe('persistent yard scene', () => {
     expect(tags()[0]).toBe(aTag);
     expect(app().stage.children[1]?.children[0]).toBe(avatar);
     app().advance(0.2);
-    expect(position('a')).not.toEqual([12, 28]);
+    expect(position('a')).not.toEqual([36, 101]);
     expect(position('b')).toEqual(bPosition);
     expect(avatar?.children.map((pose) => pose.visible)).toEqual([
       false,
@@ -244,7 +247,7 @@ describe('persistent yard scene', () => {
       false,
     ]);
     app().advance(3);
-    expect(position('a')).toEqual([92, 28]);
+    expect(position('a')).toEqual([88, 74]);
     expect(position('b')).toEqual(bPosition);
     expect(app().ticker.started).toBe(false);
     expect(avatar?.children.map((pose) => pose.visible)).toEqual([
@@ -263,10 +266,10 @@ describe('persistent yard scene', () => {
       dto('done', 'Finished'),
     ]);
     await flush();
-    expect(position('build')).toEqual([172, 28]);
-    expect(position('test')).toEqual([252, 28]);
-    expect(position('done')).toEqual([172, 92]);
-    expect(host.style.height).toBe('384px');
+    expect(position('build')).toEqual([133, 40]);
+    expect(position('test')).toEqual([302, 42]);
+    expect(position('done')).toEqual([322, 137]);
+    expect(host.style.height).toBe('470px');
     expect(host.children[1]?.children[0]?.children).toHaveLength(11);
     expect(app().ticker.started).toBe(false);
     yard.destroy();
@@ -292,12 +295,12 @@ describe('persistent yard scene', () => {
     yard.update([dto('a', 'Finished'), dto('b')]);
     expect(position('a')).toEqual(next);
     app().advance(3);
-    expect(position('a')).toEqual([172, 92]);
-    expect(position('b')).toEqual([52, 28]);
+    expect(position('a')).toEqual([322, 137]);
+    expect(position('b')).toEqual([45, 104]);
     expect(app().ticker.started).toBe(false);
     yard.destroy();
   });
-  it('adds at Arrival, keeps stable holes/overflow slots, removes only the removed identity', async () => {
+  it('keeps visible slots stable, promotes overflow into a vacancy and retains identities', async () => {
     const yard = mount();
     yard.update([dto('a'), dto('b'), dto('c'), dto('d'), dto('e')]);
     await flush();
@@ -309,15 +312,22 @@ describe('persistent yard scene', () => {
     );
     const retained = tags().find((tag) => tag.dataset.agentId === 'e');
     yard.update([dto('e'), dto('c'), dto('b'), dto('d')]);
-    for (const id of ['b', 'c', 'd', 'e'])
+    for (const id of ['b', 'c', 'e'])
       expect(position(id)).toEqual(positions.get(id));
+    expect(position('d')).toEqual([36, 101]);
+    expect(tags().find((tag) => tag.dataset.agentId === 'd')?.hidden).toBe(
+      false,
+    );
+    expect(tags().find((tag) => tag.dataset.agentId === 'e')?.hidden).toBe(
+      true,
+    );
     expect(tags().find((tag) => tag.dataset.agentId === 'e')).toBe(retained);
     yard.update([dto('f', 'Thinking'), dto('e'), dto('c'), dto('b'), dto('d')]);
-    expect(position('f')).toEqual([92, 28]);
+    expect(position('f')).toEqual([88, 74]);
     expect(position('a')).toEqual([undefined, undefined]);
     expect(tags()).toHaveLength(5);
     app().advance(3);
-    expect(position('f')).toEqual([92, 28]);
+    expect(position('f')).toEqual([88, 74]);
     yard.destroy();
   });
   it('keeps neutral DTO identities stable across overflow growth and routes back from a vacated neutral plot', async () => {
@@ -343,7 +353,7 @@ describe('persistent yard scene', () => {
     expect(position('neutral')).toEqual(neutralPosition);
     expect(app().ticker.started).toBe(true);
     app().advance(3);
-    expect(position('neutral')).toEqual([252, 28]);
+    expect(position('neutral')).toEqual([302, 42]);
     expect(app().ticker.started).toBe(false);
     yard.update([]);
     expect(tags()).toHaveLength(0);
@@ -356,7 +366,7 @@ describe('persistent yard scene', () => {
     yard.update([dto('a')]);
     await flush();
     yard.update([dto('a', 'Testing')]);
-    expect(position('a')).toEqual([252, 28]);
+    expect(position('a')).toEqual([302, 42]);
     expect(app().ticker.started).toBe(false);
     media.matches = false;
     yard.update([dto('a', 'Finished')]);
@@ -365,7 +375,7 @@ describe('persistent yard scene', () => {
     const handler = media.addEventListener.mock.calls[0]?.[1];
     if (typeof handler !== 'function') throw new Error('Missing listener');
     handler();
-    expect(position('a')).toEqual([172, 92]);
+    expect(position('a')).toEqual([322, 137]);
     expect(app().ticker.started).toBe(false);
     yard.destroy();
   });
@@ -380,9 +390,9 @@ describe('persistent yard scene', () => {
     resize();
     expect(tags()[0]).toBe(identity);
     expect(app().stage.children[1]?.children[0]).toBe(avatar);
-    expect(position('a')).toEqual([12, 220]);
+    expect(position('a')).toEqual([322, 137]);
     expect(app().ticker.started).toBe(false);
-    expect(host.style.width).toBe('320px');
+    expect(host.style.width).toBe('836px');
     expect(host.style.left).toBe('0.5px');
     expect(host.style.top).toBe('0.75px');
     yard.destroy();
@@ -397,27 +407,32 @@ describe('persistent yard scene', () => {
       const aTag = tags()[0];
       const bTag = tags()[1];
       const bodies = [...(app().stage.children[1]?.children ?? [])];
-      expect(aTag?.style.width).toBe('76px');
-      expect(bTag?.style.width).toBe('76px');
+      expect(aTag?.style.width).toBe('64px');
+      expect(bTag?.style.width).toBe('64px');
       app().advance(3);
       const aPosition = position('a');
       yard.update([dto('b', 'Testing'), dto('a', 'Testing')]);
       expect(position('a')).toEqual(aPosition);
-      expect(aTag?.style.width).toBe('36px');
-      expect(bTag?.style.width).toBe('36px');
+      expect(aTag?.style.width).toBe('48px');
+      expect(bTag?.style.width).toBe('48px');
       app().advance(3);
       const bPosition = position('b');
       const left = Number.parseInt(String(aTag?.style.left));
       const right = Number.parseInt(String(bTag?.style.left));
-      expect(left + 36).toBeLessThanOrEqual(right);
-      expect(bPosition[0]).toBe((aPosition[0] ?? 0) + 40);
+      const firstTop = Number.parseInt(String(aTag?.style.top));
+      const secondTop = Number.parseInt(String(bTag?.style.top));
+      expect(firstTop + 10).toBeLessThanOrEqual(secondTop);
+      expect(right).toBeGreaterThan(left);
+      expect(bPosition[0]).toBe((aPosition[0] ?? 0) + 9);
       expect(bPosition[1]).toBe(aPosition[1]);
       // Vacated historical reservations do not make the current lone occupant narrow.
       yard.update([dto('b', 'Testing'), dto('a', 'Thinking')]);
       expect(position('a')).toEqual(aPosition);
       expect(position('b')).toEqual(bPosition);
-      expect(bTag?.style.width).toBe('76px');
-      expect(bTag?.style.left).toBe(`${String(left)}px`);
+      expect(bTag?.style.width).toBe('64px');
+      expect(Number.parseInt(String(bTag?.style.left))).toBe(
+        (bPosition[0] ?? 0) + 4 - 32,
+      );
       app().advance(0.2);
       const moving = position('a');
       yard.update([dto('a', 'Thinking'), dto('b', 'Testing')]);
@@ -426,7 +441,7 @@ describe('persistent yard scene', () => {
       app().advance(3);
       expect(tags()).toEqual([aTag, bTag]);
       expect(app().stage.children[1]?.children).toEqual(bodies);
-      expect(bTag?.style.width).toBe('76px');
+      expect(bTag?.style.width).toBe('64px');
       expect(app().ticker.started).toBe(false);
       // Each overflow row has its own occupancy, rather than a global state count.
       yard.update([
@@ -436,15 +451,17 @@ describe('persistent yard scene', () => {
       ]);
       expect(
         tags().find((tag) => tag.dataset.agentId === 'c')?.style.width,
-      ).toBe('76px');
-      expect(aTag?.style.width).toBe('36px');
-      expect(bTag?.style.width).toBe('36px');
+      ).toBe('48px');
+      expect(aTag?.style.width).toBe('48px');
+      expect(bTag?.style.width).toBe('48px');
       app().advance(3);
       yard.update([dto('b', 'Testing')]);
       expect(position('b')).toEqual(bPosition);
       expect(tags()).toEqual([bTag]);
-      expect(bTag?.style.width).toBe('76px');
-      expect(bTag?.style.left).toBe(`${String(left)}px`);
+      expect(bTag?.style.width).toBe('64px');
+      expect(Number.parseInt(String(bTag?.style.left))).toBe(
+        (bPosition[0] ?? 0) + 4 - 32,
+      );
       expect(app().ticker.started).toBe(false);
       yard.destroy();
     },
@@ -513,6 +530,7 @@ describe('persistent yard scene', () => {
       });
     const first = mount();
     first.update([dto('a')]);
+    await flush();
     first.destroy();
     resolve();
     await flush();

@@ -1,4 +1,5 @@
 export const connectionLabels = {
+  Synced: 'Synced activity (last known)',
   NotConnected: 'Not connected',
   WaitingForFirstEvent: 'Waiting for first event',
   Connected: 'Connected (receiving)',

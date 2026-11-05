@@ -2853,7 +2853,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-agents"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "meshyard-core",
  "meshyard-hook",
@@ -2864,12 +2864,15 @@ dependencies = [
 
 [[package]]
 name = "meshyard-app"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "data-encoding",
  "getrandom 0.4.3",
+ "iroh",
  "libc",
  "meshyard-agents",
  "meshyard-core",
+ "meshyard-net",
  "meshyard-store",
  "nix",
  "postcard",
@@ -2888,7 +2891,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "blake3",
  "ed25519-dalek",
@@ -2902,7 +2905,7 @@ dependencies = [
 
 [[package]]
 name = "meshyard-hook"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "rustix",
  "serde",
@@ -2911,36 +2914,48 @@ dependencies = [
 
 [[package]]
 name = "meshyard-net"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "blake3",
+ "data-encoding",
  "futures-util",
+ "getrandom 0.4.3",
  "iroh",
  "iroh-relay",
  "meshyard-core",
+ "meshyard-store",
  "netwatch",
  "portmapper",
  "postcard",
  "rcgen",
  "rustls",
  "serde",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
 ]
 
 [[package]]
 name = "meshyard-node"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "getrandom 0.4.3",
  "meshyard-agents",
+ "meshyard-app",
  "meshyard-core",
  "meshyard-net",
  "meshyard-store",
+ "postcard",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
 name = "meshyard-store"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
+ "constant_time_eq",
  "exacl",
  "getrandom 0.4.3",
  "keyring",

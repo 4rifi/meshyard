@@ -200,7 +200,7 @@ try {
     const canvasHeight = await page.locator('canvas').getAttribute('height');
     assert.equal(
       Number(canvasHeight),
-      width >= 960 ? 192 : 384,
+      235,
       'Three distinct states do not duplicate the complete map',
     );
     await page.getByRole('button', { name: 'Agent list', exact: true }).click();

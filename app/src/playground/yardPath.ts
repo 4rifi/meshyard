@@ -4,8 +4,7 @@ export type Point = { x: number; y: number };
 export type Lane = { from: Point; to: Point };
 export type YardGeometry = { lanes: Lane[]; slots: Map<string, Point> };
 const key = (point: Point) => `${String(point.x)},${String(point.y)}`;
-const distance = (a: Point, b: Point) =>
-  Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** Sprite origins: feet sit eight pixels right and sixteen pixels below these lanes. */
 export function yardGeometry(
@@ -45,9 +44,41 @@ export function yardGeometry(
   return { lanes, slots: destinations };
 }
 
-const onLane = (point: Point, lane: Lane) =>
-  distance(lane.from, point) + distance(point, lane.to) ===
-  distance(lane.from, lane.to);
+export const segmentContains = (point: Point, lane: Lane, tolerance = 0.71) => {
+  const dx = lane.to.x - lane.from.x,
+    dy = lane.to.y - lane.from.y;
+  const squared = dx * dx + dy * dy;
+  if (squared === 0) return distance(point, lane.from) < 0.01;
+  const fraction =
+    ((point.x - lane.from.x) * dx + (point.y - lane.from.y) * dy) / squared;
+  const perpendicular =
+    Math.abs((point.x - lane.from.x) * dy - (point.y - lane.from.y) * dx) /
+    Math.sqrt(squared);
+  // A rounded mid-walk pixel can lie at most sqrt(0.5) away from its segment.
+  return (
+    fraction >= -tolerance / Math.sqrt(squared) &&
+    fraction <= 1 + tolerance / Math.sqrt(squared) &&
+    perpendicular <= tolerance
+  );
+};
+const onLane = segmentContains;
+const intersection = (a: Lane, b: Lane): Point | null => {
+  const ax = a.to.x - a.from.x,
+    ay = a.to.y - a.from.y,
+    bx = b.to.x - b.from.x,
+    by = b.to.y - b.from.y;
+  const cross = ax * by - ay * bx;
+  if (Math.abs(cross) < 0.0001) return null;
+  const dx = b.from.x - a.from.x,
+    dy = b.from.y - a.from.y;
+  const t = (dx * by - dy * bx) / cross,
+    u = (dx * ay - dy * ax) / cross;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+  return {
+    x: Math.round((a.from.x + t * ax) * 1e6) / 1e6,
+    y: Math.round((a.from.y + t * ay) * 1e6) / 1e6,
+  };
+};
 
 /** Split the actual corridors at intersections and at the current mid-walk position. */
 export function plannedPath(
@@ -56,26 +87,47 @@ export function plannedPath(
   geometry: YardGeometry,
 ): Point[] {
   if (distance(from, to) === 0) return [from];
+  const lanes = [...geometry.lanes];
+  // Rejoin the exact graph from a rounded sprite pixel without bending its corridors.
+  if (!lanes.some((lane) => onLane(from, lane, 0.00001))) {
+    const projections = lanes
+      .map((lane) => {
+        const dx = lane.to.x - lane.from.x,
+          dy = lane.to.y - lane.from.y;
+        const squared = dx * dx + dy * dy;
+        const t = squared
+          ? Math.max(
+              0,
+              Math.min(
+                1,
+                ((from.x - lane.from.x) * dx + (from.y - lane.from.y) * dy) /
+                  squared,
+              ),
+            )
+          : 0;
+        return { x: lane.from.x + t * dx, y: lane.from.y + t * dy };
+      })
+      .sort((a, b) => distance(from, a) - distance(from, b));
+    const closest = projections[0];
+    if (!closest || distance(from, closest) > 0.71) return [];
+    lanes.push({ from, to: closest });
+  }
   const points = new Map<string, Point>([
     [key(from), from],
     [key(to), to],
   ]);
-  for (const lane of geometry.lanes) {
+  for (const lane of lanes) {
     points.set(key(lane.from), lane.from);
     points.set(key(lane.to), lane.to);
-    for (const other of geometry.lanes) {
-      const intersection =
-        lane.from.x === lane.to.x
-          ? { x: lane.from.x, y: other.from.y }
-          : { x: other.from.x, y: lane.from.y };
-      if (onLane(intersection, lane) && onLane(intersection, other))
-        points.set(key(intersection), intersection);
+    for (const other of lanes) {
+      const crossing = intersection(lane, other);
+      if (crossing) points.set(key(crossing), crossing);
     }
   }
   const edges = new Map<string, Point[]>();
-  for (const lane of geometry.lanes) {
+  for (const lane of lanes) {
     const members = [...points.values()]
-      .filter((point) => onLane(point, lane))
+      .filter((point) => onLane(point, lane, 0.00001))
       .sort((a, b) => distance(lane.from, a) - distance(lane.from, b));
     members.forEach((point, index) => {
       const adjacent = edges.get(key(point)) ?? [];
@@ -154,8 +206,12 @@ export function step(walk: Walk, dt: number): Walk {
     const segment = distance(position, end);
     if (remaining < segment) {
       position = {
-        x: Math.round(position.x + Math.sign(end.x - position.x) * remaining),
-        y: Math.round(position.y + Math.sign(end.y - position.y) * remaining),
+        x: Math.round(
+          position.x + ((end.x - position.x) * remaining) / segment,
+        ),
+        y: Math.round(
+          position.y + ((end.y - position.y) * remaining) / segment,
+        ),
       };
       break;
     }

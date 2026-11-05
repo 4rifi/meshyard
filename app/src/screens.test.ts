@@ -42,6 +42,8 @@ function render(status: AppStatus, busy = false) {
   );
 }
 const errors: Record<AppError, true> = {
+  NetworkUnavailable: true,
+  InvalidInvite: true,
   IdentityMissing: true,
   IdentityLocked: true,
   IdentityUnavailable: true,
@@ -67,9 +69,18 @@ const errors: Record<AppError, true> = {
   HookConfigInvalid: true,
 };
 describe('real-state screen contract', () => {
+  it('keeps pending signed membership focused and hides local registration', () => {
+    const html = render('Joining');
+    expect(html).toContain('Waiting for owner');
+    expect(html).toContain('confirmed join is saved');
+    expect(html).not.toContain('Register agent');
+    expect(html).not.toContain('for="join-link"');
+  });
   it('offers two labeled setup fields without a misleading network choice', () => {
     const html = render('Setup');
     expect(html).toContain('Create workspace');
+    expect(html).toContain('Join existing workspace');
+    expect(html).not.toContain('for="join-link"');
     expect(html).toContain('for="workspace-name"');
     expect(html).toContain('for="display-name"');
     expect(html).not.toContain('Connection mode');
@@ -85,7 +96,10 @@ describe('real-state screen contract', () => {
     expect(html).toContain('Owner · You');
     expect(html).toContain('Strict P2P');
     expect(html).toContain('Register an agent to see it here.');
-    expect(html).toContain('No peers. Networking is not built yet.');
+    expect(html).toContain(
+      'Open Peers to pair devices with a private invitation',
+    );
+    expect(html).toContain('Direct connections only; no relay.');
     expect(html).not.toContain('placeholder');
     expect(html).not.toContain('T-007');
     expect(html).toContain('href="#agent-label"');

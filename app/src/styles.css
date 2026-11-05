@@ -5,22 +5,22 @@
   font-display: swap;
 }
 :root {
-  --ground: #14111f;
-  --deep: #1f1a33;
-  --panel: #2b2645;
-  --light: #3d3663;
-  --line: #0b0912;
-  --text: #f4ecd8;
-  --muted: #b9b0d0;
-  --grass: #3e8948;
-  --grass-dark: #265c42;
-  --path: #c28b56;
-  --wood: #8a5a3b;
-  --claude: #e8823a;
-  --codex: #4fa4e8;
-  --ok: #7bd389;
-  --warn: #f4c542;
-  --danger: #e5534b;
+  --ground: #132f35;
+  --deep: #1d4145;
+  --panel: #2c4b4d;
+  --light: #52716b;
+  --line: #10292c;
+  --text: #f1e7c7;
+  --muted: #c0cfba;
+  --grass: #478744;
+  --grass-dark: #255a40;
+  --path: #c9a26b;
+  --wood: #805832;
+  --claude: #e89c48;
+  --codex: #49bdd1;
+  --ok: #9cc75b;
+  --warn: #81e7e8;
+  --danger: #e56757;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 24px;
@@ -710,6 +710,7 @@ main {
 }
 .view-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0 0 8px;
 }
@@ -788,7 +789,7 @@ main {
   color: var(--text);
 }
 .inspector::backdrop {
-  background: #0b0912cc;
+  background: #10292ccc;
 }
 .inspector-id {
   display: block;
@@ -1010,4 +1011,171 @@ body > .footnote {
   .workspace-header .register-shortcut {
     padding: 4px 8px;
   }
+}
+
+.peer-panel {
+  margin-block: 1rem;
+}
+.peer-panel p {
+  max-width: 70ch;
+}
+.peer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.pairing-card,
+.invite-secret {
+  border: 2px solid var(--line);
+  padding: 1rem;
+  margin-block: 1rem;
+  overflow-wrap: anywhere;
+}
+.sas-words {
+  font-size: 1.3rem;
+  line-height: 1.8;
+  font-weight: bold;
+}
+.invite-qr {
+  display: block;
+  width: auto;
+  max-width: none;
+  height: auto;
+  margin-top: 1rem;
+  image-rendering: pixelated;
+}
+.invite-secret textarea {
+  width: 100%;
+  min-height: 7rem;
+  resize: vertical;
+  overflow-wrap: anywhere;
+}
+
+.invite-secret {
+  overflow-x: auto;
+}
+
+.peer-panel {
+  padding: 12px;
+  margin-block: 8px;
+}
+.peer-panel::before {
+  margin: -12px -12px 8px;
+}
+.peer-panel :is(h2, h3, p),
+.join-flow p {
+  margin-block: 4px 8px;
+}
+.peer-panel p,
+.join-flow p {
+  font-size: 14px;
+  line-height: 20px;
+}
+.peer-privacy {
+  margin-block: 4px 8px;
+  font-size: 14px;
+}
+.peer-panel button {
+  min-height: 36px;
+  padding: 4px 12px;
+}
+.peer-actions {
+  gap: 12px;
+  margin-block: 8px;
+}
+.pairing-card,
+.invite-secret {
+  padding: 12px;
+  margin-block: 8px;
+}
+.peer-panel .sas-words {
+  font:
+    20px/28px 'Pixelify Sans',
+    monospace;
+  color: var(--text);
+}
+.peer-panel .eyebrow {
+  font-size: 12px;
+}
+.peer-panel ul {
+  margin-block: 8px;
+}
+.invite-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  margin-top: 8px;
+}
+.invite-qr {
+  margin: 0;
+}
+.invite-secret textarea {
+  background: var(--ground);
+  color: var(--text);
+  border: 4px solid var(--line);
+  border-right-color: var(--light);
+  border-bottom-color: var(--light);
+  padding: 8px;
+  font:
+    14px/20px 'Pixelify Sans',
+    monospace;
+  min-height: 120px;
+}
+.invite-secret textarea:focus-visible {
+  outline: 4px solid var(--warn);
+  outline-offset: 4px;
+}
+.join-flow fieldset {
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .invite-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.peer-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.peer-heading h2,
+.peer-heading .eyebrow {
+  margin: 0;
+}
+.peer-panel button {
+  margin: 4px 4px 4px 0;
+}
+
+/* Fixed owner map: native coordinates never reflow; small windows pan the same island. */
+.lobby-map .station-label {
+  width: auto;
+  max-width: 72px;
+  font-size: 7px;
+  line-height: 8px;
+  padding: 0 2px;
+}
+.lobby-map .agent-tag {
+  font-size: 7px;
+  line-height: 8px;
+  height: 10px;
+  max-height: 10px;
+  padding: 0 2px;
+  border-width: 1px;
+}
+.agent-leader {
+  position: absolute;
+  width: 1px;
+  border-left: 1px solid var(--text);
+  opacity: 0.6;
+}
+.lobby-map [hidden] {
+  display: none;
+}
+.yard-viewport {
+  background: var(--deep);
 }

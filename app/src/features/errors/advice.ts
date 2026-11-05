@@ -1,6 +1,10 @@
 import type { AppError } from '../../ipc/generated/AppError';
 
 export const advice: Record<AppError, string> = {
+  NetworkUnavailable:
+    'No direct connection is available. Check the peer, invitation and firewall; Strict P2P never uses a relay.',
+  InvalidInvite:
+    'This invitation is invalid, expired or not Strict P2P. Ask the workspace owner for a new private link.',
   IdentityMissing:
     'This workspace’s device identity is missing; restore it or use the matching key store.',
   IdentityLocked: 'Unlock the device identity store, then restart Meshyard.',

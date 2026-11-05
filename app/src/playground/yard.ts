@@ -1,30 +1,34 @@
-// Static no-eval Pixi polyfills preserve the unchanged production CSP.
+// Static no-eval Pixi polyfills preserve the production CSP.
 import 'pixi.js/unsafe-eval';
 import {
   Application,
+  Assets,
   Container,
   Graphics,
+  Sprite,
   TextureStyle,
+  type Texture,
   type Ticker,
 } from 'pixi.js';
+import lobbyUrl from '../assets/yard/lobby-native.png';
+import monitorUrl from '../assets/yard/lobby-monitor.png';
 import type { AgentView } from '../ipc/generated/AgentView';
 import { initializeScene } from './sceneLifecycle';
+import { activityLabel } from './yardData';
 import {
-  activityLabel,
-  yardPlots,
-  plotHeight as pageHeight,
-  stationHeight,
-} from './yardData';
-import { ink, pixelSprite } from './sprites';
+  lobbyGeometry,
+  lobbySize,
+  lobbyStations,
+  stationFor,
+} from './lobbyMap';
+import { ink, personSprite } from './sprites';
 import {
   plannedPath,
   step,
   walkRoute,
-  yardGeometry,
   type Point,
   type Walk,
 } from './yardPath';
-
 TextureStyle.defaultOptions.scaleMode = 'nearest';
 export type Yard = {
   update: (agents: AgentView[]) => void;
@@ -35,13 +39,14 @@ type Character = {
   body: Container;
   poses: [Graphics, Graphics, Graphics, Graphics];
   tag: HTMLSpanElement;
-  tagOffset: number;
+  leader: HTMLSpanElement;
   position: Point;
   target: Point;
   walk: Walk | null;
+  tagTop: number;
+  tagWidth: number;
 };
 const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
-
 export function createYard(
   host: HTMLDivElement,
   onError: () => void,
@@ -51,22 +56,17 @@ export function createYard(
   const environment = new Container();
   const avatars = new Container();
   const characters = new Map<string, Character>();
-  // Keep each live UUID's station reservations, even while it visits another station.
   const reservations = new Map<string, Map<string, number>>();
+  let texture: Texture | undefined;
+  let monitor: Texture | undefined;
   let agents: AgentView[] = [];
   let ready = false;
   let disposed = false;
   let observer: ResizeObserver | undefined;
   let poseTimer: ReturnType<typeof setInterval> | undefined;
-  let restFrame = 0;
   let media: MediaQueryList | undefined;
-  let columns: 2 | 4 = 4;
-
-  // Retain empty visited plots, so overflow growth/removal cannot shift other UUIDs
-  // or erase a corridor underneath a character being retargeted.
-  const plotPages = new Map<string, number>();
-  const retainedPlots: ReturnType<typeof yardPlots> = [];
-  let dimensions = { width: 320, height: 192 };
+  let restFrame = 0;
+  host.classList.add('lobby-map');
   const labels = document.createElement('div');
   labels.className = 'yard-labels';
   const stationLabels = document.createElement('div');
@@ -86,275 +86,201 @@ export function createYard(
     parent.appendChild(label);
     return label;
   };
-  const reserve = (id: string, station: string) => {
-    const group = reservations.get(station) ?? new Map<string, number>();
-    reservations.set(station, group);
-    let slot = group.get(id);
-    if (slot === undefined) {
+  const reserve = (agent: AgentView) => {
+    const station = stationFor(agent);
+    const group = reservations.get(station.label) ?? new Map<string, number>();
+    reservations.set(station.label, group);
+    let slot = group.get(agent.id);
+    const used = new Set(
+      [...group].filter(([id]) => id !== agent.id).map(([, n]) => n),
+    );
+    if (
+      slot === undefined ||
+      (slot >= 3 && [0, 1, 2].some((n) => !used.has(n)))
+    ) {
       slot = 0;
-      const used = new Set(group.values());
-      while (used.has(slot)) slot += 1;
-      group.set(id, slot);
+      while (used.has(slot)) slot++;
+      group.set(agent.id, slot);
     }
     return slot;
   };
-  const place = (character: Character) => {
-    character.body.position.set(character.position.x, character.position.y);
-    character.tag.style.left = `${String(character.position.x - character.tagOffset)}px`;
-    character.tag.style.top = `${String(character.position.y + 16)}px`;
+  const place = (c: Character) => {
+    c.body.position.set(c.position.x - 4, c.position.y - 10);
+    c.tag.dataset.footX = String(c.position.x);
+    c.tag.dataset.footY = String(c.position.y);
+    c.tag.dataset.walking = String(c.walk !== null);
+    const tagY = c.walk ? c.position.y + 2 : c.tagTop;
+    c.tag.style.left = `${String(Math.max(0, Math.min(lobbySize.width - c.tagWidth, Math.round(c.position.x - c.tagWidth / 2))))}px`;
+    c.tag.style.top = `${String(Math.min(lobbySize.height - 10, tagY))}px`;
+    c.leader.style.left = `${String(c.position.x)}px`;
+    c.leader.style.top = `${String(c.position.y)}px`;
+    c.leader.style.height = `${String(Math.max(0, tagY - c.position.y))}px`;
     const pose =
-      character.walk && !character.walk.done
-        ? Math.floor(character.walk.elapsed * 8) % 2
+      c.walk && !c.walk.done
+        ? Math.floor(c.walk.elapsed * 8) % 2
         : restFrame === 0
           ? 0
-          : character.agent.state === 'Building' ||
-              character.agent.state === 'Testing' ||
-              character.agent.state === 'Merging'
+          : ['Building', 'Testing', 'Merging'].includes(c.agent.state ?? '')
             ? 3
             : 2;
-    character.poses.forEach((drawing, index) => {
-      drawing.visible = index === pose;
+    c.poses.forEach((drawing, i) => {
+      drawing.visible = i === pose;
     });
   };
-  const moving = () =>
-    [...characters.values()].some((character) => character.walk !== null);
   const syncTicker = () => {
-    if (moving() && !media?.matches) app.ticker.start();
+    if ([...characters.values()].some((c) => c.walk) && !media?.matches)
+      app.ticker.start();
     else app.ticker.stop();
   };
   const tick = (ticker: Ticker) => {
-    for (const character of characters.values()) {
-      if (!character.walk) continue;
-      character.walk = step(character.walk, ticker.deltaMS / 1000);
-      character.position = character.walk.position;
-      if (character.walk.done) character.walk = null;
-      place(character);
+    for (const c of characters.values()) {
+      if (!c.walk) continue;
+      c.walk = step(c.walk, ticker.deltaMS / 1000);
+      c.position = c.walk.position;
+      if (c.walk.done) c.walk = null;
+      place(c);
     }
     syncTicker();
   };
   const reducedMotion = () => {
     if (media?.matches) {
       restFrame = 0;
-      for (const character of characters.values()) {
-        character.position = character.target;
-        character.walk = null;
-        place(character);
+      for (const c of characters.values()) {
+        c.position = c.target;
+        c.walk = null;
+        place(c);
       }
       syncTicker();
       app.render();
     }
   };
-  const reconcile = (reflow = false) => {
-    const ids = new Set(agents.map((agent) => agent.id));
-    for (const [id, character] of characters) {
+  const reconcile = () => {
+    const ids = new Set(agents.map((a) => a.id));
+    for (const [id, c] of characters) {
       if (!ids.has(id)) {
-        character.body.destroy({ children: true });
-        character.tag.remove();
+        c.body.destroy({ children: true });
+        c.tag.remove();
+        c.leader.remove();
         characters.delete(id);
       }
     }
-    for (const group of reservations.values()) {
-      for (const id of group.keys()) if (!ids.has(id)) group.delete(id);
+    for (const [label, group] of reservations) {
+      for (const id of group.keys()) {
+        if (!agents.some((a) => a.id === id && stationFor(a).label === label))
+          group.delete(id);
+      }
     }
     const slots = new Map<string, number>();
-    // Sorting applies only to newcomers; retained reservations never depend on DTO order.
-    for (const agent of [...agents].sort((a, b) => a.id.localeCompare(b.id))) {
-      const slot = reserve(agent.id, activityLabel(agent.state));
-      slots.set(agent.id, slot);
-    }
-    const freshPlots = yardPlots(agents, columns, slots);
-    for (const plot of retainedPlots)
-      for (const station of plot.stations) station.agents = [];
-    for (const plot of freshPlots) {
-      let page = plotPages.get(plot.key);
-      if (page === undefined) {
-        page = retainedPlots.length;
-        plotPages.set(plot.key, page);
-      }
-      retainedPlots[page] = plot;
-    }
-    // Recompute retained empty plot coordinates too when the column count changes.
-    for (const plot of retainedPlots) {
-      plot.stations.forEach((station, index) => {
-        station.x = (index % columns) * 80;
-        station.y = Math.floor(index / columns) * stationHeight;
-      });
-    }
-    const plots = retainedPlots;
-    const geometry = yardGeometry(plots, columns, slots);
-    const tagWidths = new Map(
-      plots.flatMap((plot) =>
-        plot.stations.flatMap((station) =>
-          station.agents.map(
-            (agent) =>
-              [agent.id, station.agents.length === 1 ? 76 : 36] as const,
-          ),
-        ),
-      ),
-    );
-    const width = columns * 80;
-    const plotHeight = pageHeight(columns);
-    const height = plots.length * plotHeight;
-    dimensions = { width, height };
-    app.renderer.resize(width, height);
-    for (const child of environment.removeChildren())
-      child.destroy({ children: true });
+    for (const a of [...agents].sort((a, b) => a.id.localeCompare(b.id)))
+      slots.set(a.id, reserve(a));
+    const geometry = lobbyGeometry(agents, slots);
     stationLabels.replaceChildren();
-    const ground = new Graphics();
-    for (let y = 0; y < height; y += 16) {
-      for (let x = 0; x < width; x += 16) {
-        ground.rect(x, y, 16, 16).fill(ink.grass);
-        ground.rect(x + 2, y + 3, 2, 1).fill(ink.grassDark);
-        ground.rect(x + 10, y + 11, 1, 2).fill(ink.grassDark);
-      }
-    }
-    // Each row PAIR shares a horizontal path. A minimal existing-palette left lane
-    // connects pairs and overflow pages; the pure graph uses the same geometry.
-    if (height > 128) ground.rect(0, 48, 16, height - 48).fill(ink.path);
-    plots.forEach((_, page) => {
-      for (
-        let y = page * plotHeight + 48;
-        y < (page + 1) * plotHeight;
-        y += 128
-      ) {
-        ground.rect(0, y, width, 16).fill(ink.wood);
-        ground.rect(0, y + 2, width, 12).fill(ink.path);
-        for (let x = 0; x < width; x += 16) {
-          ground.rect(x, y + 4, 2, 2).fill(ink.wood);
-          ground.rect(x + 10, y + 10, 2, 1).fill(ink.wood);
-        }
-      }
-    });
-    plots.forEach((plot, page) => {
-      const offset = page * plotHeight;
-      plot.stations.forEach((station) => {
-        const pathY = offset + Math.floor(station.y / 128) * 128 + 56;
-        const centreY = offset + station.y + 44;
-        ground
-          .rect(station.x + 4, offset + station.y + 18, 72, 32)
-          .fill(ink.grassDark);
-        ground
-          .rect(station.x + 6, offset + station.y + 20, 68, 28)
-          .fill(ink.grass);
-        ground
-          .rect(
-            station.x + 8,
-            Math.min(pathY, centreY),
-            16,
-            Math.abs(pathY - centreY) + 1,
-          )
-          .fill(ink.path);
-        ground.rect(station.x + 12, centreY - 8, 56, 10).fill(ink.path);
-      });
-    });
-    environment.addChild(ground);
-    plots.forEach((plot, page) => {
-      const offset = page * plotHeight;
-      // Trees stay off the route lane and preserve the existing sprite palette.
-      environment.addChild(
-        pixelSprite('tree', width - 16, offset + plotHeight - 16),
+    for (const station of lobbyStations) {
+      const count = agents.filter((a) => a.state === station.state).length;
+      const label = tag(
+        `${station.label}${count ? ` · ${String(count)}` : ''}`,
+        station.labelAnchor.x,
+        station.labelAnchor.y,
+        station.reserved ? 'station-label reserved-label' : 'station-label',
+        stationLabels,
       );
-      plot.stations.forEach((station) => {
-        if (station.prop)
-          environment.addChild(
-            pixelSprite(station.prop, station.x + 32, offset + station.y + 18),
-          );
-        tag(
-          station.label,
-          station.x + 2,
-          offset + station.y + 2,
-          station.reserved ? 'station-label reserved-label' : 'station-label',
-          stationLabels,
-        );
-      });
-    });
+      label.dataset.station = station.label;
+      label.title = station.reserved
+        ? 'Reserved: hooks do not produce this state'
+        : station.label;
+      if (count > 3)
+        label.title += ` · ${String(count - 3)} additional agents in Agent list`;
+    }
     for (const agent of agents) {
+      const station = stationFor(agent);
       const target = geometry.slots.get(agent.id);
-      if (!target) continue;
-      let character = characters.get(agent.id);
-      if (!character) {
-        // A hydrated state is not an observed transition from Arrival. Spawn at
-        // its real target; only subsequent DTO state changes create a walk.
-        const position = target;
+      const visible = target !== undefined;
+      let c = characters.get(agent.id);
+      if (!c) {
+        const position = target ?? station.feet[0];
+        if (!position) continue;
         const poses: [Graphics, Graphics, Graphics, Graphics] = [
-          pixelSprite('agent', 0, 0, agent.kind),
-          pixelSprite('agent', 0, 0, agent.kind, 1),
-          pixelSprite('agent', 0, 0, agent.kind, 2),
-          pixelSprite('agent', 0, 0, agent.kind, 3),
+          personSprite(agent.kind, 0),
+          personSprite(agent.kind, 1),
+          personSprite(agent.kind, 2),
+          personSprite(agent.kind, 3),
         ];
         const body = new Container();
         body.eventMode = 'static';
         body.cursor = 'pointer';
-        body.on('pointertap', () => {
-          onSelect?.(agent.id);
-        });
+        body.on('pointertap', () => onSelect?.(agent.id));
         body.addChild(...poses);
         avatars.addChild(body);
-        character = {
+        const leader = tag('', 0, 0, 'agent-leader', labels);
+        const name = tag(agent.label, 0, 0, 'agent-tag', labels);
+        name.dataset.agentId = agent.id;
+        name.style.pointerEvents = 'auto';
+        name.style.cursor = 'pointer';
+        name.onclick = () => onSelect?.(agent.id);
+        c = {
           agent,
           body,
           poses,
-          tag: tag(agent.label, 0, 0, 'agent-tag', labels),
-          tagOffset: 10,
+          tag: name,
+          leader,
           position,
           target: position,
           walk: null,
+          tagTop: position.y + 2,
+          tagWidth: 64,
         };
-        character.tag.dataset.agentId = agent.id;
-        character.tag.style.pointerEvents = 'auto';
-        character.tag.style.cursor = 'pointer';
-        character.tag.onclick = () => {
-          onSelect?.(agent.id);
-        };
-        characters.set(agent.id, character);
+        characters.set(agent.id, c);
       }
-      character.agent = agent;
-      character.tag.textContent = agent.stale
-        ? `${agent.label} · Unknown`
-        : agent.label;
-      character.tag.classList.toggle('stale-state', agent.stale);
-      for (const pose of character.poses) pose.alpha = agent.stale ? 0.55 : 1;
-      character.tag.title = `${agent.label} · ${agent.stale ? `Unknown (no events for 10 min) · Last: ${activityLabel(agent.state)}` : activityLabel(agent.state)}`;
-      character.tag.dataset.kind = agent.kind;
-      character.tag.dataset.provenance = agent.provenance
+      c.agent = agent;
+      c.tag.dataset.kind = agent.kind;
+      c.tag.dataset.provenance = agent.provenance
         ? 'Verified' in agent.provenance
           ? 'verified'
           : 'inferred'
-        : 'none';
-      const tagWidth = tagWidths.get(agent.id) ?? 36;
-      character.tag.style.width = `${String(tagWidth)}px`;
-      // A lone second-slot occupant uses the whole station without moving its body.
-      character.tagOffset =
-        10 + (tagWidth === 76 ? ((slots.get(agent.id) ?? 0) % 2) * 40 : 0);
-      if (reflow || media?.matches) {
-        // Layout changes snap existing identities to their new logical slots. They
-        // never invent a state transition or replace an avatar/name-tag instance.
-        character.position = target;
-        character.walk = null;
-      } else if (!same(character.target, target)) {
-        const route = walkRoute(
-          plannedPath(character.position, target, geometry),
-        );
-        character.walk = route.done ? null : route;
+        : 'unknown';
+      c.body.visible = visible;
+      c.tag.hidden = !visible;
+      c.leader.hidden = !visible;
+      if (!target) {
+        c.walk = null;
+        continue;
       }
-      character.target = target;
-      place(character);
+      const occupants = agents.filter((a) => a.state === agent.state);
+      const rank = slots.get(agent.id) ?? 0;
+      c.tagWidth = occupants.length === 1 ? 64 : 48;
+      c.tag.style.width = `${String(c.tagWidth)}px`;
+      c.tagTop =
+        Math.max(...occupants.map((a) => geometry.slots.get(a.id)?.y ?? 0)) +
+        2 +
+        rank * 10;
+      c.tag.textContent = `${agent.label} ${agent.provenance ? ('Verified' in agent.provenance ? '[V]' : '[I]') : '[?]'}`;
+      c.tag.title = `${agent.label} · ${activityLabel(agent.state)}${agent.stale ? ' · Unknown (no events for 10 min)' : ''}`;
+      c.tag.classList.toggle('stale', agent.stale);
+      if (media?.matches) {
+        c.position = target;
+        c.walk = null;
+      } else if (!same(c.target, target)) {
+        const route = walkRoute(plannedPath(c.position, target, geometry));
+        c.walk = route.done ? null : route;
+      }
+      c.target = target;
+      place(c);
     }
-    labels.style.width = `${String(width)}px`;
-    labels.style.height = `${String(height)}px`;
+    labels.style.width = `${String(lobbySize.width)}px`;
+    labels.style.height = `${String(lobbySize.height)}px`;
     syncTicker();
     app.render();
   };
   const align = () => {
     const available = host.parentElement?.clientWidth ?? 320;
-    const scale = Math.max(1, Math.floor(available / dimensions.width));
+    const scale = Math.max(2, Math.floor(available / lobbySize.width));
     host.style.setProperty('--yard-scale', String(scale));
-    host.style.width = `${String(dimensions.width * scale)}px`;
-    host.style.marginLeft = `${String(Math.max(0, Math.floor((available - dimensions.width * scale) / 2)))}px`;
+    host.style.width = `${String(lobbySize.width * scale)}px`;
+    host.style.height = `${String(lobbySize.height * scale)}px`;
+    host.style.marginLeft = `${String(Math.max(0, Math.floor((available - lobbySize.width * scale) / 2)))}px`;
     host.style.marginRight = '0';
-    host.style.height = `${String(dimensions.height * scale)}px`;
-    app.canvas.style.width = `${String(dimensions.width * scale)}px`;
-    app.canvas.style.height = `${String(dimensions.height * scale)}px`;
+    app.canvas.style.width = `${String(lobbySize.width * scale)}px`;
+    app.canvas.style.height = `${String(lobbySize.height * scale)}px`;
     labels.style.transformOrigin = 'top left';
     labels.style.transform = `scale(${String(scale)})`;
     host.style.left = '0px';
@@ -365,50 +291,50 @@ export function createYard(
   };
   const destroy = initializeScene(
     {
-      initialize: () =>
-        app.init({
-          width: 320,
-          height: 192,
+      initialize: async () => {
+        // Bundled PNGs need no format probes or blob workers under the production CSP.
+        await Assets.init({
+          skipDetections: true,
+          preferences: { preferWorkers: false, preferCreateImageBitmap: false },
+        });
+        texture = await Assets.load<Texture>(lobbyUrl);
+        monitor = await Assets.load<Texture>(monitorUrl);
+        await app.init({
+          width: lobbySize.width,
+          height: lobbySize.height,
           resolution: 1,
-          background: ink.grass,
+          background: ink.deep,
           preference: 'webgl',
           antialias: false,
           roundPixels: true,
           autoStart: false,
           sharedTicker: false,
           manageImports: false,
-        }),
+        });
+      },
       attach: () => {
+        if (!texture) throw new Error('Lobby texture missing');
+        environment.addChild(new Sprite(texture));
         app.canvas.setAttribute('aria-hidden', 'true');
         app.stage.addChild(environment, avatars);
+        if (monitor) app.stage.addChild(new Sprite(monitor));
         host.append(app.canvas, labels);
         app.ticker.add(tick);
         media = window.matchMedia('(prefers-reduced-motion: reduce)');
         media.addEventListener('change', reducedMotion);
-        columns = (host.parentElement?.clientWidth ?? 320) >= 640 ? 4 : 2;
-        // Cosmetic poses never change station, state, provenance or position.
-        // A low-rate timer leaves the movement ticker stopped after arrival.
         poseTimer = setInterval(() => {
           if (media?.matches || document.visibilityState === 'hidden') return;
           restFrame = 1 - restFrame;
-          for (const character of characters.values()) {
-            if (!character.walk && !character.agent.stale) place(character);
+          for (const c of characters.values()) {
+            if (!c.walk && !c.agent.stale) place(c);
           }
           app.render();
         }, 800);
         ready = true;
         reconcile();
         align();
-        observer = new ResizeObserver(() => {
-          const next = (host.parentElement?.clientWidth ?? 320) >= 640 ? 4 : 2;
-          if (next !== columns) {
-            columns = next;
-            reconcile(true);
-          }
-          align();
-        });
+        observer = new ResizeObserver(align);
         if (host.parentElement) observer.observe(host.parentElement);
-        // Preceding panels can move the canvas without changing its viewport size.
         const layout = host.parentElement?.parentElement?.parentElement;
         if (layout) observer.observe(layout);
       },
@@ -421,8 +347,6 @@ export function createYard(
         app.ticker.remove(tick);
         characters.clear();
         reservations.clear();
-        retainedPlots.length = 0;
-        plotPages.clear();
         labels.remove();
         app.destroy(true, { children: true });
       },

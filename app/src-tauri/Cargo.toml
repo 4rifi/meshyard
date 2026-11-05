@@ -15,7 +15,11 @@ workspace = true
 [build-dependencies]
 tauri-build.workspace = true
 
+[features]
+strict-only = ["meshyard-net/strict-only"]
+
 [dependencies]
+meshyard-net.workspace = true
 tauri.workspace = true
 tracing.workspace = true
 meshyard-core.workspace = true
@@ -37,5 +41,8 @@ libc.workspace = true
 nix = { version = "=0.31.3", default-features = false, features = ["socket", "user"] }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 meshyard-store = { workspace = true, features = ["test-support"] }
 rusqlite.workspace = true
+iroh.workspace = true
+data-encoding = "=2.11.1"

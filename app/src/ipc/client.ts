@@ -71,3 +71,33 @@ export const hookRemove = (
 ): Promise<PlanResult> => plan('hook_remove', kind);
 export const listenWorkspace = (refresh: () => void): Promise<() => void> =>
   listen('workspace-changed', refresh);
+
+import type { NetworkView } from './generated/NetworkView';
+export async function networkStatus(): Promise<NetworkView | null> {
+  try {
+    return await invoke<NetworkView>('network_status');
+  } catch {
+    return null;
+  }
+}
+export async function networkStart(): Promise<void> {
+  await invoke('network_start');
+}
+export async function networkStop(): Promise<void> {
+  await invoke('network_stop');
+}
+export async function networkInvite(): Promise<string> {
+  return invoke<string>('network_invite');
+}
+export async function networkJoin(
+  link: string,
+  displayName: string,
+): Promise<void> {
+  await invoke('network_join', { link, displayName });
+}
+export async function networkConfirm(
+  id: string,
+  matches: boolean,
+): Promise<void> {
+  await invoke('network_confirm', { id, matches });
+}
