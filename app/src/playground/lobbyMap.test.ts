@@ -81,10 +81,13 @@ describe('owner lobby map navigation', () => {
       }
     }
   });
-  it('connects every station along the graph and preserves rounded diagonal mid-walk retargets', () => {
-    const agents = lobbyStations.map((s, i) => agent(String(i), s.state));
-    const geometry = lobbyGeometry(agents, new Map());
-    for (const source of agents) {
+  it.each(lobbyStations)(
+    'connects $label to every station and preserves rounded diagonal retargets',
+    (station) => {
+      const agents = lobbyStations.map((s, i) => agent(String(i), s.state));
+      const geometry = lobbyGeometry(agents, new Map());
+      const source = agents.find((a) => a.state === station.state);
+      if (!source) throw new Error('Missing source station');
       for (const target of agents) {
         const from = geometry.slots.get(source.id),
           to = geometry.slots.get(target.id);
@@ -101,8 +104,8 @@ describe('owner lobby map navigation', () => {
           expect(step(walkRoute(retarget), 3).position).toEqual(from);
         }
       }
-    }
-  });
+    },
+  );
   it('interpolates diagonal distance rather than moving a full axis distance twice', () => {
     const walk = walkRoute([
       { x: 0, y: 0 },

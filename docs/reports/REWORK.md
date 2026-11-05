@@ -867,3 +867,17 @@ failures retained in map-solo-qa.log; no policy relaxation.
 Focused local implementation commits: `2aece5f`, `a0765b8`, `4cdae1c`, `5ed71ac`.
 No push. Final package/release-process tests and parent native smoke still pending
 at this evidence checkpoint; no final 0.3.0 artifact exported yet.
+
+Final frontend rerun initially hit only the combined all-pairs test's 5-second CPU
+budget while release compilation was active (`phase4-frontend-final.log`). Split
+into one parameterized test per source station, retaining every destination and
+rounded sample/assertion. `npm run check:frontend` exit 0, 77 tests
+(`phase4-frontend-final2.log`). No production algorithm or assertion was weakened.
+
+Final map-inclusive build emitted signed app but DMG bundling failed at its own
+normal detach: `hdiutil: couldn't unmount "disk8" - Ressource ist belegt`
+(`phase4-build-final.log`, exit 1). `hdiutil info -plist` identified the exact
+build-owned `rw.39346.Meshyard_0.3.0_aarch64.dmg` mounted at `/Volumes/dmg.2XhQgX`.
+A subsequent ordinary `hdiutil detach /dev/disk8` exited 0 (`phase4-build-owned-detach.log`).
+No force detach, unrelated volume action or app process intervention; unchanged
+strict build retry recorded separately in `phase4-build-final2.log`.

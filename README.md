@@ -10,7 +10,7 @@ claims an agent is connected.
 Use the Apple Silicon DMG and consult the accompanying German REPORT.md for the
 exact package checks and limitations:
 
-1. Open the Meshyard DMG and drag Meshyard to `/Applications`.
+1. Quit any running Meshyard normally. Open the Meshyard DMG and drag Meshyard to `/Applications`.
 2. Eject the DMG, then open Meshyard from Applications. Ad-hoc builds may require
    right-click → Open in macOS. See the [German tester guide](docs/TESTER-GUIDE.md).
 3. Create a workspace with your name. Local data uses the application data directory;

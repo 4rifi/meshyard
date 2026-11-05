@@ -4,7 +4,7 @@ Das Paket `Meshyard_0.3.0_aarch64.dmg` liegt neben dieser Anleitung.
 Den genauen Stand der DMG-, Signatur- und Laufprüfungen nennt REPORT.md. Der erste produktive Keychain-Paketstart
 bleibt der unten beschriebene persönliche Checkpoint.
 
-1. DMG öffnen, Meshyard nach `/Applications` ziehen, DMG auswerfen.
+1. Eine bereits laufende Meshyard-App regulär beenden. DMG öffnen, Meshyard nach `/Applications` ziehen, DMG auswerfen.
 2. Meshyard in Programme mit Rechtsklick → Öffnen starten. Bei einer Quarantäne-
    Sperre nur für das bewusst geprüfte lokale Paket bei Bedarf im Terminal
    `xattr -dr com.apple.quarantine /Applications/Meshyard.app` ausführen.
