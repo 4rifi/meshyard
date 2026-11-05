@@ -1,4 +1,5 @@
 use crate::{StoreError, WorkspaceSnapshot};
+mod pairing;
 mod projection;
 use meshyard_core::{wire::v1::*, *};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
@@ -58,6 +59,11 @@ fn migrations() -> Migrations<'static> {
         CREATE TRIGGER count_contiguous_delete AFTER DELETE ON events BEGIN
             UPDATE projection_counts SET event_count=event_count-1 WHERE workspace=OLD.workspace;
         END;
+    "), M::up("
+        CREATE TABLE join_attempts (workspace BLOB NOT NULL, invite_id BLOB NOT NULL, inviter BLOB NOT NULL, nonce BLOB NOT NULL, started_ms INTEGER NOT NULL, PRIMARY KEY(workspace,invite_id));
+        ALTER TABLE pairings ADD COLUMN joiner_name TEXT;
+        ALTER TABLE pairings ADD COLUMN attempt_window_ms INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE pairings ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
     ")])
 }
 fn binding_kind(kind: AgentKind) -> i32 {

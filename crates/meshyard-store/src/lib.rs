@@ -1,6 +1,7 @@
 //! Local persistence and explicitly selected identity stores. SQL runs on one dedicated thread.
 mod database;
 pub mod identity;
+pub mod pairing;
 pub mod process_lock;
 pub use database::{Diagnostics, InsertOutcome, RejectReason};
 use meshyard_core::{wire::v1::*, *};
@@ -23,6 +24,10 @@ pub enum StoreError {
     ProjectionLimit,
     #[error("agent binding must refer to an own registered agent")]
     InvalidBinding,
+    #[error("pairing is unavailable, expired, already used or does not match")]
+    Pairing,
+    #[error("pairing attempt limit exceeded")]
+    PairingRate,
     #[error("store worker is closed")]
     Closed,
     #[error("workspace not found")]
@@ -195,6 +200,25 @@ impl Store {
     /// Accepts the original outer postcard bytes; stores them without re-encoding.
     pub async fn add_workspace(&self, raw: Vec<u8>) -> Result<WorkspaceId, StoreError> {
         self.call(move |db| db.add_workspace(&raw)).await
+    }
+    pub async fn endpoint_port(&self) -> Result<Option<u16>, StoreError> {
+        self.call(|db| db.endpoint_port()).await
+    }
+    pub async fn save_endpoint_port(&self, port: u16) -> Result<(), StoreError> {
+        self.call(move |db| db.save_endpoint_port(port)).await
+    }
+    /// Local authenticated direct addresses; not signed, replicated or exposed to IPC views.
+    pub async fn save_peer_address(
+        &self,
+        workspace: WorkspaceId,
+        peer: DeviceId,
+        address: Vec<u8>,
+    ) -> Result<(), StoreError> {
+        self.call(move |db| db.save_peer_address(workspace, peer, address))
+            .await
+    }
+    pub async fn peer_addresses(&self, workspace: WorkspaceId) -> Result<Vec<Vec<u8>>, StoreError> {
+        self.call(move |db| db.peer_addresses(workspace)).await
     }
     /// Stored workspace IDs, in deterministic order. No active workspace is chosen implicitly.
     pub async fn workspaces(&self) -> Result<Vec<WorkspaceId>, StoreError> {

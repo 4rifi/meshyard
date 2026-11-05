@@ -1,0 +1,360 @@
+//! Pairing transcript and the protocol-permitted six-word, 256-entry SAS vocabulary.
+//! Independent from the immutable signed event/genesis wire v1 types.
+use crate::{DeviceId, Mode, WorkspaceId};
+
+pub struct Transcript {
+    pub workspace: WorkspaceId,
+    pub mode: Mode,
+    pub protocol_version: u8,
+    pub inviter: DeviceId,
+    pub joiner: DeviceId,
+    pub invite_id: [u8; 16],
+    pub inviter_nonce: [u8; 16],
+    pub joiner_nonce: [u8; 16],
+}
+impl Transcript {
+    pub fn hash(&self) -> [u8; 32] {
+        let mut h = blake3::Hasher::new();
+        h.update(b"meshyard-pair-v1");
+        h.update(&self.workspace.0);
+        h.update(&[match self.mode {
+            Mode::Auto => 0,
+            Mode::Strict => 1,
+        }]);
+        h.update(&[self.protocol_version]);
+        h.update(&self.inviter.0);
+        h.update(&self.joiner.0);
+        h.update(&self.invite_id);
+        h.update(&self.inviter_nonce);
+        h.update(&self.joiner_nonce);
+        *h.finalize().as_bytes()
+    }
+}
+pub fn sas(transcript_hash: &[u8; 32]) -> [&'static str; 6] {
+    let mut h = blake3::Hasher::new();
+    h.update(b"meshyard-sas-v1");
+    h.update(transcript_hash);
+    let hash = h.finalize();
+    std::array::from_fn(|i| SAS_WORDS[usize::from(hash.as_bytes()[i])])
+}
+/// Fixed original vocabulary: one whole, pronounceable word per byte, 48 bits total.
+pub const SAS_WORDS: [&str; 256] = [
+    "amberacorn",
+    "amberapple",
+    "amberbirch",
+    "amberbrook",
+    "ambercloud",
+    "ambercrane",
+    "amberelm",
+    "amberfinch",
+    "amberfox",
+    "amberhill",
+    "amberlake",
+    "ambermoon",
+    "amberoak",
+    "amberpine",
+    "amberstar",
+    "amberwolf",
+    "azureacorn",
+    "azureapple",
+    "azurebirch",
+    "azurebrook",
+    "azurecloud",
+    "azurecrane",
+    "azureelm",
+    "azurefinch",
+    "azurefox",
+    "azurehill",
+    "azurelake",
+    "azuremoon",
+    "azureoak",
+    "azurepine",
+    "azurestar",
+    "azurewolf",
+    "blueacorn",
+    "blueapple",
+    "bluebirch",
+    "bluebrook",
+    "bluecloud",
+    "bluecrane",
+    "blueelm",
+    "bluefinch",
+    "bluefox",
+    "bluehill",
+    "bluelake",
+    "bluemoon",
+    "blueoak",
+    "bluepine",
+    "bluestar",
+    "bluewolf",
+    "boldacorn",
+    "boldapple",
+    "boldbirch",
+    "boldbrook",
+    "boldcloud",
+    "boldcrane",
+    "boldelm",
+    "boldfinch",
+    "boldfox",
+    "boldhill",
+    "boldlake",
+    "boldmoon",
+    "boldoak",
+    "boldpine",
+    "boldstar",
+    "boldwolf",
+    "calmacorn",
+    "calmapple",
+    "calmbirch",
+    "calmbrook",
+    "calmcloud",
+    "calmcrane",
+    "calmelm",
+    "calmfinch",
+    "calmfox",
+    "calmhill",
+    "calmlake",
+    "calmmoon",
+    "calmoak",
+    "calmpine",
+    "calmstar",
+    "calmwolf",
+    "cedaracorn",
+    "cedarapple",
+    "cedarbirch",
+    "cedarbrook",
+    "cedarcloud",
+    "cedarcrane",
+    "cedarelm",
+    "cedarfinch",
+    "cedarfox",
+    "cedarhill",
+    "cedarlake",
+    "cedarmoon",
+    "cedaroak",
+    "cedarpine",
+    "cedarstar",
+    "cedarwolf",
+    "clearacorn",
+    "clearapple",
+    "clearbirch",
+    "clearbrook",
+    "clearcloud",
+    "clearcrane",
+    "clearelm",
+    "clearfinch",
+    "clearfox",
+    "clearhill",
+    "clearlake",
+    "clearmoon",
+    "clearoak",
+    "clearpine",
+    "clearstar",
+    "clearwolf",
+    "coralacorn",
+    "coralapple",
+    "coralbirch",
+    "coralbrook",
+    "coralcloud",
+    "coralcrane",
+    "coralelm",
+    "coralfinch",
+    "coralfox",
+    "coralhill",
+    "corallake",
+    "coralmoon",
+    "coraloak",
+    "coralpine",
+    "coralstar",
+    "coralwolf",
+    "dawnacorn",
+    "dawnapple",
+    "dawnbirch",
+    "dawnbrook",
+    "dawncloud",
+    "dawncrane",
+    "dawnelm",
+    "dawnfinch",
+    "dawnfox",
+    "dawnhill",
+    "dawnlake",
+    "dawnmoon",
+    "dawnoak",
+    "dawnpine",
+    "dawnstar",
+    "dawnwolf",
+    "duskacorn",
+    "duskapple",
+    "duskbirch",
+    "duskbrook",
+    "duskcloud",
+    "duskcrane",
+    "duskelm",
+    "duskfinch",
+    "duskfox",
+    "duskhill",
+    "dusklake",
+    "duskmoon",
+    "duskoak",
+    "duskpine",
+    "duskstar",
+    "duskwolf",
+    "fernacorn",
+    "fernapple",
+    "fernbirch",
+    "fernbrook",
+    "ferncloud",
+    "ferncrane",
+    "fernelm",
+    "fernfinch",
+    "fernfox",
+    "fernhill",
+    "fernlake",
+    "fernmoon",
+    "fernoak",
+    "fernpine",
+    "fernstar",
+    "fernwolf",
+    "goldacorn",
+    "goldapple",
+    "goldbirch",
+    "goldbrook",
+    "goldcloud",
+    "goldcrane",
+    "goldelm",
+    "goldfinch",
+    "goldfox",
+    "goldhill",
+    "goldlake",
+    "goldmoon",
+    "goldoak",
+    "goldpine",
+    "goldstar",
+    "goldwolf",
+    "jadeacorn",
+    "jadeapple",
+    "jadebirch",
+    "jadebrook",
+    "jadecloud",
+    "jadecrane",
+    "jadeelm",
+    "jadefinch",
+    "jadefox",
+    "jadehill",
+    "jadelake",
+    "jademoon",
+    "jadeoak",
+    "jadepine",
+    "jadestar",
+    "jadewolf",
+    "limeacorn",
+    "limeapple",
+    "limebirch",
+    "limebrook",
+    "limecloud",
+    "limecrane",
+    "limeelm",
+    "limefinch",
+    "limefox",
+    "limehill",
+    "limelake",
+    "limemoon",
+    "limeoak",
+    "limepine",
+    "limestar",
+    "limewolf",
+    "mintacorn",
+    "mintapple",
+    "mintbirch",
+    "mintbrook",
+    "mintcloud",
+    "mintcrane",
+    "mintelm",
+    "mintfinch",
+    "mintfox",
+    "minthill",
+    "mintlake",
+    "mintmoon",
+    "mintoak",
+    "mintpine",
+    "mintstar",
+    "mintwolf",
+    "navyacorn",
+    "navyapple",
+    "navybirch",
+    "navybrook",
+    "navycloud",
+    "navycrane",
+    "navyelm",
+    "navyfinch",
+    "navyfox",
+    "navyhill",
+    "navylake",
+    "navymoon",
+    "navyoak",
+    "navypine",
+    "navystar",
+    "navywolf",
+];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn vocabulary_is_fixed_unique_and_sas_is_six_words() {
+        let words: std::collections::BTreeSet<_> = SAS_WORDS.into_iter().collect();
+        assert_eq!(words.len(), 256);
+        assert_eq!(sas(&[0; 32]).len(), 6);
+        assert_ne!(sas(&[0; 32]), sas(&[1; 32]));
+    }
+    fn transcript() -> Transcript {
+        Transcript {
+            workspace: WorkspaceId([1; 16]),
+            mode: Mode::Strict,
+            protocol_version: 1,
+            inviter: DeviceId([2; 32]),
+            joiner: DeviceId([3; 32]),
+            invite_id: [4; 16],
+            inviter_nonce: [5; 16],
+            joiner_nonce: [6; 16],
+        }
+    }
+    #[test]
+    fn interoperability_vector() {
+        let hash = transcript().hash();
+        assert_eq!(
+            hash.iter().map(|b| format!("{b:02x}")).collect::<String>(),
+            "e913696f648acbd641db18f20204653d91bb7d1baa788ce74ce5669f51ceed8b"
+        );
+        assert_eq!(
+            sas(&hash),
+            [
+                "clearpine",
+                "coralacorn",
+                "duskelm",
+                "navywolf",
+                "calmpine",
+                "azurefinch"
+            ]
+        );
+    }
+    #[test]
+    fn every_context_field_binds_the_confirmation() {
+        let original = transcript().hash();
+        for field in 0..8 {
+            let mut t = transcript();
+            match field {
+                0 => t.workspace.0[0] ^= 1,
+                1 => t.mode = Mode::Auto,
+                2 => t.protocol_version = 2,
+                3 => t.inviter.0[0] ^= 1,
+                4 => t.joiner.0[0] ^= 1,
+                5 => t.invite_id[0] ^= 1,
+                6 => t.inviter_nonce[0] ^= 1,
+                _ => t.joiner_nonce[0] ^= 1,
+            }
+            assert_ne!(t.hash(), original);
+            assert_ne!(sas(&t.hash()), sas(&original));
+        }
+    }
+}

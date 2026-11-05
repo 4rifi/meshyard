@@ -2,6 +2,7 @@
 pub mod crypto;
 pub mod domain;
 pub mod fold;
+pub mod pairing;
 pub mod policy;
 pub mod wire;
 pub use crypto::*;
