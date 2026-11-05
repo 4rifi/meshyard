@@ -18,7 +18,7 @@ and the normal Keychain path remain separate owner checkpoints.
 Run commands from the isolated USB worktree, with the external APFS image mounted:
 
 ```sh
-source /Volumes/MeshyardProjects/meshyard-smithers/env.sh
+source /Volumes/TokensAbuse/env.sh
 npm ci
 npm run bindings:generate
 CARGO_NET_OFFLINE=true npm run check
@@ -26,14 +26,14 @@ CARGO_NET_OFFLINE=true npm run check
 
 Dependencies must be physically installed in this worktree; do not symlink `node_modules`.
 The environment keeps Rust targets/toolchains, npm caches, temporary files and logs under
-`/Volumes/MeshyardProjects/Meshyard-build`. Do not use the historical internal-disk or
+`/Volumes/TokensAbuse`. Do not use the historical internal-disk or
 `/private/tmp` recovery checkouts for development.
 
 For a future native demo, explicitly select a fresh private USB file-key development profile:
 
 ```sh
-source /Volumes/MeshyardProjects/meshyard-smithers/env.sh
-export MESHYARD_DATA_DIR="$(mktemp -d /Volumes/MeshyardProjects/Meshyard-build/t014-demo.XXXXXX)"
+source /Volumes/TokensAbuse/env.sh
+export MESHYARD_DATA_DIR="$(mktemp -d /Volumes/TokensAbuse/tmp/t014-demo.XXXXXX)"
 export MESHYARD_KEY_STORE=file
 # Only after the owner has freed/configured the dev port for this worktree:
 npm run dev
@@ -58,7 +58,7 @@ The real non-GUI command integration tests use fresh explicit file-key profiles 
 USB `TMPDIR` and close/reopen the store; they do not launch a WebView or query Keychain:
 
 ```sh
-source /Volumes/MeshyardProjects/meshyard-smithers/env.sh
+source /Volumes/TokensAbuse/env.sh
 cargo test --offline -p meshyard-app --test local_workspace
 ```
 
@@ -75,8 +75,8 @@ wire v1. No license has been chosen (D-5); `LICENSE` is intentionally absent.
 
 ## Optional external Rust build directory
 
-Set `CARGO_TARGET_DIR` to an absolute writable directory on another volume if local disk
-space is limited. Cargo and the Tauri CLI use it for Rust artifacts; the debug bundle is
+The rework environment sets `CARGO_TARGET_DIR` inside `/Volumes/TokensAbuse`;
+keep all build artifacts and caches on that APFS image. Cargo and the Tauri CLI use it for Rust artifacts; the debug bundle is
 then at `$CARGO_TARGET_DIR/debug/bundle/macos/Meshyard.app` instead of
 `target/debug/bundle/macos/Meshyard.app`. Keep that volume mounted while building or using
 its artifacts. The pinned Rust version still applies. Recovery-specific environments and
