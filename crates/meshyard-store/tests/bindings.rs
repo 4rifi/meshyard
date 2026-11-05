@@ -172,7 +172,7 @@ async fn migration_adds_local_bindings_without_guessing_existing_agents() {
     store.close().await.unwrap();
     // Reconstruct the previous schema version, retaining real signed workspace/registration.
     let sql = rusqlite::Connection::open(dir.path().join("meshyard.sqlite")).unwrap();
-    sql.execute_batch("DROP TABLE join_attempts; ALTER TABLE pairings DROP COLUMN joiner_name; ALTER TABLE pairings DROP COLUMN attempt_window_ms; ALTER TABLE pairings DROP COLUMN attempts; DROP TABLE agent_bindings; DROP TRIGGER count_contiguous_insert; DROP TRIGGER count_contiguous_delete; DROP TABLE projection_counts; DROP TABLE agent_projection; DROP TABLE profile_projection; ALTER TABLE members DROP COLUMN added_name; DELETE FROM meta WHERE key LIKE 'projection_v1:%'; PRAGMA user_version=2;")
+    sql.execute_batch("DROP TABLE pending_joins; DROP TABLE join_attempts; ALTER TABLE pairings DROP COLUMN joiner_name; ALTER TABLE pairings DROP COLUMN attempt_window_ms; ALTER TABLE pairings DROP COLUMN attempts; DROP TABLE agent_bindings; DROP TRIGGER count_contiguous_insert; DROP TRIGGER count_contiguous_delete; DROP TABLE projection_counts; DROP TABLE agent_projection; DROP TABLE profile_projection; ALTER TABLE members DROP COLUMN added_name; DELETE FROM meta WHERE key LIKE 'projection_v1:%'; PRAGMA user_version=2;")
         .unwrap();
     drop(sql);
     let store = Store::open(dir.path()).unwrap();

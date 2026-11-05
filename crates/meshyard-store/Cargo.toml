@@ -20,6 +20,8 @@ thiserror.workspace = true
 postcard.workspace = true
 getrandom.workspace = true
 zeroize.workspace = true
+# Same audited fixed-length comparison dependency already pinned by BLAKE3.
+constant_time_eq = "=0.4.2"
 
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true

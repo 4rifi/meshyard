@@ -1,10 +1,15 @@
 //! Authenticated, bounded iroh routing for one active workspace.
-//! Pairing (T-005) and sync (T-006) are default-closed extension boundaries.
+//! Pairing and sync are explicit opt-in handlers; absent handlers stay default-closed.
 mod frame;
 mod limits;
+pub mod pairing;
 mod portmap;
+pub mod sync;
 
-pub use frame::{FrameStream, HANDSHAKE_TIMEOUT, IDLE_TIMEOUT, PAIR_MAX_FRAME, PAIR_TIMEOUT};
+pub use frame::{
+    FrameReader, FrameStream, FrameWriter, HANDSHAKE_TIMEOUT, IDLE_TIMEOUT, PAIR_MAX_FRAME,
+    PAIR_TIMEOUT,
+};
 use futures_util::StreamExt;
 use iroh::{
     Endpoint, RelayMode, TransportAddr,
@@ -90,6 +95,12 @@ impl Protocol {
 pub trait Admission: Send + Sync + 'static {
     fn is_member(&self, workspace: WorkspaceId, peer: EndpointId) -> bool;
     fn pairing_open(&self, workspace: WorkspaceId) -> bool;
+    fn pairing_incoming(&self, workspace: WorkspaceId, _peer: EndpointId) -> bool {
+        self.pairing_open(workspace)
+    }
+    fn pairing_outgoing(&self, workspace: WorkspaceId, _peer: EndpointId) -> bool {
+        self.pairing_open(workspace)
+    }
 }
 pub struct DenyAll;
 impl Admission for DenyAll {
@@ -126,6 +137,7 @@ pub struct NetConfig {
     pub mode: Mode,
     pub relay: RelayChoice,
     pub bind_addr: Option<SocketAddr>,
+    pub bind_port: Option<u16>,
     pub mapping: MappingPolicy,
     pub admission: Arc<dyn Admission>,
     pub pair_handler: Option<Arc<dyn ProtocolHandler>>,
@@ -144,6 +156,7 @@ impl NetConfig {
             mode,
             relay,
             bind_addr: None,
+            bind_port: None,
             mapping: MappingPolicy::Router,
             admission: Arc::new(DenyAll),
             pair_handler: None,
@@ -275,8 +288,15 @@ struct State {
 impl State {
     fn admitted(&self, peer: EndpointId, protocol: Protocol) -> bool {
         match protocol {
-            Protocol::Pair => self.admission.pairing_open(self.workspace),
+            Protocol::Pair => self.admission.pairing_incoming(self.workspace, peer),
             _ => self.admission.is_member(self.workspace, peer),
+        }
+    }
+    fn outgoing_admitted(&self, peer: EndpointId, protocol: Protocol) -> bool {
+        if protocol == Protocol::Pair {
+            self.admission.pairing_outgoing(self.workspace, peer)
+        } else {
+            self.admitted(peer, protocol)
         }
     }
     fn register(&self, connection: &Connection) {
@@ -458,6 +478,11 @@ impl MeshNode {
                 .clear_ip_transports()
                 .bind_addr(addr)
                 .map_err(|_| NetError::Bind)?;
+        } else if let Some(port) = config.bind_port {
+            // Preserve the IPv4 direct contact across restarts; keep the optional IPv6 default.
+            builder = builder
+                .bind_addr((std::net::Ipv4Addr::UNSPECIFIED, port))
+                .map_err(|_| NetError::Bind)?;
         }
         let endpoint = adjust(builder).bind().await.map_err(|error| {
             #[cfg(test)]
@@ -503,6 +528,13 @@ impl MeshNode {
             lease,
         })
     }
+    pub fn ipv4_port(&self) -> Option<u16> {
+        self.endpoint
+            .bound_sockets()
+            .iter()
+            .find(|a| a.is_ipv4())
+            .map(SocketAddr::port)
+    }
     pub fn address(&self) -> EndpointAddr {
         self.endpoint.addr()
     }
@@ -528,7 +560,7 @@ impl MeshNode {
         if self.endpoint.is_closed() {
             return Err(NetError::Closed);
         }
-        if !self.state.admitted(peer.id, protocol) {
+        if !self.state.outgoing_admitted(peer.id, protocol) {
             return Err(NetError::NotAdmitted);
         }
         if self.state.mode == Mode::Strict && peer.ip_addrs().next().is_none() {
@@ -560,7 +592,10 @@ impl MeshNode {
         })?
         .map_err(|_| NetError::Connect)?;
         // Both directions await a full authenticated handshake; there is no into_0rtt caller.
-        if !self.state.admitted(connection.remote_id(), protocol) {
+        if !self
+            .state
+            .outgoing_admitted(connection.remote_id(), protocol)
+        {
             connection.close(VarInt::from_u32(NOT_ADMITTED), b"NOT_ADMITTED");
             return Err(NetError::NotAdmitted);
         }
@@ -701,7 +736,10 @@ impl AdmittedConnection {
     }
     pub async fn accept_pair_stream(&self) -> Result<FrameStream, NetError> {
         if self.protocol != Protocol::Pair
-            || !self.state.admission.pairing_open(self.state.workspace)
+            || !self
+                .state
+                .admission
+                .pairing_incoming(self.state.workspace, self.peer())
         {
             return Err(NetError::NotAdmitted);
         }
@@ -727,7 +765,7 @@ impl AdmittedConnection {
             self.protocol == Protocol::Pair,
         )
     }
-    async fn open_stream(&self) -> Result<FrameStream, NetError> {
+    pub async fn open_stream(&self) -> Result<FrameStream, NetError> {
         let (send, recv) = timeout(HANDSHAKE_TIMEOUT, self.connection.open_bi())
             .await
             .map_err(|_| NetError::Timeout)?
@@ -834,3 +872,23 @@ mod tests;
 
 #[cfg(test)]
 mod tls_tests;
+
+/// Release capability checks: unavailable constructors cannot be compiled.
+///
+/// ```compile_fail
+/// let _ = iroh::RelayMode::Default;
+/// ```
+/// ```compile_fail
+/// let _ = iroh::RelayMode::Staging;
+/// ```
+/// ```compile_fail
+/// let _ = iroh::endpoint::presets::N0;
+/// ```
+/// ```compile_fail
+/// let _ = iroh::address_lookup::PkarrPublisher::n0_dns();
+/// ```
+/// ```compile_fail
+/// let _ = iroh::address_lookup::DnsAddressLookup::n0_dns();
+/// ```
+#[cfg(feature = "strict-only")]
+pub struct StrictReleaseCapabilities;

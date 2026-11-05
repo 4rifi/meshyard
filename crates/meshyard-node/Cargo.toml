@@ -10,6 +10,15 @@ workspace = true
 
 [dependencies]
 meshyard-core.workspace = true
+meshyard-app = { path = "../../app/src-tauri" }
 meshyard-store.workspace = true
 meshyard-net.workspace = true
 meshyard-agents.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "io-std", "io-util"] }
+serde.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
+getrandom.workspace = true
+
+[features]
+strict-only = ["meshyard-net/strict-only", "meshyard-app/strict-only"]

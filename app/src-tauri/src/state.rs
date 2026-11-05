@@ -11,9 +11,10 @@ use tokio::sync::Mutex;
 
 pub struct AppCore {
     pub(crate) store: Store,
-    pub(crate) signer: Arc<dyn Signer>,
+    pub(crate) signer: Arc<SecretKey>,
     pub(crate) workspace: Option<WorkspaceId>,
     pub(crate) app: Option<tauri::AppHandle>,
+    pub(crate) network_error: Option<String>,
     pub(crate) ingest: Arc<IngestMetadata>,
     pub(crate) installer: Option<Installer>,
     pub(crate) codex_installer: Option<Installer>,
@@ -22,6 +23,7 @@ pub struct AppState(
     pub(crate) Arc<Mutex<Result<AppCore, AppError>>>,
     pub(crate) Mutex<Option<Server>>,
     pub(crate) Arc<IngestMetadata>,
+    pub(crate) Arc<Mutex<Option<crate::network::Network>>>,
 );
 
 impl AppState {
@@ -30,6 +32,7 @@ impl AppState {
             Arc::new(Mutex::new(Err(error))),
             Mutex::new(None),
             Arc::default(),
+            Arc::new(Mutex::new(None)),
         )
     }
     pub async fn open(data_dir: PathBuf, file_key: bool) -> Self {
@@ -69,7 +72,13 @@ impl AppState {
             );
             if let Some(id) = workspace {
                 let state = store.workspace_snapshot(id).await.map_err(storage_error)?;
-                if !state.members.iter().any(|m| m.device == signer.device_id()) {
+                if !state.members.iter().any(|m| m.device == signer.device_id())
+                    && !store
+                        .pending_join(id, signer.device_id())
+                        .await
+                        .map_err(storage_error)?
+                        .is_some_and(|p| p.owner == state.genesis.owner)
+                {
                     return Err(AppError::IdentityMismatch);
                 }
             }
@@ -85,14 +94,36 @@ impl AppState {
                         signer,
                         workspace,
                         app: None,
+                        network_error: None,
                         ingest: ingest.clone(),
                         installer: None,
                         codex_installer: None,
                     }))),
                     Mutex::new(None),
                     ingest,
+                    Arc::new(Mutex::new(None)),
                 );
                 state.start_ingest().await;
+                let resume = {
+                    let guard = state.0.lock().await;
+                    if let Ok(core) = guard.as_ref() {
+                        if let Some(w) = core.workspace {
+                            core.store
+                                .pending_join(w, core.signer.device_id())
+                                .await
+                                .ok()
+                                .flatten()
+                                .is_some()
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+                if resume {
+                    let _ = crate::network::start(&state).await;
+                }
                 state
             }
             Err(error) => {
@@ -109,7 +140,17 @@ impl AppState {
         }
         let guard = self.0.lock().await;
         if let Ok(core) = guard.as_ref() {
-            if core.workspace.is_none() {
+            let Some(w) = core.workspace else {
+                return;
+            };
+            if core
+                .store
+                .pending_join(w, core.signer.device_id())
+                .await
+                .ok()
+                .flatten()
+                .is_some()
+            {
                 return;
             }
             *runtime = Server::start(
@@ -177,6 +218,7 @@ impl AppState {
     }
     /// Stop/join the listener and all bounded readers before releasing the profile lock.
     pub async fn shutdown(&self) {
+        crate::network::stop(self).await;
         if let Some(server) = self.1.lock().await.take() {
             server.stop().await;
         }
@@ -210,6 +252,15 @@ impl AppCore {
             .workspace_snapshot(id)
             .await
             .map_err(storage_error)?;
+        if self
+            .store
+            .pending_join(id, self.signer.device_id())
+            .await
+            .map_err(storage_error)?
+            .is_some()
+        {
+            return Ok(AppStatus::Joining);
+        }
         let genesis = &state.genesis;
         let device = self.signer.device_id();
         // Genesis may have persisted while the first profile append failed. Never hide this
@@ -295,12 +346,19 @@ impl AppCore {
                                     Duration::from_millis(now),
                                 )
                             });
-                    let connection = if !bound
+                    let connection = if a.author != device {
+                        if stale {
+                            AgentConnection::Stale
+                        } else {
+                            AgentConnection::Synced
+                        }
+                    } else if !bound
                         || !(if a.kind == AgentKind::Codex {
                             codex_hook.installed
                         } else {
                             hook.installed
-                        }) {
+                        })
+                    {
                         AgentConnection::NotConnected
                     } else if a.provenance.is_none() {
                         AgentConnection::WaitingForFirstEvent

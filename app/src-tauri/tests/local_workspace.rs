@@ -699,3 +699,53 @@ async fn isolated_hook_executable_routes_both_agent_kinds_and_reopens_state() {
     }
     reopened.close().await.unwrap();
 }
+
+#[tokio::test]
+async fn saved_owner_contact_without_confirmed_join_never_bypasses_identity_mismatch() {
+    let dir = profile();
+    let store = Store::open(dir.path()).unwrap();
+    let own = load_or_create(&FileKeyStore::new(dir.path().join("identity"))).unwrap();
+    let id = own.device_id();
+    let other = SecretKey::from_bytes(&[98; 32]);
+    let genesis = sign_genesis(
+        Genesis {
+            owner: other.device_id(),
+            name: "Not admitted".into(),
+            mode: Mode::Strict,
+            created_ms: 0,
+            nonce: [21; 16],
+        },
+        &other,
+    )
+    .unwrap();
+    let workspace = store
+        .add_workspace(postcard::to_stdvec(&genesis).unwrap())
+        .await
+        .unwrap();
+    let address = meshyard_net::EndpointAddr::new(
+        meshyard_net::EndpointId::from_bytes(&other.device_id().0).unwrap(),
+    )
+    .with_ip_addr("127.0.0.1:3333".parse().unwrap());
+    store
+        .save_peer_address(
+            workspace,
+            other.device_id(),
+            postcard::to_stdvec(&address).unwrap(),
+        )
+        .await
+        .unwrap();
+    store.close().await.unwrap();
+    let state = AppState::open(dir.path().to_owned(), true).await;
+    assert_eq!(
+        app_status(&state).await,
+        AppStatus::Error(AppError::IdentityMismatch)
+    );
+    assert_eq!(
+        FileKeyStore::new(dir.path().join("identity"))
+            .load()
+            .unwrap()
+            .device_id(),
+        id
+    );
+    state.close().await.unwrap();
+}

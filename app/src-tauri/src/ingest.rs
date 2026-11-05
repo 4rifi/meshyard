@@ -4,6 +4,7 @@ use meshyard_agents::{
     ingest::{self, Envelope},
     state::{StateChange, StateMachine},
 };
+use meshyard_core::Signer;
 use meshyard_core::{AgentKind, EventBody};
 use meshyard_store::{StoreError, process_lock::private_directory};
 use std::{

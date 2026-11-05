@@ -2,6 +2,7 @@
 pub mod commands;
 pub mod hooks;
 mod ingest;
+pub mod network;
 pub mod state;
 pub mod view;
 use tauri::Manager;
@@ -28,6 +29,12 @@ pub fn run() -> tauri::Result<()> {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::ipc::network_status,
+            commands::ipc::network_start,
+            commands::ipc::network_stop,
+            commands::ipc::network_invite,
+            commands::ipc::network_join,
+            commands::ipc::network_confirm,
             commands::ipc::app_status,
             commands::ipc::create_workspace,
             commands::ipc::update_profile,

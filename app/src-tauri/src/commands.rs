@@ -31,11 +31,15 @@ pub async fn update_profile(state: &AppState, name: String) -> AppStatus {
     }
 }
 pub async fn register_agent(state: &AppState, input: RegisterAgent) -> AppStatus {
-    let mut guard = state.0.lock().await;
-    match guard.as_mut() {
-        Ok(core) => core.register(input).await.unwrap_or_else(AppStatus::Error),
-        Err(error) => AppStatus::Error(error.clone()),
-    }
+    let result = {
+        let mut guard = state.0.lock().await;
+        match guard.as_mut() {
+            Ok(core) => core.register(input).await.unwrap_or_else(AppStatus::Error),
+            Err(error) => AppStatus::Error(error.clone()),
+        }
+    };
+    state.start_ingest().await;
+    result
 }
 pub async fn bind_agent(state: &AppState, agent_id: String) -> AppStatus {
     let mut guard = state.0.lock().await;
@@ -79,6 +83,44 @@ pub async fn hook_apply(state: &AppState, plan_id: String) -> AppStatus {
     }
 }
 pub(crate) mod ipc {
+    #[tauri::command]
+    pub async fn network_status(
+        state: tauri::State<'_, AppState>,
+    ) -> Result<crate::network::NetworkView, AppError> {
+        crate::network::status(&state).await
+    }
+    #[tauri::command]
+    pub async fn network_start(
+        state: tauri::State<'_, AppState>,
+    ) -> Result<crate::network::NetworkView, AppError> {
+        crate::network::start(&state).await
+    }
+    #[tauri::command]
+    pub async fn network_stop(state: tauri::State<'_, AppState>) -> Result<(), AppError> {
+        crate::network::stop(&state).await;
+        Ok(())
+    }
+    #[tauri::command]
+    pub async fn network_invite(state: tauri::State<'_, AppState>) -> Result<String, AppError> {
+        crate::network::invite(&state).await
+    }
+    #[tauri::command]
+    pub async fn network_join(
+        state: tauri::State<'_, AppState>,
+        link: String,
+        display_name: String,
+    ) -> Result<(), AppError> {
+        crate::network::join(&state, link, display_name).await
+    }
+    #[tauri::command]
+    pub async fn network_confirm(
+        state: tauri::State<'_, AppState>,
+        id: String,
+        matches: bool,
+    ) -> Result<(), AppError> {
+        crate::network::confirm(&state, id, matches).await
+    }
+
     use super::*;
     #[tauri::command]
     pub async fn app_status(state: tauri::State<'_, AppState>) -> Result<AppStatus, AppError> {

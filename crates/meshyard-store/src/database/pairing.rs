@@ -118,7 +118,7 @@ impl Database {
         id: Option<[u8; 16]>,
     ) -> Result<Vec<Pairing>, StoreError> {
         self.expire_pairings(workspace, now)?;
-        let mut query = self.conn.prepare("SELECT invite_id,state,expires_ms,joiner,joiner_nonce,inviter_nonce,transcript_hash,inviter_confirmed,joiner_confirmed FROM pairings WHERE workspace=?1 AND (?2 IS NULL OR invite_id=?2) ORDER BY rowid DESC LIMIT 64")?;
+        let mut query = self.conn.prepare("SELECT invite_id,state,expires_ms,joiner,joiner_nonce,inviter_nonce,transcript_hash,inviter_confirmed,joiner_confirmed,reserved_ms FROM pairings WHERE workspace=?1 AND (?2 IS NULL OR invite_id=?2) ORDER BY rowid DESC LIMIT 64")?;
         let rows = query.query_map(
             params![workspace.0.as_slice(), id.as_ref().map(|b| b.as_slice())],
             |row| {
@@ -132,13 +132,18 @@ impl Database {
                     row.get::<_, Option<Vec<u8>>>(6)?,
                     row.get::<_, bool>(7)?,
                     row.get::<_, bool>(8)?,
+                    row.get::<_, Option<i64>>(9)?,
                 ))
             },
         )?;
         rows.map(|row| {
-            let (id, state, expires_ms, joiner, jn, invn, hash, ic, jc) = row?;
+            let (id, state, expires_ms, joiner, jn, invn, hash, ic, jc, reserved) = row?;
             Ok(Pairing {
                 invite_id: array(id)?,
+                reserved_ms: reserved
+                    .map(u64::try_from)
+                    .transpose()
+                    .map_err(|_| StoreError::Database)?,
                 state,
                 expires_ms: u64::try_from(expires_ms).map_err(|_| StoreError::Database)?,
                 joiner: joiner.map(array).transpose()?.map(DeviceId),
@@ -187,18 +192,19 @@ impl Database {
         }
         self.conn.execute("UPDATE pairings SET attempts=?3,attempt_window_ms=?4 WHERE workspace=?1 AND invite_id=?2", params![r.workspace.0.as_slice(),r.invite_id.as_slice(), attempts+1,sql_seq(window)?])?;
         let expected: [u8; 32] = array(expected)?;
-        // Fixed-length comparison; every byte participates regardless of first difference.
-        let mismatch = expected
-            .iter()
-            .zip(r.token_hash)
-            .fold(0u8, |n, (a, b)| n | (a ^ b));
-        let valid = mismatch == 0
+        // The fixed-length primitive guarantees data-independent comparison.
+        let matches = constant_time_eq::constant_time_eq_32(&expected, &r.token_hash);
+        let valid = matches
             && (state.state == "Open"
-                || (state.state == "Reserved"
+                || ((state.state == "Reserved"
+                    || (state.state == "Completed"
+                        && state
+                            .reserved_ms
+                            .is_some_and(|t| r.now_ms.saturating_sub(t) < 300_000)))
                     && state.joiner == Some(r.joiner)
                     && state.joiner_nonce == Some(r.joiner_nonce)));
         if !valid {
-            if mismatch == 0
+            if matches
                 && state.state == "Reserved"
                 && state.joiner == Some(r.joiner)
                 && state.joiner_nonce != Some(r.joiner_nonce)
@@ -310,4 +316,139 @@ fn array<const N: usize>(bytes: Vec<u8>) -> Result<[u8; N], StoreError> {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+impl Database {
+    pub fn completed_pairing_resumes(
+        &self,
+        w: WorkspaceId,
+        now: u64,
+    ) -> Result<Vec<(DeviceId, u64)>, StoreError> {
+        let mut q=self.conn.prepare("SELECT joiner,reserved_ms FROM pairings WHERE workspace=?1 AND state='Completed' AND reserved_ms>?2")?;
+        let rows = q.query_map(
+            params![w.0.as_slice(), sql_seq(now.saturating_sub(300_000))?],
+            |r| Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, i64>(1)?)),
+        )?;
+        rows.map(|r| {
+            let (device, time) = r?;
+            Ok((
+                DeviceId(array(device)?),
+                u64::try_from(time).map_err(|_| StoreError::Database)? + 300_000,
+            ))
+        })
+        .collect()
+    }
+    pub fn confirm_join_attempt(
+        &self,
+        w: WorkspaceId,
+        id: [u8; 16],
+        device: DeviceId,
+        hash: [u8; 32],
+    ) -> Result<(), StoreError> {
+        let count=self.conn.execute("UPDATE join_attempts SET device=?3,confirmed_hash=?4 WHERE workspace=?1 AND invite_id=?2 AND (device IS NULL OR device=?3)",params![w.0.as_slice(),id.as_slice(),device.0.as_slice(),hash.as_slice()])?;
+        if count != 1 {
+            return Err(StoreError::Pairing);
+        }
+        Ok(())
+    }
+    pub fn persist_pending_join(
+        &self,
+        w: WorkspaceId,
+        g: &Genesis,
+        p: crate::pairing::PendingJoin,
+    ) -> Result<(), StoreError> {
+        if p.workspace != w
+            || p.owner != g.owner
+            || p.device == g.owner
+            || p.owner_address.len() > 16 * 1024
+        {
+            return Err(StoreError::Pairing);
+        }
+        validate_received(&p.display_name, 64).map_err(|_| StoreError::Pairing)?;
+        let valid:bool=self.conn.query_row("SELECT EXISTS(SELECT 1 FROM join_attempts WHERE workspace=?1 AND invite_id=?2 AND inviter=?3 AND device=?4 AND confirmed_hash=?5)",params![w.0.as_slice(),p.invite_id.as_slice(),p.owner.0.as_slice(),p.device.0.as_slice(),p.transcript_hash.as_slice()],|r|r.get(0))?;
+        if !valid {
+            return Err(StoreError::Pairing);
+        }
+        self.conn.execute(
+            "INSERT INTO pending_joins VALUES(?1,?2,?3,?4,?5,?6,?7)",
+            params![
+                w.0.as_slice(),
+                p.device.0.as_slice(),
+                p.owner.0.as_slice(),
+                p.owner_address,
+                p.display_name,
+                p.invite_id.as_slice(),
+                p.transcript_hash.as_slice()
+            ],
+        )?;
+        Ok(())
+    }
+    pub fn pending_join(
+        &self,
+        w: WorkspaceId,
+        device: DeviceId,
+    ) -> Result<Option<crate::pairing::PendingJoin>, StoreError> {
+        let row=self.conn.query_row("SELECT p.owner,p.owner_address,p.display_name,p.invite_id,p.transcript_hash FROM pending_joins p JOIN join_attempts j ON j.workspace=p.workspace AND j.invite_id=p.invite_id AND j.device=p.device AND j.inviter=p.owner AND j.confirmed_hash=p.transcript_hash WHERE p.workspace=?1 AND p.device=?2",params![w.0.as_slice(),device.0.as_slice()],|r|Ok((r.get::<_,Vec<u8>>(0)?,r.get::<_,Vec<u8>>(1)?,r.get::<_,String>(2)?,r.get::<_,Vec<u8>>(3)?,r.get::<_,Vec<u8>>(4)?))).optional()?;
+        row.map(|(owner, owner_address, display_name, id, hash)| {
+            Ok(crate::pairing::PendingJoin {
+                workspace: w,
+                device,
+                owner: DeviceId(array(owner)?),
+                owner_address,
+                display_name,
+                invite_id: array(id)?,
+                transcript_hash: array(hash)?,
+            })
+        })
+        .transpose()
+    }
+    pub fn finish_join(
+        &self,
+        w: WorkspaceId,
+        signer: &dyn Signer,
+        now: u64,
+    ) -> Result<bool, StoreError> {
+        let Some(p) = self.pending_join(w, signer.device_id())? else {
+            return Ok(false);
+        };
+        if !self
+            .workspace_snapshot(w)?
+            .members
+            .iter()
+            .any(|m| m.device == signer.device_id())
+        {
+            return Ok(false);
+        }
+        let tx = Transaction::new_unchecked(&self.conn, TransactionBehavior::Immediate)?;
+        let seq = self
+            .head(w, signer.device_id())?
+            .checked_add(1)
+            .ok_or(StoreError::SequenceRange)?;
+        let event = sign_event(
+            Event {
+                workspace: w,
+                author: signer.device_id(),
+                seq,
+                ts_ms: now,
+                membership_epoch: self.current_epoch(w)?,
+                body: EventBody::ProfileUpdated {
+                    display_name: p.display_name,
+                    avatar: 0,
+                },
+            },
+            signer,
+            &SharingPolicy::default(),
+        )?;
+        if self.insert(&postcard::to_stdvec(&event).map_err(|_| CryptoError::Encoding)?)?
+            != InsertOutcome::Inserted
+        {
+            return Err(StoreError::AppendRejected);
+        }
+        self.conn.execute(
+            "DELETE FROM pending_joins WHERE workspace=?1 AND device=?2",
+            params![w.0.as_slice(), signer.device_id().0.as_slice()],
+        )?;
+        tx.commit()?;
+        Ok(true)
+    }
 }

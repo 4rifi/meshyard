@@ -64,6 +64,10 @@ fn migrations() -> Migrations<'static> {
         ALTER TABLE pairings ADD COLUMN joiner_name TEXT;
         ALTER TABLE pairings ADD COLUMN attempt_window_ms INTEGER NOT NULL DEFAULT 0;
         ALTER TABLE pairings ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+    "), M::up("
+        ALTER TABLE join_attempts ADD COLUMN device BLOB;
+        ALTER TABLE join_attempts ADD COLUMN confirmed_hash BLOB;
+        CREATE TABLE pending_joins (workspace BLOB PRIMARY KEY REFERENCES workspaces(id), device BLOB NOT NULL, owner BLOB NOT NULL, owner_address BLOB NOT NULL, display_name TEXT NOT NULL, invite_id BLOB NOT NULL, transcript_hash BLOB NOT NULL);
     ")])
 }
 fn binding_kind(kind: AgentKind) -> i32 {
@@ -356,6 +360,13 @@ impl Database {
         Ok(())
     }
     pub fn add_workspace(&mut self, raw: &[u8]) -> Result<WorkspaceId, StoreError> {
+        self.add_workspace_pending(raw, None)
+    }
+    pub fn add_workspace_pending(
+        &mut self,
+        raw: &[u8],
+        pending: Option<crate::pairing::PendingJoin>,
+    ) -> Result<WorkspaceId, StoreError> {
         let signed = decode_genesis(raw)?;
         let (id, genesis) = verify_genesis(&signed, self.verifier.as_ref())?;
         if let Some(old) = self
@@ -383,6 +394,9 @@ impl Database {
             [id.0.as_slice()],
         )?;
         self.mark_projection(id)?;
+        if let Some(p) = pending {
+            self.persist_pending_join(id, &genesis, p)?;
+        }
         transaction.commit()?;
         self.genesis_cache.insert(id, genesis);
         Ok(id)

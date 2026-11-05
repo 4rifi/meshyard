@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
-  "description": "Eight local workspace and reviewed hook commands; event subscription only.",
+  "description": "Local workspace, reviewed hook and explicit Strict P2P actions; event subscription only.",
   "windows": ["main"],
   "permissions": [
     "allow-app-status",
@@ -13,6 +13,12 @@
     "allow-hook-apply",
     "allow-hook-remove",
     "core:event:allow-listen",
-    "core:event:allow-unlisten"
+    "core:event:allow-unlisten",
+    "allow-network-status",
+    "allow-network-start",
+    "allow-network-stop",
+    "allow-network-invite",
+    "allow-network-join",
+    "allow-network-confirm"
   ]
 }

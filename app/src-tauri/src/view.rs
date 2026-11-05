@@ -5,6 +5,8 @@ use ts_rs::TS;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub enum AppError {
+    NetworkUnavailable,
+    InvalidInvite,
     IdentityMissing,
     IdentityLocked,
     IdentityUnavailable,
@@ -31,6 +33,7 @@ pub enum AppError {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub enum AppStatus {
+    Joining,
     Setup,
     Ready(WorkspaceView),
     Error(AppError),
@@ -69,6 +72,7 @@ pub struct AgentView {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub enum AgentConnection {
+    Synced,
     NotConnected,
     WaitingForFirstEvent,
     Connected,

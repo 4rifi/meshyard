@@ -92,8 +92,18 @@ async fn owner_only_single_use_resumes_and_requires_both_confirmations_after_reo
         store.contiguous_heads(w).await.unwrap()[&key.device_id()],
         1
     );
+    assert_eq!(
+        store.reserve_invite(reservation(w)).await.unwrap().state,
+        "Completed"
+    );
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&key.device_id()],
+        1
+    );
+    let mut wrong = reservation(w);
+    wrong.joiner_nonce = [91; 16];
     assert!(matches!(
-        store.reserve_invite(reservation(w)).await,
+        store.reserve_invite(wrong).await,
         Err(StoreError::Pairing)
     ));
     store.close().await.unwrap();
@@ -241,4 +251,92 @@ async fn nonce_mismatch_aborts_and_old_open_invite_survives_terminal_history() {
     ));
     assert_eq!(store.workspace_snapshot(w).await.unwrap().members.len(), 1);
     store.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn pending_join_requires_explicit_identity_bound_confirmation_and_finishes_atomically() {
+    let (_owner_dir, owner, key, w) = fixture().await;
+    let dir = support::private_tempdir();
+    let store = Store::open(dir.path()).unwrap();
+    let joiner = Arc::new(SecretKey::from_bytes(&[82; 32]));
+    let raw = owner.genesis(w).await.unwrap();
+    let pending = meshyard_store::pairing::PendingJoin {
+        workspace: w,
+        device: joiner.device_id(),
+        owner: key.device_id(),
+        owner_address: vec![1],
+        display_name: "Recovered".into(),
+        invite_id: [9; 16],
+        transcript_hash: [8; 32],
+    };
+    assert!(
+        store
+            .accept_join(raw.clone(), pending.clone())
+            .await
+            .is_err()
+    );
+    assert!(store.workspaces().await.unwrap().is_empty());
+    store
+        .join_nonce(w, [9; 16], key.device_id(), [7; 16], NOW)
+        .await
+        .unwrap();
+    assert!(
+        store
+            .accept_join(raw.clone(), pending.clone())
+            .await
+            .is_err()
+    );
+    assert!(store.workspaces().await.unwrap().is_empty());
+    store
+        .confirm_join_attempt(w, [9; 16], joiner.device_id(), [8; 32])
+        .await
+        .unwrap();
+    store.accept_join(raw, pending).await.unwrap();
+    assert!(
+        store
+            .pending_join(w, key.device_id())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!store.finish_join(w, joiner.clone(), NOW).await.unwrap());
+    store.close().await.unwrap();
+    let store = Store::open(dir.path()).unwrap();
+    assert!(
+        store
+            .pending_join(w, joiner.device_id())
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let grant = owner
+        .append_own(
+            w,
+            EventBody::MemberAdded {
+                device: joiner.device_id(),
+                display_name: "Pair name".into(),
+            },
+            key,
+        )
+        .await
+        .unwrap();
+    store
+        .insert_remote(postcard::to_stdvec(&grant).unwrap())
+        .await
+        .unwrap();
+    assert!(store.finish_join(w, joiner.clone(), NOW).await.unwrap());
+    assert!(
+        store
+            .pending_join(w, joiner.device_id())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert!(!store.finish_join(w, joiner.clone(), NOW).await.unwrap());
+    assert_eq!(
+        store.contiguous_heads(w).await.unwrap()[&joiner.device_id()],
+        1
+    );
+    store.close().await.unwrap();
+    owner.close().await.unwrap();
 }

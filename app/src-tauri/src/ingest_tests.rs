@@ -128,6 +128,7 @@ async fn wait_state(state: &AppState, expected: S) {
                     }
                 }
                 AppStatus::Error(error) => last_error = Some(error),
+                AppStatus::Joining => panic!("Unexpected pending join in local ingest fixture"),
                 AppStatus::Setup => {
                     last_state = None;
                     last_error = None;
@@ -674,6 +675,7 @@ async fn prep_counted_app_status_idle_and_binding_use_projection_across_store_cl
         signer: signer.clone(),
         workspace: None,
         app: None,
+        network_error: None,
         ingest: Arc::default(),
         installer: None,
         codex_installer: None,
@@ -863,6 +865,7 @@ async fn prep_rate_deadline_starts_after_async_persistence_not_receive_sample() 
         signer: signer.clone(),
         workspace: None,
         app: None,
+        network_error: None,
         ingest: Arc::default(),
         installer: None,
         codex_installer: None,

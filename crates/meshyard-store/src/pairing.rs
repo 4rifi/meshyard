@@ -8,6 +8,7 @@ pub struct Pairing {
     pub invite_id: [u8; 16],
     pub state: String,
     pub expires_ms: u64,
+    pub reserved_ms: Option<u64>,
     pub joiner: Option<DeviceId>,
     pub joiner_nonce: Option<[u8; 16]>,
     pub inviter_nonce: Option<[u8; 16]>,
@@ -25,7 +26,60 @@ pub struct Reservation {
     pub display_name: String,
     pub now_ms: u64,
 }
+#[derive(Clone)]
+pub struct PendingJoin {
+    pub workspace: WorkspaceId,
+    pub device: DeviceId,
+    pub owner: DeviceId,
+    pub owner_address: Vec<u8>,
+    pub display_name: String,
+    pub invite_id: [u8; 16],
+    pub transcript_hash: [u8; 32],
+}
 impl Store {
+    pub async fn confirm_join_attempt(
+        &self,
+        w: WorkspaceId,
+        id: [u8; 16],
+        device: DeviceId,
+        hash: [u8; 32],
+    ) -> Result<(), StoreError> {
+        self.call(move |db| db.confirm_join_attempt(w, id, device, hash))
+            .await
+    }
+    pub async fn accept_join(
+        &self,
+        raw: Vec<u8>,
+        pending: PendingJoin,
+    ) -> Result<WorkspaceId, StoreError> {
+        self.call(move |db| db.add_workspace_pending(&raw, Some(pending)))
+            .await
+    }
+    pub async fn pending_join(
+        &self,
+        w: WorkspaceId,
+        device: DeviceId,
+    ) -> Result<Option<PendingJoin>, StoreError> {
+        self.call(move |db| db.pending_join(w, device)).await
+    }
+    pub async fn finish_join(
+        &self,
+        w: WorkspaceId,
+        signer: Arc<dyn Signer>,
+        now: u64,
+    ) -> Result<bool, StoreError> {
+        self.call(move |db| db.finish_join(w, signer.as_ref(), now))
+            .await
+    }
+    pub async fn completed_pairing_resumes(
+        &self,
+        w: WorkspaceId,
+        now: u64,
+    ) -> Result<Vec<(DeviceId, u64)>, StoreError> {
+        self.call(move |db| db.completed_pairing_resumes(w, now))
+            .await
+    }
+
     /// Admission includes every active record, independently of bounded UI history.
     pub async fn pairing_deadline(
         &self,
