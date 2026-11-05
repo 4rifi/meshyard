@@ -6,6 +6,20 @@ import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Keep browser tooling and evidence external; no browser dependency belongs to the app.
+const requiredEnvironment = [
+  'MESHYARD_PLAYWRIGHT_MODULE',
+  'MESHYARD_PNG_MODULE',
+  'MESHYARD_CHROMIUM_EXECUTABLE',
+  'MESHYARD_CSP_OUTPUT',
+];
+const missingEnvironment = requiredEnvironment.filter(
+  (name) => !process.env[name]?.trim(),
+);
+if (missingEnvironment.length > 0) {
+  throw new Error(
+    `Optional CSP check requires ${missingEnvironment.join(', ')}. See README.md for external tooling and environment setup.`,
+  );
+}
 const { chromium } = await import(process.env.MESHYARD_PLAYWRIGHT_MODULE);
 const { PNG } = await import(process.env.MESHYARD_PNG_MODULE);
 const root = fileURLToPath(new URL('../', import.meta.url));

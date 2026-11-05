@@ -289,6 +289,18 @@ No prior task status, review decision or owner decision is changed by this path-
   ADR-012 (Meshyard-owned `portmapper =0.19.3`, honest `NotObserved`). GitHub: `gh` not
   authenticated, mapping recorded in ROADMAP. Docs only, uncommitted in the T-002 worktree.
 
+- 2026-11-03 19:40 CET — Codex lead, owner-authorized L1 start: sourced the new USB env and
+  started `npm run dev` in canonical `t-001-scaffold` (source head `730a8bb`), detached and
+  left running. Port 1420 was free before start; Vite PID 90396 belongs to launcher
+  PID 90277 by recorded parent chain; localhost returned HTTP 200. Rust dev build finished
+  in 26.19 s and native PID 90403 is from this run. Initial on-screen-only query found no
+  window; subsequent CoreGraphics/AppKit metadata confirms a visible 960×680 window
+  (id 72683), app active/not hidden. Startup error scan: 0 error/fatal/panic lines.
+  Screen-capture preflight returned false: no screenshot, permission request or bypass.
+  Evidence/log: `/Volumes/MeshyardProjects/Meshyard-build/L1-start-20261103T183610Z` (`npm-run-dev.log`, process/window/final JSON).
+  Window remains open for Dion; visual content was not inspected or approved by the lead.
+  L1 remains pending Dion's confirmation; no Keychain test, merge, done status or T-003.
+
 - 2026-11-03 — Codex lead: Claude's re-review is confirmed complete (read-only run
   `d6837df0-8a3b-45a4-8805-2db0b8db3780`). All three code fixes accepted; wire v1 frozen;
   no code blockers. T-002 stays review until Dion's real native Keychain pass; T-001 still
@@ -397,6 +409,28 @@ No prior task status, review decision or owner decision is changed by this path-
   worktree at `330dd71`, under the owner exception recorded above. T-001 remains review
   with its native and first-launch acceptance gaps. No push; parent publishes after audit.
   Plan: frozen wire/domain/signatures/fold → threaded store/identity → offline checks/report.
+
+- 2026-11-03 07:46 CET — Codex lead status ping: no active Meshyard Smithers/`codex exec`
+  processes. T-002 fix run `ecc5ea73-ecc2-4cea-baec-1a1fe31d3348` completed implementation/checks;
+  its final-source audit failed on a 600-second idle timeout. Unrelated OpenTwin Smithers watcher
+  PID 2358 (`thinker-team-watch-20261031-1216`) remains active, untouched. Latest task commits:
+  `t-001-scaffold` / `ac125bb`, `t-002-core-store-identity` / `9889c7b`, both pushed; this
+  status-only commit follows. Blockers: low system disk (~1 GB reported, 2.1 GiB measured;
+  external build volume 55 GiB free), last Computer Use app-access denial and automatic-review
+  rejection of alternate Terminal launch (shell now unrestricted; GUI not retested), hook first
+  start above original <20 ms limit, Keychain positive check unavailable. Next: final-source
+  T-002 audit then Claude review; native T-001 recheck after app approval. No new run started.
+
+- 2026-11-03 — Bounded T-001 review cleanup: make the existing external headless CSP check
+  discoverable, use portable README setup, allow unwrap/expect only in tests through Clippy
+  configuration, and build only an rlib for the desktop app. Dependencies and production CSP
+  unchanged. Earlier worker-only T-002 restrictions are historical; the owner's permission
+  to start T-002 after review remains in force. This worker does not touch T-002. The owner
+  kept the original first-start `<20 ms` criterion; profiling found no credible fix. Automatic
+  approval review blocked Meshyard GUI launch/control; no native launch, capture, alternate
+  channel or visual acceptance is authorized by this cleanup. T-001 stays **review, not done**.
+  The existing main tracing event has no subscriber/console sink; observability and the later
+  agent-pipeline redaction layer are not implemented by this scaffold cleanup.
 
 - 2026-11-03 — Codex lead: T-001 review requested after clean-clone full checks/native build
   and red/green production-CSP rendering test. Native pre-fix bundle showed graphics fallback;

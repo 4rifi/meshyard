@@ -72,20 +72,22 @@ The real Tauri CLI built a debug `.app` at
 `/Volumes/Kursmodule/Meshyard-build/target/debug/bundle/macos/Meshyard.app`; static inspection
 confirmed the production `tauri/custom-protocol` feature and all 11 embedded frontend assets.
 The installed exact 1.99.1 pin resolved through external RUSTUP_HOME; target/cargo/npm caches
-also used the external build environment documented in README and the appended report.
+also used the external build environment documented in the dated report.
 
 The release hook built successfully. Of 51 silent launches, the first was 289.108791 ms;
 50 warm launches had median 2.026833 ms and maximum 3.010916 ms. The earlier 442.321500 ms
 first-launch failure remains recorded; the <20 ms criterion is still unmet. No native window,
 WKWebView rendering, or screenshot was verified by this worker. Historical ENOSPC/build failures
-are preserved in `docs/reports/T-001.md` alongside the successful recovery. Do not start T-002
-under this worker authorization.
+are preserved in `docs/reports/T-001.md` alongside the successful recovery. That recovery
+worker's authorization covered T-001 only; this historical worker boundary does not override
+the owner's later permission to start T-002 after T-001 reaches review (see HANDOFF).
 
 ## Review handoff (2026-11-03, updated by Codex, pending review)
 
 Full `npm run check` and native `npm run build` pass after the Pixi CSP repair. A real headless
 production-CSP regression fails before the fix and passes after it with the rectangle rendered;
 the CSP still blocks dynamic evaluation. Native retest of the corrected bundle is pending:
-Computer Use denied Meshyard screenshot access. The first-launch hook limit remains unmet;
-the owner's decision on Claude's proposed criterion is pending. Review is requested with those
-open acceptance items, not done/accepted. See `docs/reports/T-001.md` for real evidence and limits.
+Automatic approval review blocked native Meshyard launch/control. The first-launch hook limit
+remains unmet; the owner kept the original criterion and bounded profiling found no credible fix.
+Review is requested with those open acceptance items, not done/accepted.
+See `docs/reports/T-001.md` for real evidence and limits.

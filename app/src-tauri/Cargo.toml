@@ -7,7 +7,7 @@ publish.workspace = true
 
 [lib]
 name = "meshyard_app"
-crate-type = ["staticlib", "cdylib", "rlib"]
+crate-type = ["rlib"]
 
 [lints]
 workspace = true

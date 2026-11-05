@@ -72,3 +72,39 @@ blocks it; actual native IPC under this policy still needs owner verification.
 Evidence and explicit native/CSP boundaries: `docs/reports/T-014.md`. No numeric runtime-use
 percentage is claimed. See `docs/PROTOCOL.md` for normative guarantees; T-014 does not change
 wire v1. No license has been chosen (D-5); `LICENSE` is intentionally absent.
+
+## Optional external Rust build directory
+
+Set `CARGO_TARGET_DIR` to an absolute writable directory on another volume if local disk
+space is limited. Cargo and the Tauri CLI use it for Rust artifacts; the debug bundle is
+then at `$CARGO_TARGET_DIR/debug/bundle/macos/Meshyard.app` instead of
+`target/debug/bundle/macos/Meshyard.app`. Keep that volume mounted while building or using
+its artifacts. The pinned Rust version still applies. Recovery-specific environments and
+dated validation results are recorded in `docs/reports/T-001.md` and `docs/HANDOFF.md`.
+
+## Optional production-CSP regression
+
+`npm run check:csp` runs the existing headless browser regression separately from `check`.
+First run `npm run build:frontend` (or `npm run build`) to populate `app/dist`. Supply an
+already installed, compatible `playwright-core` module, `pngjs` module and Chromium headless
+shell externally; this command installs no packages and downloads no browser. The browser
+must support WebGL through ANGLE SwiftShader on the current platform.
+
+Set these environment variables before running the command:
+
+| Variable                       | Required value                                                                |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `MESHYARD_PLAYWRIGHT_MODULE`   | Absolute module file URL for the external `playwright-core/index.mjs`.        |
+| `MESHYARD_PNG_MODULE`          | Absolute module file URL for the external `pngjs/lib/png.js`.                 |
+| `MESHYARD_CHROMIUM_EXECUTABLE` | Absolute filesystem path to the installed Chromium headless-shell executable. |
+| `MESHYARD_CSP_OUTPUT`          | Writable evidence directory for `result.json` and `production-csp.png`.       |
+
+Module file URLs use `file:///...` (including a drive letter on Windows); absolute module
+filesystem paths also work on POSIX. Export variables with your shell's normal syntax,
+then run `npm run check:csp` from the repository root. Missing or empty variables cause an
+explicit setup error. Use a fresh output directory to keep earlier evidence.
+
+The runner serves production assets on an ephemeral loopback port with the exact CSP from
+`app/src-tauri/tauri.conf.json`, blocks off-origin requests and checks real rendered pixels
+and dynamic-evaluation denial. Its screenshot is headless Chromium evidence; native
+WKWebView rendering and native window acceptance require separate verification.
