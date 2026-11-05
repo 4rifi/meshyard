@@ -41,7 +41,8 @@ fn exact_review_plan_apply_backup_idempotence_and_reverse_preserve_unrelated_byt
             &Document::parse(before).unwrap().hooks,
             &Document::parse(&installer.pending.as_ref().unwrap().after)
                 .unwrap()
-                .hooks
+                .hooks,
+            &installer.display_path()
         )
         .unwrap()
     );
@@ -290,4 +291,80 @@ fn missing_settings_parent_is_created_private_only_on_apply() {
         0o600
     );
     assert_eq!(fs::read_dir(parent).unwrap().count(), 1);
+}
+
+#[test]
+fn codex_plan_is_explicit_preserves_backup_and_rejects_stale_changes() {
+    let (_dir, mut installer) = fixture();
+    installer.kind = AgentKind::Codex;
+    installer.settings = installer.settings.with_file_name("hooks.json");
+    let before = b"{\"description\": \"keep exact bytes\", \"hooks\":{}}\n";
+    write(&installer, before);
+    let plan = installer.plan(false).unwrap();
+    assert_eq!(
+        plan.settings_path_display,
+        installer.settings.to_string_lossy()
+    );
+    assert!(plan.diff.contains(" codex --socket "));
+    assert!(!plan.diff.contains("StopFailure"));
+    assert_eq!(fs::read(&installer.settings).unwrap(), before);
+    installer.apply(&plan.plan_id).unwrap();
+    assert!(installer.view().unwrap().installed);
+    let after = fs::read(&installer.settings).unwrap();
+    let document = Document::parse(&after).unwrap();
+    assert_eq!(document.hooks.as_object().unwrap().len(), 6);
+    assert!(after.starts_with(b"{\"description\": \"keep exact bytes\", "));
+    let backup = fs::read_dir(installer.settings.parent().unwrap())
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("hooks.json.meshyard-backup-")
+        })
+        .unwrap();
+    assert_eq!(fs::read(&backup).unwrap(), before);
+    assert_eq!(installer.plan(false).unwrap().action, HookAction::NoChange);
+    let removal = installer.plan(true).unwrap();
+    let edited = [after.as_slice(), b" "].concat();
+    fs::write(&installer.settings, &edited).unwrap();
+    assert_eq!(
+        installer.apply(&removal.plan_id),
+        Err(AppError::HookPlanStale)
+    );
+    assert_eq!(fs::read(&installer.settings).unwrap(), edited);
+    assert_eq!(fs::read(&backup).unwrap(), before);
+    let removal = installer.plan(true).unwrap();
+    installer.apply(&removal.plan_id).unwrap();
+    assert!(!installer.view().unwrap().installed);
+    assert_eq!(
+        Document::parse(&fs::read(&installer.settings).unwrap())
+            .unwrap()
+            .hooks,
+        json!({})
+    );
+}
+
+#[test]
+fn app_translocation_dmg_and_temporary_bundle_paths_cannot_be_installed() {
+    let (_dir, mut installer) = fixture();
+    for binary in [
+        "/private/var/folders/AppTranslocation/uuid/d/Meshyard.app/Contents/MacOS/meshyard-hook",
+        "/Volumes/Meshyard/Meshyard.app/Contents/MacOS/meshyard-hook",
+        "/temporary/Meshyard.app/Contents/MacOS/meshyard-hook",
+    ] {
+        installer.binary = Some(PathBuf::from(binary));
+        assert_eq!(installer.plan(false), Err(AppError::HookInstallLocation));
+        assert!(!installer.settings.exists());
+    }
+    installer.binary = Some(PathBuf::from(
+        "/Applications/Meshyard.app/Contents/MacOS/meshyard-hook",
+    ));
+    assert!(
+        installer
+            .command()
+            .unwrap()
+            .starts_with("'/Applications/Meshyard.app/")
+    );
 }

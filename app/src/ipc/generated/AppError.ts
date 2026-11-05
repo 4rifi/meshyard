@@ -21,5 +21,6 @@ export type AppError =
   | 'IpcUnavailable'
   | 'IngestUnavailable'
   | 'HookBinaryMissing'
+  | 'HookInstallLocation'
   | 'HookPlanStale'
   | 'HookConfigInvalid';

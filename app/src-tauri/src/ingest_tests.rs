@@ -676,6 +676,7 @@ async fn prep_counted_app_status_idle_and_binding_use_projection_across_store_cl
         app: None,
         ingest: Arc::default(),
         installer: None,
+        codex_installer: None,
     };
     ready(
         core.create(CreateWorkspace {
@@ -864,6 +865,7 @@ async fn prep_rate_deadline_starts_after_async_persistence_not_receive_sample() 
         app: None,
         ingest: Arc::default(),
         installer: None,
+        codex_installer: None,
     };
     ready(
         core.create(CreateWorkspace {
@@ -1168,7 +1170,7 @@ async fn connect_dto_clock_only_staleness_binding_authority_and_disabled_setting
             &state,
             RegisterAgent {
                 kind: AgentKind::Codex,
-                label: "unsupported".into(),
+                label: "Codex".into(),
             },
         )
         .await,
@@ -1179,9 +1181,20 @@ async fn connect_dto_clock_only_staleness_binding_authority_and_disabled_setting
         .find(|a| a.kind == AgentKind::Codex)
         .unwrap();
     assert_eq!(codex.connection, AgentConnection::NotConnected);
+    let rebound = ready(bind_agent(&state, codex.id.clone()).await);
+    let rebound_codex = rebound.agents.iter().find(|a| a.id == codex.id).unwrap();
+    assert!(rebound_codex.bound);
     assert_eq!(
-        bind_agent(&state, codex.id.clone()).await,
-        AppStatus::Error(AppError::InvalidInput)
+        rebound_codex.connection,
+        AgentConnection::NotConnected,
+        "binding alone cannot claim installed hooks"
+    );
+    assert!(
+        rebound
+            .agents
+            .iter()
+            .any(|a| a.kind == AgentKind::ClaudeCode && a.bound),
+        "Codex binding leaves Claude binding intact"
     );
     let (foreign_id, own_id) = {
         let guard = state.0.lock().await;
@@ -1236,14 +1249,14 @@ async fn connect_dto_clock_only_staleness_binding_authority_and_disabled_setting
         bind_agent(&state, foreign_id).await,
         AppStatus::Error(AppError::InvalidInput)
     );
-    assert_eq!(
-        ready(bind_agent(&state, own_id).await)
-            .agents
-            .iter()
-            .filter(|a| a.bound)
-            .count(),
-        1
-    );
+    let rebound = ready(bind_agent(&state, own_id.clone()).await);
+    let bound_ids: std::collections::BTreeSet<_> = rebound
+        .agents
+        .iter()
+        .filter(|a| a.bound)
+        .map(|a| a.id.clone())
+        .collect();
+    assert_eq!(bound_ids, [own_id, codex.id.clone()].into_iter().collect());
     let removal = hook_remove(&state).await.unwrap();
     assert!(
         ready(app_status(&state).await).hook.installed,

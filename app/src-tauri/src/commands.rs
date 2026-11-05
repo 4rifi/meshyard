@@ -57,6 +57,17 @@ async fn plan(state: &AppState, remove: bool) -> Result<HookPlan, AppError> {
         Err(error) => Err(error.clone()),
     }
 }
+pub async fn hook_plan_for(
+    state: &AppState,
+    remove: bool,
+    kind: meshyard_core::AgentKind,
+) -> Result<HookPlan, AppError> {
+    let mut guard = state.0.lock().await;
+    match guard.as_mut() {
+        Ok(core) => core.hook_plan_for(remove, kind),
+        Err(error) => Err(error.clone()),
+    }
+}
 pub async fn hook_apply(state: &AppState, plan_id: String) -> AppStatus {
     let mut guard = state.0.lock().await;
     match guard.as_mut() {
@@ -102,12 +113,28 @@ pub(crate) mod ipc {
         Ok(super::bind_agent(&state, agent_id).await)
     }
     #[tauri::command]
-    pub async fn hook_plan(state: tauri::State<'_, AppState>) -> Result<HookPlan, AppError> {
-        super::hook_plan(&state).await
+    pub async fn hook_plan(
+        state: tauri::State<'_, AppState>,
+        kind: Option<meshyard_core::AgentKind>,
+    ) -> Result<HookPlan, AppError> {
+        super::hook_plan_for(
+            &state,
+            false,
+            kind.unwrap_or(meshyard_core::AgentKind::ClaudeCode),
+        )
+        .await
     }
     #[tauri::command]
-    pub async fn hook_remove(state: tauri::State<'_, AppState>) -> Result<HookPlan, AppError> {
-        super::hook_remove(&state).await
+    pub async fn hook_remove(
+        state: tauri::State<'_, AppState>,
+        kind: Option<meshyard_core::AgentKind>,
+    ) -> Result<HookPlan, AppError> {
+        super::hook_plan_for(
+            &state,
+            true,
+            kind.unwrap_or(meshyard_core::AgentKind::ClaudeCode),
+        )
+        .await
     }
     #[tauri::command]
     pub async fn hook_apply(

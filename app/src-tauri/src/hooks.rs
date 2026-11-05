@@ -1,5 +1,6 @@
 //! Explicit, reviewed user-scope installer. Construction/planning never writes.
 use crate::view::{AppError, HookAction, HookPlan, HookView};
+use meshyard_core::AgentKind;
 use meshyard_store::process_lock::settings_directory;
 use serde::{
     Deserialize, Deserializer,
@@ -16,6 +17,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Tauri external binaries are placed beside the main executable in Contents/MacOS.
+/// Explicit overrides support isolated development profiles; ordinary installs need none.
+pub fn bundled_binary() -> Option<PathBuf> {
+    std::env::var_os("MESHYARD_HOOK_BIN")
+        .map(PathBuf::from)
+        .or_else(|| {
+            let executable = std::env::current_exe().ok()?;
+            Some(executable.parent()?.join("meshyard-hook"))
+        })
+        .map(|path| fs::canonicalize(&path).unwrap_or(path))
+}
+
 const EVENTS: [&str; 7] = [
     "SessionStart",
     "UserPromptSubmit",
@@ -25,6 +38,14 @@ const EVENTS: [&str; 7] = [
     "StopFailure",
     "SessionEnd",
 ];
+const CODEX_EVENTS: [&str; 6] = [
+    "SessionStart",
+    "UserPromptSubmit",
+    "PreToolUse",
+    "PostToolUse",
+    "Stop",
+    "SessionEnd",
+];
 const MAX_SETTINGS: u64 = 1024 * 1024;
 
 pub struct Installer {
@@ -32,6 +53,7 @@ pub struct Installer {
     binary: Option<PathBuf>,
     socket: PathBuf,
     pending: Option<Pending>,
+    kind: AgentKind,
 }
 struct Pending {
     view: HookPlan,
@@ -122,15 +144,48 @@ impl Installer {
             binary,
             socket,
             pending: None,
+            kind: AgentKind::ClaudeCode,
         }
+    }
+    pub fn for_kind(mut self, kind: AgentKind) -> Self {
+        self.kind = kind;
+        self
+    }
+    pub fn has_plan(&self, id: &str) -> bool {
+        self.pending.as_ref().is_some_and(|p| p.view.plan_id == id)
+    }
+    fn events(&self) -> &[&str] {
+        if self.kind == AgentKind::Codex {
+            &CODEX_EVENTS
+        } else {
+            &EVENTS
+        }
+    }
+    fn display_path(&self) -> String {
+        self.settings.to_string_lossy().into_owned()
     }
     fn command(&self) -> Result<String, AppError> {
         let binary = self.binary.as_ref().ok_or(AppError::HookBinaryMissing)?;
         if !binary.is_absolute() || !self.socket.is_absolute() {
             return Err(AppError::HookBinaryMissing);
         }
+        if binary
+            .components()
+            .any(|c| c.as_os_str() == "AppTranslocation")
+            || (binary
+                .components()
+                .any(|c| c.as_os_str().to_string_lossy().ends_with(".app"))
+                && !binary.starts_with("/Applications"))
+        {
+            return Err(AppError::HookInstallLocation);
+        }
+        let adapter = if self.kind == AgentKind::Codex {
+            "codex"
+        } else {
+            "claude-code"
+        };
         Ok(format!(
-            "{} claude-code --socket {}",
+            "{} {adapter} --socket {}",
             quote(binary)?,
             quote(&self.socket)?
         ))
@@ -152,7 +207,12 @@ impl Installer {
     pub fn view(&self) -> Result<HookView, AppError> {
         let before = self.read()?;
         let installed = match (before.as_deref(), self.command()) {
-            (Some(bytes), Ok(command)) => installed(&Document::parse(bytes)?.hooks, &command),
+            (Some(bytes), Ok(command)) => {
+                let document = Document::parse(bytes)?;
+                self.events()
+                    .iter()
+                    .all(|event| event_installed(&document.hooks, event, &command))
+            }
             (Some(bytes), Err(_)) => {
                 Document::parse(bytes)?;
                 false
@@ -172,7 +232,7 @@ impl Installer {
         let before = self.read()?;
         let document = Document::parse(before.as_deref().unwrap_or(b"{}\n"))?;
         let mut after_hooks = document.hooks.clone();
-        for event in EVENTS {
+        for &event in self.events() {
             if remove {
                 if let Some(groups) = after_hooks.get_mut(event).and_then(Value::as_array_mut) {
                     for group in groups.iter_mut() {
@@ -216,9 +276,9 @@ impl Installer {
         getrandom::fill(&mut id).map_err(|_| AppError::RandomUnavailable)?;
         let view = HookPlan {
             plan_id: id.iter().map(|b| format!("{b:02x}")).collect(),
-            settings_path_display: "~/.claude/settings.json".into(),
+            settings_path_display: self.display_path(),
             base_sha256: hash(before.as_deref().unwrap_or_default()),
-            diff: diff(&document.hooks, &after_hooks)?,
+            diff: diff(&document.hooks, &after_hooks, &self.display_path())?,
             action: if !changed {
                 HookAction::NoChange
             } else if remove {
@@ -277,7 +337,11 @@ impl Installer {
             let mut backup_file = None;
             for offset in 0..16 {
                 let backup = parent.join(format!(
-                    "settings.json.meshyard-backup-{}",
+                    "{}.meshyard-backup-{}",
+                    self.settings
+                        .file_name()
+                        .and_then(|s| s.to_str())
+                        .ok_or(AppError::Configuration)?,
                     now.saturating_add(offset)
                 ));
                 match OpenOptions::new()
@@ -381,12 +445,7 @@ fn event_installed(hooks: &Value, event: &str, command: &str) -> bool {
             })
         })
 }
-fn installed(hooks: &Value, command: &str) -> bool {
-    EVENTS
-        .iter()
-        .all(|event| event_installed(hooks, event, command))
-}
-fn diff(before: &Value, after: &Value) -> Result<String, AppError> {
+fn diff(before: &Value, after: &Value, settings: &str) -> Result<String, AppError> {
     if before == after {
         return Ok(format!(
             "No changes to hooks.\n{}\n",
@@ -399,7 +458,7 @@ fn diff(before: &Value, after: &Value) -> Result<String, AppError> {
     let after = serde_json::to_string_pretty(&json!({"hooks":after}))
         .map_err(|_| AppError::HookConfigInvalid)?;
     let mut out = format!(
-        "--- ~/.claude/settings.json (hooks)\n+++ ~/.claude/settings.json (hooks)\n@@ -1,{} +1,{} @@\n",
+        "--- {settings} (hooks)\n+++ {settings} (hooks)\n@@ -1,{} +1,{} @@\n",
         before.lines().count(),
         after.lines().count()
     );

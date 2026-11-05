@@ -14,4 +14,5 @@ export type WorkspaceView = {
   agents: Array<AgentView>;
   ingest: IngestView;
   hook: HookView;
+  codex_hook: HookView;
 };

@@ -16,6 +16,7 @@ pub struct AppCore {
     pub(crate) app: Option<tauri::AppHandle>,
     pub(crate) ingest: Arc<IngestMetadata>,
     pub(crate) installer: Option<Installer>,
+    pub(crate) codex_installer: Option<Installer>,
 }
 pub struct AppState(
     pub(crate) Arc<Mutex<Result<AppCore, AppError>>>,
@@ -86,6 +87,7 @@ impl AppState {
                         app: None,
                         ingest: ingest.clone(),
                         installer: None,
+                        codex_installer: None,
                     }))),
                     Mutex::new(None),
                     ingest,
@@ -122,13 +124,31 @@ impl AppState {
             // Production paths are activated only by the native attachment, never inferred
             // from file-key mode (which is also used by developer profiles). No writes here.
             if core.installer.is_none()
-                && let Ok(home) = app.path().home_dir()
+                && let Ok(home) = std::env::var_os("MESHYARD_HOOK_HOME")
+                    .map(PathBuf::from)
+                    .map(Ok)
+                    .unwrap_or_else(|| app.path().home_dir())
             {
                 core.installer = Some(Installer::new(
                     home.join(".claude/settings.json"),
-                    std::env::var_os("MESHYARD_HOOK_BIN").map(PathBuf::from),
+                    crate::hooks::bundled_binary(),
                     core.store.directory().join("ingest/ingest.sock"),
                 ));
+            }
+            if core.codex_installer.is_none()
+                && let Ok(home) = std::env::var_os("MESHYARD_HOOK_HOME")
+                    .map(PathBuf::from)
+                    .map(Ok)
+                    .unwrap_or_else(|| app.path().home_dir())
+            {
+                core.codex_installer = Some(
+                    Installer::new(
+                        home.join(".codex/hooks.json"),
+                        crate::hooks::bundled_binary(),
+                        core.store.directory().join("ingest/ingest.sock"),
+                    )
+                    .for_kind(AgentKind::Codex),
+                );
             }
             core.app = Some(app);
         }
@@ -141,6 +161,18 @@ impl AppState {
                 binary,
                 core.store.directory().join("ingest/ingest.sock"),
             ));
+        }
+    }
+    pub async fn configure_codex_hooks(&self, settings: PathBuf, binary: Option<PathBuf>) {
+        if let Ok(core) = self.0.lock().await.as_mut() {
+            core.codex_installer = Some(
+                Installer::new(
+                    settings,
+                    binary,
+                    core.store.directory().join("ingest/ingest.sock"),
+                )
+                .for_kind(AgentKind::Codex),
+            );
         }
     }
     /// Stop/join the listener and all bounded readers before releasing the profile lock.
@@ -196,6 +228,24 @@ impl AppCore {
             .agent_binding(id, AgentKind::ClaudeCode, self.signer.clone())
             .await
             .map_err(storage_error)?;
+        let codex_binding = self
+            .store
+            .agent_binding(id, AgentKind::Codex, self.signer.clone())
+            .await
+            .map_err(storage_error)?;
+        let codex_hook = self
+            .codex_installer
+            .as_ref()
+            .map(|installer| {
+                installer.view().unwrap_or_else(|_| HookView {
+                    installed: false,
+                    binary_available: installer.binary_available(),
+                })
+            })
+            .unwrap_or(HookView {
+                installed: false,
+                binary_available: false,
+            });
         let hook = self
             .installer
             .as_ref()
@@ -229,8 +279,11 @@ impl AppCore {
                 .into_iter()
                 .map(|a| {
                     let bound = a.author == device
-                        && a.kind == AgentKind::ClaudeCode
-                        && binding == Some(a.local_id);
+                        && match a.kind {
+                            AgentKind::ClaudeCode => binding == Some(a.local_id),
+                            AgentKind::Codex => codex_binding == Some(a.local_id),
+                            _ => false,
+                        };
                     let stale = a.provenance.is_some()
                         && state
                             .agent_state_ts
@@ -242,7 +295,12 @@ impl AppCore {
                                     Duration::from_millis(now),
                                 )
                             });
-                    let connection = if !bound || !hook.installed {
+                    let connection = if !bound
+                        || !(if a.kind == AgentKind::Codex {
+                            codex_hook.installed
+                        } else {
+                            hook.installed
+                        }) {
                         AgentConnection::NotConnected
                     } else if a.provenance.is_none() {
                         AgentConnection::WaitingForFirstEvent
@@ -276,6 +334,7 @@ impl AppCore {
                 dropped_invalid: self.ingest.dropped_invalid.load(Ordering::Relaxed),
             },
             hook,
+            codex_hook,
         }))
     }
     pub(crate) async fn create(&mut self, input: CreateWorkspace) -> Result<AppStatus, AppError> {
@@ -379,7 +438,7 @@ impl AppCore {
             .await
             .map_err(storage_error)?
             .ok_or(AppError::InvalidInput)?;
-        if agent.kind != AgentKind::ClaudeCode {
+        if !matches!(agent.kind, AgentKind::ClaudeCode | AgentKind::Codex) {
             return Err(AppError::InvalidInput);
         }
         self.store
@@ -390,31 +449,52 @@ impl AppCore {
         self.status().await
     }
     pub(crate) fn hook_plan(&mut self, remove: bool) -> Result<HookPlan, AppError> {
+        self.hook_plan_for(remove, AgentKind::ClaudeCode)
+    }
+    pub(crate) fn hook_plan_for(
+        &mut self,
+        remove: bool,
+        kind: AgentKind,
+    ) -> Result<HookPlan, AppError> {
         self.workspace.ok_or(AppError::NoWorkspace)?;
-        self.installer
+        let installer = match kind {
+            AgentKind::ClaudeCode => &mut self.installer,
+            AgentKind::Codex => &mut self.codex_installer,
+            _ => return Err(AppError::InvalidInput),
+        };
+        installer
             .as_mut()
             .ok_or(AppError::HookBinaryMissing)?
             .plan(remove)
     }
     pub(crate) async fn hook_apply(&mut self, plan_id: String) -> Result<AppStatus, AppError> {
         let id = self.workspace.ok_or(AppError::NoWorkspace)?;
-        if self
-            .installer
+        let kind = if self
+            .codex_installer
             .as_ref()
-            .is_some_and(Installer::requires_binding)
+            .is_some_and(|i| i.has_plan(&plan_id))
+        {
+            AgentKind::Codex
+        } else {
+            AgentKind::ClaudeCode
+        };
+        let installer = if kind == AgentKind::Codex {
+            &mut self.codex_installer
+        } else {
+            &mut self.installer
+        };
+        let installer = installer.as_mut().ok_or(AppError::HookBinaryMissing)?;
+        if installer.requires_binding()
             && self
                 .store
-                .agent_binding(id, AgentKind::ClaudeCode, self.signer.clone())
+                .agent_binding(id, kind, self.signer.clone())
                 .await
                 .map_err(storage_error)?
                 .is_none()
         {
             return Err(AppError::InvalidInput);
         }
-        self.installer
-            .as_mut()
-            .ok_or(AppError::HookBinaryMissing)?
-            .apply(&plan_id)?;
+        installer.apply(&plan_id)?;
         self.changed();
         self.status().await
     }

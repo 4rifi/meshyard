@@ -568,3 +568,119 @@ async fn actual_file_identity_and_data_directory_failures_are_typed_without_repl
     assert!(!dir.path().join("identity").exists());
     state.close().await.unwrap();
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "explicit APFS hook binary path required; isolated executable-to-store smoke"]
+async fn isolated_hook_executable_routes_both_agent_kinds_and_reopens_state() {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let binary = std::path::PathBuf::from(
+        std::env::var_os("MESHYARD_TEST_HOOK_BIN").expect("explicit built hook"),
+    );
+    assert!(binary.starts_with("/Volumes/TokensAbuse/"));
+    let dir = profile();
+    let home = dir.path().join("home");
+    std::fs::create_dir(&home).unwrap();
+    let data = dir.path().join("data");
+    let state = AppState::open(data.clone(), true).await;
+    ready(create_workspace(&state, create_input()).await);
+    state
+        .configure_hooks(home.join(".claude/settings.json"), Some(binary.clone()))
+        .await;
+    state
+        .configure_codex_hooks(home.join(".codex/hooks.json"), Some(binary.clone()))
+        .await;
+    for (kind, adapter, fixtures) in [
+        (
+            AgentKind::ClaudeCode,
+            "claude-code",
+            "claude-code-doc-derived-2026-11-03",
+        ),
+        (AgentKind::Codex, "codex", "codex-doc-derived-2026-11-05"),
+    ] {
+        let registered = ready(
+            register_agent(
+                &state,
+                RegisterAgent {
+                    kind,
+                    label: adapter.into(),
+                },
+            )
+            .await,
+        );
+        let agent = registered.agents.iter().find(|a| a.kind == kind).unwrap();
+        let id = agent.id.clone();
+        ready(bind_agent(&state, id.clone()).await);
+        let plan = hook_plan_for(&state, false, kind).await.unwrap();
+        assert!(plan.diff.contains(adapter));
+        ready(hook_apply(&state, plan.plan_id).await);
+        for (event, expected) in [
+            ("UserPromptSubmit", ActivityState::Thinking),
+            ("PreToolUse", ActivityState::Building),
+            ("Stop", ActivityState::Finished),
+        ] {
+            let raw = std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+                format!("../../crates/meshyard-agents/tests/fixtures/{fixtures}/{event}.json"),
+            ))
+            .unwrap();
+            let mut child = Command::new(&binary)
+                .args([adapter, "--socket"])
+                .arg(data.join("ingest/ingest.sock"))
+                .env("HOME", &home)
+                .current_dir(dir.path())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            child.stdin.take().unwrap().write_all(&raw).unwrap();
+            let output = child.wait_with_output().unwrap();
+            assert!(output.status.success());
+            assert!(output.stdout.is_empty() && output.stderr.is_empty());
+            tokio::time::timeout(std::time::Duration::from_secs(6), async {
+                loop {
+                    let view = ready(app_status(&state).await);
+                    let agent = view.agents.iter().find(|a| a.id == id).unwrap();
+                    if agent.state == Some(expected) {
+                        if kind == AgentKind::Codex {
+                            assert!(
+                                view.agents
+                                    .iter()
+                                    .filter(|a| a.kind == AgentKind::ClaudeCode)
+                                    .all(|a| a.state == Some(ActivityState::Finished)),
+                                "Codex events must not change the Claude agent"
+                            );
+                        }
+                        assert_eq!(agent.connection, AgentConnection::Connected);
+                        assert!(agent.provenance.is_some());
+                        break;
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                }
+            })
+            .await
+            .unwrap();
+        }
+    }
+    state.close().await.unwrap();
+    let reopened = AppState::open(data, true).await;
+    let view = ready(app_status(&reopened).await);
+    assert_eq!(view.agents.len(), 2);
+    assert!(
+        view.agents
+            .iter()
+            .all(|a| a.state == Some(ActivityState::Finished))
+    );
+    for kind in [AgentKind::ClaudeCode, AgentKind::Codex] {
+        reopened
+            .configure_hooks(home.join(".claude/settings.json"), Some(binary.clone()))
+            .await;
+        reopened
+            .configure_codex_hooks(home.join(".codex/hooks.json"), Some(binary.clone()))
+            .await;
+        let plan = hook_plan_for(&reopened, true, kind).await.unwrap();
+        assert_eq!(plan.action, HookAction::Remove);
+        ready(hook_apply(&reopened, plan.plan_id).await);
+    }
+    reopened.close().await.unwrap();
+}

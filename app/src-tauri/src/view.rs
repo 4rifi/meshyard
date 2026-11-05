@@ -25,6 +25,7 @@ pub enum AppError {
     IpcUnavailable,
     IngestUnavailable,
     HookBinaryMissing,
+    HookInstallLocation,
     HookPlanStale,
     HookConfigInvalid,
 }
@@ -44,6 +45,7 @@ pub struct WorkspaceView {
     pub agents: Vec<AgentView>,
     pub ingest: IngestView,
     pub hook: HookView,
+    pub codex_hook: HookView,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 pub struct MemberView {
