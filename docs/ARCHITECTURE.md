@@ -358,6 +358,36 @@ Pattern matching runs inside `meshyard-hook` on the local command string; only t
   with `minimal()` a relay is only measured via QUIC address discovery; without it no home relay is
   selected and `online()` never resolves (see T-003 review finding 1).
 
+- **ADR-016** Strict release compilation (architect approved 2026-11-05,
+  `logs/architect-strict-build-1.log`): vendored iroh 1.3.0 exposes a `strict-only`
+  feature propagated by Meshyard net/app/node release roots. It removes public
+  production/staging relay defaults, N0 presets, and DNS/pkarr discovery modules.
+  The generic staggering schedule moves to the discovery parent module for custom
+  resolver compatibility. Exact feature delta (including the maintained source manifest): `vendor/iroh-1.3.0-strict.patch`;
+  archive provenance and application order: vendor PROVENANCE.md. No host strings
+  are substituted/hidden and the bundle guard stays unchanged. Default development
+  behavior and ADR-013 TLS proof remain intact. Reapply both documented patches and
+  rerun all security/transport and binary checks on upstream changes. Signed wire
+  v1 remains frozen. The first node release without this feature failed its guard;
+  the feature-gated node passed actual binary inspection.
+
+- **ADR-017** Pair recovery clarification (architect security review 2026-11-05,
+  `logs/architect-security-1.log`): a completed invitation may replay Confirm/Welcome
+  only to the same authenticated joiner with the same token and nonce within the
+  original five-minute reservation window. It never writes another MemberAdded.
+  Incoming replay admission is peer-bound; a pending outgoing join pins only its
+  intended owner and never opens inbound pairing. Human confirmation waits up to
+  that reservation deadline for the first frame byte, while an actual started
+  frame retains its 30-second deadline and 16-KiB limit. A local identity-bound
+  pending-join record atomically saves verified genesis, owner direct address,
+  intended profile and the explicitly confirmed transcript. Only that record
+  allows reopening before signed membership arrives; arbitrary workspaces/contacts
+  do not bypass identity mismatch. Owner-only sync then supplies the signed grant;
+  the joiner's own ProfileUpdated and pending-record removal commit together.
+  No signed wire v1 format or authority changes. Two real 31-second confirmation
+  orders and an actual Welcome followed by killed/reopened production-core child
+  processes are regression checked. See REWORK for exact commands and outcomes.
+
 ## 11. Pinned versions
 
 Updated by Codex, pending review (T-001, verified 2026-11-02 UTC).

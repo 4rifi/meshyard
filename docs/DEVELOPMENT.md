@@ -126,3 +126,35 @@ The screenshot harness now records both full-page and actual viewport PNGs at
 regression and a real mock-DTO reduced-motion transition. These remain synthetic
 IPC evidence. Profile save and review actions have explicit viewport visibility
 assertions. Yard, Agent list and Settings are separate reachable views.
+
+## Strict P2P and recovery evidence
+
+`meshyard-node` uses the same AppState, ingest, pairing and sync backend as native
+IPC. Run it with an explicit temporary `--data-dir` and `--key-store file` for
+checks. JSON requests arrive on bounded stdin; invitations never belong in argv
+or logs. Networking starts only by an explicit request or a previously confirmed,
+identity-bound pending join. Use `MESHYARD_TEST_DISABLE_MAPPING=1` in local fixtures
+to avoid touching a router; this does not change crypto, admission or sync.
+
+Build the final release harness with `cargo build --locked --release --target
+aarch64-apple-darwin -p meshyard-node --features strict-only`. Set
+`MESHYARD_TEST_NODE_BIN` to that binary and `MESHYARD_TEST_HOOK_BIN` to the actual
+copied package helper, then run `python3 scripts/check-p2p-processes.py`. The script
+uses only APFS profiles, records binary hashes and cleans up only its own children.
+
+The explicit post-Welcome crash check is an ignored, externally configured test:
+`MESHYARD_TEST_NODE_BIN=<strict release node> MESHYARD_TEST_DISABLE_MAPPING=1 cargo
+test -p meshyard-app --test pair_recovery
+welcome_then_crash_reopens_same_identity_and_resumes_signed_membership -- --ignored
+--exact --nocapture`. It performs real pairing, stops the owner after Welcome,
+kills/reopens its owned headless joiner, restores the owner and verifies the same
+identity and signed membership/profile sync. Test profiles/logs remain on APFS.
+
+The vendor's Strict feature is maintained in Cargo.toml.orig; regenerate the
+normalized manifest with `scripts/generate-iroh-strict-manifest.py` using the
+hash-verified original archive. Apply the TLS and Strict patches in the documented
+order, and retain capability compile-fail checks and actual release bundle scans.
+`scripts/check-package.py` verifies/copies the DMG without launching it;
+`scripts/check-package-smoke.py` is reserved for parent-owned direct native smoke.
+Browser QA uses only deliberately invalid invitation strings and exports explicit
+mock labels. It cannot certify native QR scanning, Retina or real CLI emission.

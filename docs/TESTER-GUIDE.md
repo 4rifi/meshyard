@@ -1,8 +1,7 @@
 # Meshyard testen
 
-Das Paket `Meshyard_0.2.0_aarch64.dmg` liegt neben dieser Anleitung.
-DMG-Prüfsumme, schreibgeschütztes Einhängen und die strenge Signaturprüfung
-der kopierten App wurden geprüft. Der erste produktive Keychain-Paketstart
+Das Paket `Meshyard_0.3.0_aarch64.dmg` liegt neben dieser Anleitung.
+Den genauen Stand der DMG-, Signatur- und Laufprüfungen nennt REPORT.md. Der erste produktive Keychain-Paketstart
 bleibt der unten beschriebene persönliche Checkpoint.
 
 1. DMG öffnen, Meshyard nach `/Applications` ziehen, DMG auswerfen.
@@ -39,7 +38,7 @@ Nachweis erfolgreicher Arbeit. „Inferred“ ist eine Tool-/Befehlsklassifikati
 Review, Fix und Waiting sind nicht unterstützt. Codex-Modellfehler werden nicht
 als belegter StopFailure ausgegeben. Ohne Ereignisse erscheint kein erfundener
 Status. Aktive Zustände werden nach zehn Minuten als unbekannt markiert;
-Finished geht nach einer Minute auf Idle. P2P-Pairing ist noch nicht verfügbar.
+Finished geht nach einer Minute auf Idle. Zum Teilen dient die Ansicht **Peers**.
 
 Bei Problemen: ursprüngliche Identität behalten, Schlüsselbund entsperren,
 CLI-Hook-Vertrauen kontrollieren, die App aus Programme neu öffnen. Fehler beim
@@ -71,11 +70,44 @@ Nachweis echter CLI-Ereignisse oder nativer Paketdarstellung.
 ## Ansichten
 
 **Yard**, **Agent list** und **Settings** sind getrennte, per Tab/Enter erreichbare
-Ansichten. Im Yard stehen auch Review, Fix und Waiting als schraffierte, noch
-nicht von Hooks gemeldete Plätze. Die Karte bleibt bei drei Agenten an drei
-verschiedenen Stationen eine einzige Karte. Nur tatsächlich volle Stationen
-erhalten zusätzliche, mit „+“ bezeichnete Plätze; die Liste zeigt alle Namen.
+Ansichten. Dions Inselkarte zeigt elf feste Gebäude; Review, Fix und Waiting bleiben
+sichtbar reserviert, ohne erfundene Hook-Aktivität. Pro Station stehen höchstens
+drei Avatare vor der Tür; die Zahl am Gebäude zählt alle Agenten und **Agent list**
+zeigt auch weitere Namen. Die Karte bleibt unverändert angeordnet und wird nur
+ganzzahlig vergrößert. Bei kleinen Fenstern mit Touch/Scrollbalken verschieben
+oder die Karte mit Tab fokussieren und mit Pfeiltasten horizontal/vertikal bewegen.
 Der Inspector erscheint als Dialog direkt im Fenster; Escape oder Schließen
 gibt den Fokus zurück. In Settings steht die Profilbearbeitung oben.
 Beim Installieren bleibt nur der genaue Diff scrollbar; Install/Cancel/Close
 bleiben separat erreichbar. Die technische Basishash-Angabe ist aufklappbar.
+
+## Einen zweiten Teilnehmer verbinden
+
+1. Der Workspace-Eigentümer öffnet **Peers** → **Create private invite** →
+   **Show private link and QR**. Der Link ist einmalig, 15 Minuten gültig und enthält
+   direkte IP-Adressen dieses Geräts. Nur privat weitergeben, niemals protokollieren.
+2. Auf einem frischen Profil **Join existing workspace** wählen, Anzeigenamen
+   eingeben und den Link einfügen. Ein Klick auf den Betriebssystem-Link startet
+   den Beitritt noch nicht automatisch. Ein nativer QR-Scan wurde nicht geprüft.
+3. Alle sechs Wörter auf beiden Geräten per vertrauenswürdigem Anruf oder persönlich
+   vergleichen. Beide drücken **Words match**. Bei Abweichung **Reject mismatch**
+   und einen neuen Link anfordern. Eine einseitige Bestätigung gewährt keine Mitgliedschaft.
+4. Jeder registriert und verbindet seine eigenen Agenten. Der andere Yard zeigt
+   deren signierte Aktivität und Herkunft. „Synced activity (last known)“ ist der
+   letzte gespeicherte Zustand; der aktuelle direkte Pfad steht unter **Peers**.
+5. Eine unterbrochene Reservierung kann innerhalb von fünf Minuten mit derselben
+   Identität und Nonce fortgesetzt werden. Wurde bereits Welcome bestätigt, aber
+   die signierte Mitgliedschaft fehlt noch, erscheint **Waiting for owner**.
+   Dieser Beitritt wird gespeichert und nach erneutem Öffnen direkt fortgesetzt.
+   Keine Identität oder Profildaten löschen. Der Anzeigename wird nach der signierten
+   Aufnahme als eigenes signiertes Profil synchronisiert.
+6. **Stop sharing** schließt den Endpunkt für den aktuellen Lauf. **Connect paired
+   devices** bzw. **Retry direct sync** verbindet gespeicherte direkte Kontakte erneut.
+   Strict P2P verwendet keine Relays und keine öffentliche Adresssuche. Geänderte
+   IP-Adressen, NAT oder Firewalls können die Verbindung verhindern; es gibt keinen
+   stillen Fallback. Nur derselbe Mac mit getrennten Testprofilen wurde geprüft,
+   keine zwei Macs oder fremden Netzwerke.
+
+Die Prüfungen verwenden den produktiven App-Core und echte Sockets mit expliziten
+Test-Schlüsseldateien in getrennten APFS-Profilen. Das ersetzt weder den produktiven
+Keychain-Erststart noch native UI-/QR-/Retina-Abnahme oder echte CLI-Hook-Emission.

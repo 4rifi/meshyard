@@ -1,14 +1,14 @@
 # Meshyard
 
-See your local Claude Code and Codex agents in a pixel yard. Activity comes from
+See your local and paired teammates’ Claude Code and Codex agents in a pixel yard. Activity comes from
 local hooks: editing moves an agent to Building, test commands to Testing, merge
 commands to Merging, and a completed turn to Finished. Registration alone never
 claims an agent is connected.
 
 ## Install and start
 
-The installable DMG is produced in the packaging phase; this source phase does not
-claim a validated release. For the packaged build:
+Use the Apple Silicon DMG and consult the accompanying German REPORT.md for the
+exact package checks and limitations:
 
 1. Open the Meshyard DMG and drag Meshyard to `/Applications`.
 2. Eject the DMG, then open Meshyard from Applications. Ad-hoc builds may require
@@ -41,8 +41,29 @@ display-name edit first, with storage/privacy and font-license details below.
 Review, Fix and Waiting are unsupported: frozen wire v1 cannot label their
 provenance honestly. Codex model-request failures are not relabelled as verified
 StopFailure; failed requests may be retried. No prompts, paths, commands, transcripts
-or tool output are sent to the app by the hook. Peer pairing and sync are not
-available in this solo version.
+or tool output are sent to the app by the hook.
+
+## Pair a teammate
+
+1. As workspace owner, open **Peers** → **Create private invite** → **Show private
+   link and QR**. The single-use invitation expires after 15 minutes and includes
+   your direct IP addresses. Share it privately; never paste it into public logs.
+2. On a fresh profile, choose **Join existing workspace**, enter a display name
+   and paste the link. Both sides compare all six words through a trusted call or
+   in person, then press **Words match**. Reject any mismatch and request a new link.
+3. Each side registers and connects its own agents. Signed activity appears in
+   both yards. **Synced activity (last known)** is a persisted observation; consult
+   **Peers** for the current direct connection. Each device sends only its own log,
+   so offline members’ activity is unavailable until they reconnect.
+4. **Stop sharing** closes the current endpoint. **Connect paired devices** retries
+   saved direct contacts. A confirmed join awaiting the owner’s signed membership
+   is saved with the same identity and resumes after reopening; no profile deletion
+   is needed. A reservation can resume for five minutes with the same identity/nonce.
+
+Strict P2P has no relay or public address discovery. Firewalls, NAT and changed IP
+addresses can prevent contact; there is no fallback. Cross-network and two-Mac
+results are not validated. Invitations are pasted into the join form; OS deep-link
+launch handling and native QR scanning are not implemented/validated respectively.
 
 ## Disconnect and uninstall
 
@@ -70,7 +91,9 @@ Build/test instructions and isolated profiles: [Development](docs/DEVELOPMENT.md
 Validation evidence and open native gates: [Rework report](docs/reports/REWORK.md).
 
 The yard uses original pixel art and locally bundled OFL-licensed Pixelify Sans;
-body text stays in a readable system font. Review, Fix and Waiting are hatched reserved
-places on the map, not reported activity. Reduce Motion in macOS disables walking and poses.
+body text stays in a readable system font. Dion’s original island map has eleven fixed station buildings. Review, Fix and Waiting
+are reserved, not reported hook activity. Three avatars fit each entrance; station counts
+and **Agent list** include everyone. The map scales in integer steps (minimum 2x);
+focus it and use arrow keys or pan with touch/scrollbars on small windows. Reduce Motion in macOS disables walking and poses.
 The tested unique-service Keychain roundtrip does not certify the first default
 Keychain launch of the packaged app; that remains the documented owner checkpoint.
