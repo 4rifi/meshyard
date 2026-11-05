@@ -11,7 +11,9 @@ use iroh_relay::{
 };
 use tokio::sync::oneshot;
 
-pub use self::{dns_and_pkarr_servers::DnsPkarrServer, qlog::QlogFileGroup};
+pub use self::qlog::QlogFileGroup;
+#[cfg(not(feature = "strict-only"))]
+pub use self::dns_and_pkarr_servers::DnsPkarrServer;
 
 mod qlog;
 #[cfg(feature = "unstable-custom-transports")]
@@ -80,6 +82,7 @@ pub async fn run_relay_server_with_access(
     Ok((n, url, server))
 }
 
+#[cfg(not(feature = "strict-only"))]
 mod dns_and_pkarr_servers {
     use std::{net::SocketAddr, time::Duration};
 
@@ -184,6 +187,7 @@ mod dns_and_pkarr_servers {
     }
 }
 
+#[cfg(not(feature = "strict-only"))]
 pub(crate) mod dns_server {
     use std::{
         future::Future,
@@ -292,6 +296,7 @@ pub(crate) mod dns_server {
     }
 }
 
+#[cfg(not(feature = "strict-only"))]
 pub(crate) mod pkarr_relay {
     use std::{
         future::IntoFuture,
@@ -370,6 +375,7 @@ pub(crate) mod pkarr_relay {
     }
 }
 
+#[cfg(not(feature = "strict-only"))]
 pub(crate) mod pkarr_dns_state {
     use std::{
         collections::{HashMap, hash_map},

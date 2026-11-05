@@ -117,16 +117,20 @@ use tracing::debug;
 pub use crate::endpoint_info::{EndpointData, EndpointInfo, UserData};
 use crate::{Endpoint, endpoint::EndpointError};
 
-#[cfg(not(wasm_browser))]
+#[cfg(all(not(wasm_browser), not(feature = "strict-only")))]
 pub mod dns;
 pub mod memory;
+// Shared by custom DNS resolution and net-report scheduling, not a service default.
+pub(crate) const DNS_STAGGERING_MS: &[u64] = &[200, 300, 600, 1000, 2000, 3000];
 mod metrics;
+#[cfg(not(feature = "strict-only"))]
 pub mod pkarr;
 
-#[cfg(not(wasm_browser))]
+#[cfg(all(not(wasm_browser), not(feature = "strict-only")))]
 pub use dns::*;
 pub use memory::*;
 pub use metrics::{Metrics, ServiceLabels};
+#[cfg(not(feature = "strict-only"))]
 pub use pkarr::*;
 
 /// Trait for structs that can be converted into [`AddressLookup`]s.

@@ -27,7 +27,15 @@ await copyFile(
 run('node', ['scripts/check-strict-bundle.mjs', '--self-test']);
 run(
   resolve('node_modules/.bin/tauri'),
-  ['build', '--target', target, '--bundles', 'app,dmg'],
+  [
+    'build',
+    '--target',
+    target,
+    '--features',
+    'strict-only',
+    '--bundles',
+    'app,dmg',
+  ],
   resolve('app'),
 );
 run('node', [

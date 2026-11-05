@@ -156,10 +156,12 @@ impl From<RelayMode> for Option<TransportConfig> {
     fn from(mode: RelayMode) -> Self {
         match mode {
             RelayMode::Disabled => None,
+            #[cfg(not(feature = "strict-only"))]
             RelayMode::Default => Some(TransportConfig::Relay {
                 relay_map: mode.relay_map(),
                 is_user_defined: true,
             }),
+            #[cfg(not(feature = "strict-only"))]
             RelayMode::Staging => Some(TransportConfig::Relay {
                 relay_map: mode.relay_map(),
                 is_user_defined: true,
@@ -1997,8 +1999,10 @@ pub enum RelayMode {
     /// Use the default relay map, with production relay servers from n0.
     ///
     /// See [`crate::defaults::prod`] for the severs used.
+    #[cfg(not(feature = "strict-only"))]
     Default,
     /// Use the staging relay servers from n0.
+    #[cfg(not(feature = "strict-only"))]
     Staging,
     /// Use a custom relay map.
     Custom(RelayMap),
@@ -2009,7 +2013,9 @@ impl RelayMode {
     pub fn relay_map(&self) -> RelayMap {
         match self {
             RelayMode::Disabled => RelayMap::empty(),
+            #[cfg(not(feature = "strict-only"))]
             RelayMode::Default => crate::defaults::prod::default_relay_map(),
+            #[cfg(not(feature = "strict-only"))]
             RelayMode::Staging => crate::defaults::staging::default_relay_map(),
             RelayMode::Custom(relay_map) => relay_map.clone(),
         }
@@ -2046,6 +2052,7 @@ pub fn force_staging_infra() -> bool {
 ///
 /// If the `IROH_FORCE_STAGING_RELAYS` environment variable is non empty, it will return `RelayMode::Staging`.
 /// Otherwise, it will return `RelayMode::Default`.
+#[cfg(not(feature = "strict-only"))]
 pub fn default_relay_mode() -> RelayMode {
     // Use staging in testing
     match force_staging_infra() {

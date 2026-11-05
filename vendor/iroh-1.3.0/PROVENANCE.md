@@ -9,7 +9,8 @@
 
 ## Patch
 
-`../iroh-1.3.0.patch` is the complete source delta against the published archive.
+`../iroh-1.3.0.patch` records the TLS source delta against the published archive.
+Apply `../iroh-1.3.0-strict.patch` afterwards for the separately authorized Strict release feature.
 Its only production changes in `src/tls.rs` are:
 
 1. Client `enable_early_data`: `true` to `false`.
@@ -28,3 +29,38 @@ cargo test --manifest-path vendor/iroh-1.3.0/Cargo.toml --lib --offline --locked
 ```
 
 Only TLS-filtered library tests are executed. No upstream Internet test is selected. Workspace tests do not discover these tests; the explicit command is required. Remove this dependency patch once upstream provides a supported early-data switch, after equivalent review and proofs.
+
+## Strict release feature (2026-11-05)
+
+Architect authorization: `/Volumes/TokensAbuse/logs/architect-strict-build-1.log`.
+`../iroh-1.3.0-strict.patch` adds `strict-only` in Cargo.toml and gates out the
+production/staging service maps in `src/defaults.rs`, the Default/Staging relay
+variants and default constructor in `src/endpoint.rs`, both N0 presets in
+`src/endpoint/presets.rs`, and DNS/pkarr service modules/reexports in
+`src/address_lookup.rs`. `src/test_utils.rs` also gates its removed DNS/pkarr
+helpers, while preserving generic local relay test support. The generic DNS staggering schedule is moved from
+`src/address_lookup/dns.rs` to the parent module because custom resolver/net-report
+scheduling also uses it. No host value is changed or hidden. Generic custom
+relay APIs and system DNS primitives remain for dependency compatibility; Meshyard
+Strict configuration refuses any relay, uses no lookup, and its release binary
+must pass the unchanged forbidden-host guard. Non-strict behavior is unchanged.
+
+The published archive checksum and TLS patch/proof above remain authoritative.
+Reapply the two patches in order to that exact archive; inspect both diffs and
+repeat default tests, Strict direct/config tests, TLS proof and the release bundle
+guard after any upstream bump. This feature is additive in Cargo and must be
+explicitly enabled by each release root. No new vendored crate is introduced.
+
+The maintained feature input lives in `Cargo.toml.orig`. The normalized upstream
+`Cargo.toml` is generated, never the source of truth. Reproduce it deterministically:
+
+```sh
+python3 scripts/generate-iroh-strict-manifest.py --archive /Volumes/TokensAbuse/tmp/iroh-1.3.0.crate
+python3 scripts/generate-iroh-strict-manifest.py --archive /Volumes/TokensAbuse/tmp/iroh-1.3.0.crate --check
+```
+
+The generator verifies the exact archive SHA-256 above, verifies that the source
+manifest contains only the approved feature delta, then applies that feature to
+the archive's pristine Cargo-normalized manifest. This avoids reconstructing the
+upstream workspace merely to normalize one feature. The recorded initial manual
+normalized edit was replaced by this generated output before commit.

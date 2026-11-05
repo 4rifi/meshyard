@@ -19,7 +19,7 @@ use crate::{
 ///
 /// Each query has its own timeout of 3s. This means that a lookup will finally
 /// abort after 6 seconds.
-pub(crate) const DNS_STAGGERING_MS: &[u64] = &[200, 300, 600, 1000, 2000, 3000];
+use super::DNS_STAGGERING_MS;
 
 /// DNS endpoint discovery
 ///

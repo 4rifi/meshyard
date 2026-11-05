@@ -5,6 +5,7 @@
 ///
 /// The port is "QUIC" typed on a phone keypad.
 pub use iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT;
+#[cfg(not(feature = "strict-only"))]
 use url::Url;
 
 /// The default HTTP port used by the Relay server.
@@ -17,6 +18,7 @@ pub const DEFAULT_HTTPS_PORT: u16 = 443;
 pub const DEFAULT_METRICS_PORT: u16 = 9090;
 
 /// Production configuration.
+#[cfg(not(feature = "strict-only"))]
 pub mod prod {
     use iroh_relay::{RelayConfig, RelayMap};
 
@@ -84,6 +86,7 @@ pub mod prod {
 /// Used by tests and might have incompatible changes deployed
 ///
 /// Note: we have staging servers in EU and NA, but no corresponding staging server for AP at this time.
+#[cfg(not(feature = "strict-only"))]
 pub mod staging {
     use iroh_relay::{RelayConfig, RelayMap};
 

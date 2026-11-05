@@ -1,0 +1,203 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -65,6 +65,8 @@
+ ]
+ 
+ [features]
++# Meshyard release: compile out public relay and discovery defaults.
++strict-only = []
+ default = [
+     "metrics",
+     "fast-apple-datapath",
+--- a/Cargo.toml.orig
++++ b/Cargo.toml.orig
+@@ -147,6 +147,8 @@
+ cfg_aliases = { version = "0.2.2" }
+ 
+ [features]
++# Meshyard release: compile out public relay and discovery defaults.
++strict-only = []
+ default = ["metrics", "fast-apple-datapath", "portmapper", "tls-ring"]
+ portmapper = ["dep:portmapper"]
+ metrics = ["iroh-metrics/metrics", "iroh-relay/metrics"]
+--- a/src/defaults.rs
++++ b/src/defaults.rs
+@@ -5,6 +5,7 @@
+ ///
+ /// The port is "QUIC" typed on a phone keypad.
+ pub use iroh_relay::defaults::DEFAULT_RELAY_QUIC_PORT;
++#[cfg(not(feature = "strict-only"))]
+ use url::Url;
+ 
+ /// The default HTTP port used by the Relay server.
+@@ -17,6 +18,7 @@
+ pub const DEFAULT_METRICS_PORT: u16 = 9090;
+ 
+ /// Production configuration.
++#[cfg(not(feature = "strict-only"))]
+ pub mod prod {
+     use iroh_relay::{RelayConfig, RelayMap};
+ 
+@@ -84,6 +86,7 @@
+ /// Used by tests and might have incompatible changes deployed
+ ///
+ /// Note: we have staging servers in EU and NA, but no corresponding staging server for AP at this time.
++#[cfg(not(feature = "strict-only"))]
+ pub mod staging {
+     use iroh_relay::{RelayConfig, RelayMap};
+ 
+--- a/src/address_lookup.rs
++++ b/src/address_lookup.rs
+@@ -117,16 +117,20 @@
+ pub use crate::endpoint_info::{EndpointData, EndpointInfo, UserData};
+ use crate::{Endpoint, endpoint::EndpointError};
+ 
+-#[cfg(not(wasm_browser))]
++#[cfg(all(not(wasm_browser), not(feature = "strict-only")))]
+ pub mod dns;
+ pub mod memory;
++// Shared by custom DNS resolution and net-report scheduling, not a service default.
++pub(crate) const DNS_STAGGERING_MS: &[u64] = &[200, 300, 600, 1000, 2000, 3000];
+ mod metrics;
++#[cfg(not(feature = "strict-only"))]
+ pub mod pkarr;
+ 
+-#[cfg(not(wasm_browser))]
++#[cfg(all(not(wasm_browser), not(feature = "strict-only")))]
+ pub use dns::*;
+ pub use memory::*;
+ pub use metrics::{Metrics, ServiceLabels};
++#[cfg(not(feature = "strict-only"))]
+ pub use pkarr::*;
+ 
+ /// Trait for structs that can be converted into [`AddressLookup`]s.
+--- a/src/address_lookup/dns.rs
++++ b/src/address_lookup/dns.rs
+@@ -19,7 +19,7 @@
+ ///
+ /// Each query has its own timeout of 3s. This means that a lookup will finally
+ /// abort after 6 seconds.
+-pub(crate) const DNS_STAGGERING_MS: &[u64] = &[200, 300, 600, 1000, 2000, 3000];
++use super::DNS_STAGGERING_MS;
+ 
+ /// DNS endpoint discovery
+ ///
+--- a/src/endpoint.rs
++++ b/src/endpoint.rs
+@@ -156,10 +156,12 @@
+     fn from(mode: RelayMode) -> Self {
+         match mode {
+             RelayMode::Disabled => None,
++            #[cfg(not(feature = "strict-only"))]
+             RelayMode::Default => Some(TransportConfig::Relay {
+                 relay_map: mode.relay_map(),
+                 is_user_defined: true,
+             }),
++            #[cfg(not(feature = "strict-only"))]
+             RelayMode::Staging => Some(TransportConfig::Relay {
+                 relay_map: mode.relay_map(),
+                 is_user_defined: true,
+@@ -1997,8 +1999,10 @@
+     /// Use the default relay map, with production relay servers from n0.
+     ///
+     /// See [`crate::defaults::prod`] for the severs used.
++    #[cfg(not(feature = "strict-only"))]
+     Default,
+     /// Use the staging relay servers from n0.
++    #[cfg(not(feature = "strict-only"))]
+     Staging,
+     /// Use a custom relay map.
+     Custom(RelayMap),
+@@ -2009,7 +2013,9 @@
+     pub fn relay_map(&self) -> RelayMap {
+         match self {
+             RelayMode::Disabled => RelayMap::empty(),
++            #[cfg(not(feature = "strict-only"))]
+             RelayMode::Default => crate::defaults::prod::default_relay_map(),
++            #[cfg(not(feature = "strict-only"))]
+             RelayMode::Staging => crate::defaults::staging::default_relay_map(),
+             RelayMode::Custom(relay_map) => relay_map.clone(),
+         }
+@@ -2046,6 +2052,7 @@
+ ///
+ /// If the `IROH_FORCE_STAGING_RELAYS` environment variable is non empty, it will return `RelayMode::Staging`.
+ /// Otherwise, it will return `RelayMode::Default`.
++#[cfg(not(feature = "strict-only"))]
+ pub fn default_relay_mode() -> RelayMode {
+     // Use staging in testing
+     match force_staging_infra() {
+--- a/src/endpoint/presets.rs
++++ b/src/endpoint/presets.rs
+@@ -108,11 +108,11 @@
+ /// [aws-lc-rs]: rustls::crypto::aws_lc_rs::default_provider
+ /// [`N0_DNS_PKARR_RELAY_PROD`]: crate::address_lookup::N0_DNS_PKARR_RELAY_PROD
+ /// [`N0_DNS_PKARR_RELAY_STAGING`]: crate::address_lookup::N0_DNS_PKARR_RELAY_STAGING
+-#[cfg(with_crypto_provider)]
++#[cfg(all(with_crypto_provider, not(feature = "strict-only")))]
+ #[derive(Debug, Copy, Clone, Default)]
+ pub struct N0;
+ 
+-#[cfg(with_crypto_provider)]
++#[cfg(all(with_crypto_provider, not(feature = "strict-only")))]
+ impl Preset for N0 {
+     fn apply(self, mut builder: Builder) -> Builder {
+         use crate::{
+@@ -170,11 +170,11 @@
+ /// [aws-lc-rs]: rustls::crypto::aws_lc_rs::default_provider
+ /// [`N0_DNS_PKARR_RELAY_PROD`]: crate::address_lookup::N0_DNS_PKARR_RELAY_PROD
+ /// [`N0_DNS_PKARR_RELAY_STAGING`]: crate::address_lookup::N0_DNS_PKARR_RELAY_STAGING
+-#[cfg(with_crypto_provider)]
++#[cfg(all(with_crypto_provider, not(feature = "strict-only")))]
+ #[derive(Debug, Copy, Clone, Default)]
+ pub struct N0DisableRelay;
+ 
+-#[cfg(with_crypto_provider)]
++#[cfg(all(with_crypto_provider, not(feature = "strict-only")))]
+ impl Preset for N0DisableRelay {
+     fn apply(self, builder: Builder) -> Builder {
+         use crate::RelayMode;
+--- a/src/test_utils.rs
++++ b/src/test_utils.rs
+@@ -11,7 +11,9 @@
+ };
+ use tokio::sync::oneshot;
+ 
+-pub use self::{dns_and_pkarr_servers::DnsPkarrServer, qlog::QlogFileGroup};
++pub use self::qlog::QlogFileGroup;
++#[cfg(not(feature = "strict-only"))]
++pub use self::dns_and_pkarr_servers::DnsPkarrServer;
+ 
+ mod qlog;
+ #[cfg(feature = "unstable-custom-transports")]
+@@ -80,6 +82,7 @@
+     Ok((n, url, server))
+ }
+ 
++#[cfg(not(feature = "strict-only"))]
+ mod dns_and_pkarr_servers {
+     use std::{net::SocketAddr, time::Duration};
+ 
+@@ -184,6 +187,7 @@
+     }
+ }
+ 
++#[cfg(not(feature = "strict-only"))]
+ pub(crate) mod dns_server {
+     use std::{
+         future::Future,
+@@ -292,6 +296,7 @@
+     }
+ }
+ 
++#[cfg(not(feature = "strict-only"))]
+ pub(crate) mod pkarr_relay {
+     use std::{
+         future::IntoFuture,
+@@ -370,6 +375,7 @@
+     }
+ }
+ 
++#[cfg(not(feature = "strict-only"))]
+ pub(crate) mod pkarr_dns_state {
+     use std::{
+         collections::{HashMap, hash_map},

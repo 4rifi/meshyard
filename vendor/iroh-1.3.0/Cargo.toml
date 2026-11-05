@@ -65,6 +65,8 @@ allowed_external_types = [
 ]
 
 [features]
+# Meshyard release: compile out public relay and discovery defaults.
+strict-only = []
 default = [
     "metrics",
     "fast-apple-datapath",

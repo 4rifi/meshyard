@@ -147,6 +147,8 @@ testdir = "0.10"
 cfg_aliases = { version = "0.2.2" }
 
 [features]
+# Meshyard release: compile out public relay and discovery defaults.
+strict-only = []
 default = ["metrics", "fast-apple-datapath", "portmapper", "tls-ring"]
 portmapper = ["dep:portmapper"]
 metrics = ["iroh-metrics/metrics", "iroh-relay/metrics"]
