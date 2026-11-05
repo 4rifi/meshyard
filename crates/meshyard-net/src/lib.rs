@@ -459,7 +459,13 @@ impl MeshNode {
                 .bind_addr(addr)
                 .map_err(|_| NetError::Bind)?;
         }
-        let endpoint = adjust(builder).bind().await.map_err(|_| NetError::Bind)?;
+        let endpoint = adjust(builder).bind().await.map_err(|error| {
+            #[cfg(test)]
+            eprintln!("test endpoint bind failed: {error:?}");
+            #[cfg(not(test))]
+            let _ = error;
+            NetError::Bind
+        })?;
         let (mapping_tx, mapping) = watch::channel(PortMapping::Disabled);
         let mapper = if config.mapping == MappingPolicy::Router {
             match MapperTask::router(endpoint.clone(), mapping_tx).await {
