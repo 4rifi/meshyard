@@ -27,6 +27,9 @@ export function WorkspaceScreen({
   onBind: (id: string) => Promise<AppStatus | undefined>;
   onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
+  const waitingForHooks = workspace.agents.some(
+    (a) => a.is_you && a.kind !== 'Other' && a.state === null,
+  );
   const [view, setView] = useState<'yard' | 'agents' | 'settings' | 'peers'>(
     'yard',
   );
@@ -188,6 +191,34 @@ export function WorkspaceScreen({
           <h2 id="yard-heading">The yard</h2>
           <p>Stations reflect observed agent states</p>
         </div>
+        {waitingForHooks && (
+          <aside
+            className="first-hook-hint"
+            aria-label="Connect your registered agents"
+          >
+            <p>
+              <strong>Registered, waiting for the first event.</strong> Connect
+              agents → Review settings → Install, then start a new Claude Code
+              or Codex session. In Codex, review and trust the hooks with
+              /hooks.
+            </p>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setConnecting(
+                  workspace.agents.find(
+                    (a) => a.is_you && a.state === null && a.kind === 'Codex',
+                  )
+                    ? 'Codex'
+                    : 'ClaudeCode',
+                );
+              }}
+            >
+              Connect registered agents
+            </button>
+          </aside>
+        )}
         <div
           className="yard-viewport"
           tabIndex={0}

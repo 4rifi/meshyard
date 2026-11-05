@@ -881,3 +881,38 @@ build-owned `rw.39346.Meshyard_0.3.0_aarch64.dmg` mounted at `/Volumes/dmg.2XhQg
 A subsequent ordinary `hdiutil detach /dev/disk8` exited 0 (`phase4-build-owned-detach.log`).
 No force detach, unrelated volume action or app process intervention; unchanged
 strict build retry recorded separately in `phase4-build-final2.log`.
+
+### Final artifact and owner first-use feedback
+
+Sequential `cargo test --locked --workspace` exit 0 (`phase4-workspace-final3.log`)
+closes the separate run's E0463. Concurrent default/strict debug builds overwrite
+upstream's unqualified `libiroh.rlib`; all Rust variant gates were subsequently
+serialized. Strict net suite separately passes 21 tests plus five compile-fail
+capability tests (`phase4-strict-final.log`).
+Final strict release node SHA-256 is
+`67ca5764bfffe5ab7f8d61bf4f36020ab7b8377d16e86a6e7a53bf29d7f2987f`.
+The actual copied DMG hook SHA-256 is
+`361f15247c79e26495d3218916c8c3653649858a0fae0e7da36696bc2cf6d9ee`.
+Both real-process scenarios pass including manual retry without restart
+(`phase4-two-process-final2.log`). First attempt hit the unchanged two-second
+helper subprocess deadline; retained in `phase4-two-process-final.log`. Subsequent
+direct startup probes returned 3.6 ms (bundle) / 308 ms (identical extraction);
+the exact original process assertions passed on rerun, no timeouts increased.
+Recovery with that release node passes (`phase4-welcome-crash-final.log`).
+
+Architect accepts resuming the Tauri-produced rw image after normal detach EBUSY
+(`architect-dmg-recovery-1.log`), subject to all real acceptance checks and complete
+recursive payload/symlink comparison, UDZO metadata and layout resource checks.
+Reproducible scoped recovery: `scripts/finish-dmg-after-ebusy.sh <exact rw image>`.
+No generated bundle script changes, force detach or unrelated process/volume action.
+The Finder window itself is not visually validated. The first map artifact passed
+package/native checks but is retained as an intermediate after new owner feedback.
+
+Owner reported a registered agent with zero hook events; no installed/running app
+was touched or diagnosed as defective. Added a compact actionable yard callout for
+own registered Claude/Codex agents without events: Connect agents → Review settings
+→ Install → start a new CLI session, Codex trust via /hooks. Frontend regression
+checks all instructions and excludes remote/observed agents. Frontend 78 tests pass
+(`phase4-first-hook-frontend2.log`); browser solo coverage now 72 scenarios/144 PNGs
+(`phase4-first-hook-visual.log`). First attempt caught an ESLint void shorthand,
+corrected before rebuild. New hint personally reviewed at 960.

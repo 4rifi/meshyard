@@ -48,6 +48,7 @@ let workspace: WorkspaceView = {
   hook: { installed: false, binary_available: true },
   agents:
     scenario === 'agents' ||
+    scenario === 'registered' ||
     scenario === 'three-agents' ||
     scenario === 'installed'
       ? [
@@ -72,6 +73,7 @@ if (scenario === 'three-agents')
   });
 if (
   scenario === 'agents' ||
+  scenario === 'registered' ||
   scenario === 'three-agents' ||
   scenario === 'installed'
 )
@@ -79,6 +81,14 @@ if (
     ...a,
     bound: true,
     connection: a.state ? 'Connected' : 'NotConnected',
+  }));
+if (scenario === 'registered')
+  workspace.agents = workspace.agents.map((a) => ({
+    ...a,
+    state: null,
+    provenance: null,
+    bound: false,
+    connection: 'NotConnected',
   }));
 if (scenario === 'installed') {
   workspace.hook.installed = true;

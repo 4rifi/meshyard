@@ -182,6 +182,7 @@ try {
       ['setup', 'onboarding'],
       ['loading', 'loading'],
       ['empty', 'empty-yard'],
+      ['registered', 'registered-no-events'],
       ['error', 'error'],
       ['partial-create', 'repair-error'],
     ]) {

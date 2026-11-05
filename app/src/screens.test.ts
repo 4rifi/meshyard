@@ -108,6 +108,49 @@ describe('real-state screen contract', () => {
       1,
     );
   });
+  it('guides registered own agents with zero events through installation and a new trusted session', () => {
+    const pending = {
+      ...workspace,
+      agents: [
+        {
+          id: 'pending',
+          label: 'Claude registered',
+          kind: 'ClaudeCode' as const,
+          is_you: true,
+          state: null,
+          provenance: null,
+          bound: false,
+          stale: false,
+          connection: 'NotConnected' as const,
+        },
+      ],
+    };
+    const html = render({ Ready: pending });
+    expect(html).toContain('Registered, waiting for the first event.');
+    expect(html).toContain('Review settings → Install');
+    expect(html).toContain('start a new Claude Code or Codex session');
+    expect(html).toContain('trust the hooks with /hooks');
+    expect(html).toContain('Connect registered agents');
+    expect(
+      render({
+        Ready: {
+          ...pending,
+          agents: pending.agents.map((a) => ({ ...a, is_you: false })),
+        },
+      }),
+    ).not.toContain('first-hook-hint');
+    expect(
+      render({
+        Ready: {
+          ...pending,
+          agents: pending.agents.map((a) => ({
+            ...a,
+            state: 'Thinking' as const,
+          })),
+        },
+      }),
+    ).not.toContain('first-hook-hint');
+  });
   it('keeps registration separate from activity/provenance in both list and yard data', () => {
     const agents = [
       {
