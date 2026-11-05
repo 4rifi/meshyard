@@ -114,6 +114,15 @@ No prior task status, review decision or owner decision is changed by this path-
 
 ## 6. Log
 
+- 2026-11-05 — Rework Phase 0/1 consolidation under the current owner brief:
+  active checkout `/Volumes/TokensAbuse/meshyard`, branch `rework`, no push.
+  Normal merges `7b58833` (scaffold) and `20de52c` (network) retain the advanced
+  app and frozen signed wire v1. All three requested refs are contained.
+  Setup/script approvals and mount-specific test guards use the current APFS
+  image. Evidence and remaining acceptance limitations: `docs/reports/REWORK.md`
+  and `/Volumes/TokensAbuse/logs/consolidation/`. Historical gates/statuses above
+  are retained as history; this phase does not self-certify any task done.
+
 - 2026-11-04 — Codex lead: Claude re-review `366982d1` accepts code `32bc929`; review
   committed unchanged `68a4eca`, pushed/remote verified. Started actual combined native app via
   USB `npm run dev` (persistent session 36061), same existing file-key profile + real built
