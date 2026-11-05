@@ -234,7 +234,7 @@ mod keychain_probe {
             account: "isolated-t002-probe".into(),
         };
         // No production lookup. If unavailable/denied, stop without fallback or deletion.
-        assert!(matches!(store.load(), Err(IdentityError::NotFound)));
+        assert_eq!(store.load().err(), Some(IdentityError::NotFound));
         let key = load_or_create(&store)?;
         let result = store
             .load()
