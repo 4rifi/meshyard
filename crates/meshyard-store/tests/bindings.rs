@@ -4,7 +4,7 @@ use meshyard_store::*;
 use std::{os::unix::fs::PermissionsExt, sync::Arc};
 fn private() -> tempfile::TempDir {
     let root = std::path::PathBuf::from(std::env::var_os("TMPDIR").expect("USB TMPDIR"));
-    assert!(root.starts_with("/Volumes/MeshyardProjects/"));
+    assert!(root.starts_with("/Volumes/TokensAbuse/"));
     tempfile::Builder::new()
         .permissions(std::fs::Permissions::from_mode(0o700))
         .tempdir_in(root)

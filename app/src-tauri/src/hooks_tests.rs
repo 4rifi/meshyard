@@ -2,7 +2,7 @@
 use super::*;
 fn fixture() -> (tempfile::TempDir, Installer) {
     let root = PathBuf::from(std::env::var_os("TMPDIR").expect("USB TMPDIR"));
-    assert!(root.starts_with("/Volumes/MeshyardProjects/"));
+    assert!(root.starts_with("/Volumes/TokensAbuse/"));
     let dir = tempfile::Builder::new()
         .permissions(fs::Permissions::from_mode(0o700))
         .tempdir_in(root)

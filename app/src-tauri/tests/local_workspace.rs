@@ -11,7 +11,7 @@ fn profile() -> tempfile::TempDir {
     let root =
         std::path::PathBuf::from(std::env::var_os("TMPDIR").expect("USB TMPDIR must be set"));
     assert!(
-        root.starts_with("/Volumes/MeshyardProjects/"),
+        root.starts_with("/Volumes/TokensAbuse/"),
         "tests must remain on the USB image"
     );
     tempfile::Builder::new()
@@ -495,7 +495,7 @@ fn command_process_child() {
     };
     assert_eq!(std::env::var("MESHYARD_KEY_STORE").unwrap(), "file");
     let dir = std::path::PathBuf::from(std::env::var_os("MESHYARD_DATA_DIR").unwrap());
-    assert!(dir.starts_with("/Volumes/MeshyardProjects/"));
+    assert!(dir.starts_with("/Volumes/TokensAbuse/"));
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

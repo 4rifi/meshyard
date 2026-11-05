@@ -20,7 +20,7 @@ impl PrivateDir {
             std::process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
-        assert!(path.starts_with("/Volumes/MeshyardProjects/"));
+        assert!(path.starts_with("/Volumes/TokensAbuse/"));
         DirBuilder::new().mode(0o700).create(&path).unwrap();
         Self(path)
     }
