@@ -44,6 +44,13 @@ const mocks = vi.hoisted(() => ({
   initialize: () => Promise.resolve(),
 }));
 class Display {
+  eventMode = 'auto';
+  cursor = 'auto';
+  handlers = new Map<string, () => void>();
+  on(event: string, handler: () => void) {
+    this.handlers.set(event, handler);
+    return this;
+  }
   children: Display[] = [];
   parent: Display | null = null;
   visible = true;
@@ -206,6 +213,15 @@ afterEach(() => {
 const mount = () => createYard(host as unknown as HTMLDivElement, vi.fn());
 
 describe('persistent yard scene', () => {
+  it('opens the inspector for the clicked real avatar identity', async () => {
+    const select = vi.fn();
+    const yard = createYard(host as unknown as HTMLDivElement, vi.fn(), select);
+    yard.update([dto('a'), dto('b')]);
+    await flush();
+    app().stage.children[1]?.children[1]?.handlers.get('pointertap')?.();
+    expect(select).toHaveBeenCalledExactlyOnceWith('b');
+    yard.destroy();
+  });
   it('buffers updates before init; changes only one real identity and stops at arrival', async () => {
     const yard = mount();
     yard.update([dto('a'), dto('b')]);

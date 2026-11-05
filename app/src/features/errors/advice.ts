@@ -32,12 +32,14 @@ export const advice: Record<AppError, string> = {
     'Check the data directory and explicitly select file storage only for a development profile.',
   IngestUnavailable:
     'Local hook intake is unavailable. Check the private profile and restart Meshyard.',
+  HookInstallLocation:
+    'Move Meshyard from the disk image or temporary location to /Applications, then reopen it and review hooks again.',
   HookBinaryMissing:
-    'The hook binary is unavailable. Start the development app with a reviewed absolute executable MESHYARD_HOOK_BIN path; bundled installation comes later.',
+    'The bundled hook executable is missing or not executable. Reinstall Meshyard in /Applications and reopen it.',
   HookPlanStale:
     'Settings changed since review. Review a fresh plan before applying.',
   HookConfigInvalid:
-    'Claude settings contain invalid or unsupported JSON. They were left untouched.',
+    'Agent hook settings contain invalid or unsupported JSON. They were left untouched.',
   IpcUnavailable:
     'The desktop connection is unavailable; open Meshyard in its native window and retry.',
 };

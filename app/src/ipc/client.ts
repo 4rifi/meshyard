@@ -1,3 +1,4 @@
+import type { AgentKind } from './generated/AgentKind';
 import { listen } from '@tauri-apps/api/event';
 import type { HookPlan } from './generated/HookPlan';
 import type { AppError } from './generated/AppError';
@@ -41,6 +42,7 @@ export const hookApply = (planId: string): Promise<AppStatus> =>
 export type PlanResult = { plan: HookPlan } | { error: AppError };
 const hookErrors: readonly AppError[] = [
   'HookBinaryMissing',
+  'HookInstallLocation',
   'HookPlanStale',
   'HookConfigInvalid',
   'IngestUnavailable',
@@ -50,16 +52,22 @@ const hookErrors: readonly AppError[] = [
   'Configuration',
   'RandomUnavailable',
 ];
-async function plan(command: 'hook_plan' | 'hook_remove'): Promise<PlanResult> {
+async function plan(
+  command: 'hook_plan' | 'hook_remove',
+  kind: AgentKind,
+): Promise<PlanResult> {
   try {
-    return { plan: await invoke<HookPlan>(command) };
+    return { plan: await invoke<HookPlan>(command, { kind }) };
   } catch (error) {
     return {
       error: hookErrors.find((kind) => kind === error) ?? 'IpcUnavailable',
     };
   }
 }
-export const hookPlan = (): Promise<PlanResult> => plan('hook_plan');
-export const hookRemove = (): Promise<PlanResult> => plan('hook_remove');
+export const hookPlan = (kind: AgentKind = 'ClaudeCode'): Promise<PlanResult> =>
+  plan('hook_plan', kind);
+export const hookRemove = (
+  kind: AgentKind = 'ClaudeCode',
+): Promise<PlanResult> => plan('hook_remove', kind);
 export const listenWorkspace = (refresh: () => void): Promise<() => void> =>
   listen('workspace-changed', refresh);

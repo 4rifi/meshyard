@@ -1,3 +1,4 @@
+import type { AgentKind } from '../../ipc/generated/AgentKind';
 import { useEffect, useRef, useState } from 'react';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { AppStatus } from '../../ipc/generated/AppStatus';
@@ -20,7 +21,7 @@ export function IngestNotice({ workspace }: { workspace: WorkspaceView }) {
       </p>
       {dropped_unbound > 0 && (
         <p>
-          Hook events received, no agent selected for Claude Code (
+          Hook events received, no agent selected for this agent kind (
           {dropped_unbound}).
         </p>
       )}
@@ -32,6 +33,7 @@ export function IngestNotice({ workspace }: { workspace: WorkspaceView }) {
 }
 export function ConnectClaudeCode({
   workspace,
+  initialKind = 'ClaudeCode',
   busy,
   onBind,
   onApply,
@@ -39,12 +41,16 @@ export function ConnectClaudeCode({
   onClose,
 }: {
   workspace: WorkspaceView;
+  initialKind?: AgentKind;
   busy: boolean;
   onBind: (id: string) => Promise<AppStatus | undefined>;
   onApply: (id: string) => Promise<AppStatus | undefined>;
   onRegister: () => void;
   onClose: () => void;
 }) {
+  const [kind, setKind] = useState<AgentKind>(initialKind);
+  const label = kind === 'Codex' ? 'Codex' : 'Claude Code';
+  const hook = kind === 'Codex' ? workspace.codex_hook : workspace.hook;
   const [plan, setPlan] = useState<HookPlan | null>(null);
   const [error, setError] = useState<AppError | null>(null);
   const [pending, setPending] = useState(false);
@@ -63,10 +69,10 @@ export function ConnectClaudeCode({
     if (plan) review.current?.focus();
   }, [plan]);
   const bound = workspace.agents.find(
-    (agent) => agent.is_you && agent.kind === 'ClaudeCode' && agent.bound,
+    (agent) => agent.is_you && agent.kind === kind && agent.bound,
   );
   const own = workspace.agents.filter(
-    (agent) => agent.is_you && agent.kind === 'ClaudeCode',
+    (agent) => agent.is_you && agent.kind === kind,
   );
   const disabled = busy || pending;
   const run = async (action: () => Promise<void>) => {
@@ -83,7 +89,7 @@ export function ConnectClaudeCode({
   };
   const prepare = (remove: boolean) => {
     void run(async () => {
-      const result = await (remove ? hookRemove() : hookPlan());
+      const result = await (remove ? hookRemove(kind) : hookPlan(kind));
       if (!active.current) return;
       if ('error' in result) setError(result.error);
       else setPlan(result.plan);
@@ -96,12 +102,32 @@ export function ConnectClaudeCode({
       aria-busy={disabled}
     >
       <h2 id="connect-heading" tabIndex={-1} ref={heading}>
-        Connect Claude Code
+        Connect agents
       </h2>
       <p>
         Choose your local agent, review the exact settings changes, then
         install. Registration alone does not connect an agent.
       </p>
+      <label htmlFor="connect-kind">Agent kind</label>
+      <select
+        id="connect-kind"
+        value={kind}
+        disabled={disabled || plan !== null}
+        onChange={(event) => {
+          setKind(event.target.value === 'Codex' ? 'Codex' : 'ClaudeCode');
+          setError(null);
+        }}
+      >
+        <option value="ClaudeCode">Claude Code</option>
+        <option value="Codex">Codex</option>
+      </select>
+      {kind === 'Codex' && (
+        <p>
+          After Install, open /hooks in Codex and review and trust the exact
+          Meshyard hooks. Restart Codex to receive SessionStart. Changed hooks
+          require trust again. Project hooks also require a trusted project.
+        </p>
+      )}
       <IngestNotice workspace={workspace} />
       {error && (
         <p role="alert">
@@ -145,14 +171,14 @@ export function ConnectClaudeCode({
       <p role="status">
         {bound
           ? bound.connection === 'WaitingForFirstEvent'
-            ? 'Start Claude Code or send a message in an existing session. Waiting for the first event.'
+            ? `Start ${label} or send a message in an existing session. Waiting for the first event.`
             : connectionLabels[bound.connection]
-          : 'Choose your own Claude Code agent to continue.'}
+          : `Choose your own ${label} agent to continue.`}
       </p>
-      {!workspace.hook.binary_available && (
+      {!hook.binary_available && (
         <p>
-          The Claude Code hook binary is unavailable. Bundled installation is
-          not available yet.
+          The hook executable is unavailable. Move Meshyard to /Applications and
+          reopen it before installing hooks.
         </p>
       )}
       {plan ? (
@@ -215,7 +241,7 @@ export function ConnectClaudeCode({
           >
             Review settings
           </button>
-          {workspace.hook.installed && (
+          {hook.installed && (
             <button
               type="button"
               disabled={disabled}
@@ -228,7 +254,7 @@ export function ConnectClaudeCode({
           )}
         </>
       )}
-      <p>Codex connection is not available yet.</p>
+
       <button type="button" disabled={disabled} onClick={onClose}>
         Close connection panel
       </button>

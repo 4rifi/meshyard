@@ -44,6 +44,7 @@ let workspace: WorkspaceView = {
     },
   ],
   ingest: { status: 'Listening', dropped_unbound: 0, dropped_invalid: 0 },
+  codex_hook: { installed: false, binary_available: false },
   hook: { installed: false, binary_available: true },
   agents:
     scenario === 'agents'

@@ -19,6 +19,8 @@ describe('typed IPC boundary', () => {
     await client.hookApply('plan-id');
     await client.hookPlan();
     await client.hookRemove();
+    await client.hookPlan('Codex');
+    await client.hookRemove('Codex');
     expect(vi.mocked(invoke).mock.calls).toEqual([
       ['app_status', undefined],
       ['create_workspace', { input: create }],
@@ -26,8 +28,10 @@ describe('typed IPC boundary', () => {
       ['register_agent', { input: register }],
       ['bind_agent', { agentId: 'own-id' }],
       ['hook_apply', { planId: 'plan-id' }],
-      ['hook_plan'],
-      ['hook_remove'],
+      ['hook_plan', { kind: 'ClaudeCode' }],
+      ['hook_remove', { kind: 'ClaudeCode' }],
+      ['hook_plan', { kind: 'Codex' }],
+      ['hook_remove', { kind: 'Codex' }],
     ]);
   });
   it('preserves only allowlisted typed plan errors', async () => {

@@ -1,4 +1,5 @@
 import { connectionLabels } from '../connect/connectionLabels';
+import type { AgentKind } from '../../ipc/generated/AgentKind';
 import type { AgentView } from '../../ipc/generated/AgentView';
 import type { HookEvent } from '../../ipc/generated/HookEvent';
 import type { RuleId } from '../../ipc/generated/RuleId';
@@ -25,17 +26,31 @@ export function AgentList({
   agents,
   busy,
   onSelect,
+  onInspect,
 }: {
   agents: AgentView[];
   busy: boolean;
-  onSelect: () => void;
+  onSelect: (kind: AgentKind) => void;
+  onInspect?: (id: string) => void;
 }) {
   if (!agents.length) return <p>No agents registered yet.</p>;
   return (
     <ul className="items">
       {agents.map((agent) => (
         <li key={agent.id}>
-          <strong>{agent.label}</strong>
+          {onInspect ? (
+            <button
+              type="button"
+              onClick={() => {
+                onInspect(agent.id);
+              }}
+              aria-label={`Inspect ${agent.label}`}
+            >
+              {agent.label}
+            </button>
+          ) : (
+            <strong>{agent.label}</strong>
+          )}
           <span>
             {agent.kind === 'ClaudeCode' ? 'Claude Code' : agent.kind} ·{' '}
             <span className={`badge${agent.stale ? ' stale-state' : ''}`}>
@@ -44,16 +59,20 @@ export function AgentList({
                 : activityLabel(agent.state)}
             </span>
           </span>
-          <span>
-            {agent.kind === 'Codex'
-              ? 'Codex connection is not available yet.'
-              : connectionLabels[agent.connection]}
-          </span>
-          {agent.is_you && agent.kind === 'ClaudeCode' && !agent.bound && (
-            <button type="button" disabled={busy} onClick={onSelect}>
-              Select for hook
-            </button>
-          )}
+          <span>{connectionLabels[agent.connection]}</span>
+          {agent.is_you &&
+            (agent.kind === 'ClaudeCode' || agent.kind === 'Codex') &&
+            !agent.bound && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  onSelect(agent.kind);
+                }}
+              >
+                Select for hook
+              </button>
+            )}
           {agent.provenance && (
             <span className="badge">
               {'Verified' in agent.provenance

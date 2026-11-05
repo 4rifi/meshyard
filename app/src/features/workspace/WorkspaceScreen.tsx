@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { AgentKind } from '../../ipc/generated/AgentKind';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { RegisterAgent as RegisterInput } from '../../ipc/generated/RegisterAgent';
 import { createYard, type Yard } from '../../playground/yard';
@@ -6,6 +7,7 @@ import { MemberList } from './MemberList';
 import { AgentList } from './AgentList';
 import type { AppStatus } from '../../ipc/generated/AppStatus';
 import { ConnectClaudeCode, IngestNotice } from '../connect/ConnectClaudeCode';
+import { activityLabel } from '../../playground/yardData';
 import { RegisterAgent } from './RegisterAgent';
 export function WorkspaceScreen({
   workspace,
@@ -22,10 +24,17 @@ export function WorkspaceScreen({
   onBind: (id: string) => Promise<AppStatus | undefined>;
   onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
+  const [selected, setSelected] = useState<string | null>(null);
+  const inspector = useRef<HTMLElement>(null);
+  const inspected = workspace.agents.find((agent) => agent.id === selected);
+  const inspectedId = inspected?.id;
+  useEffect(() => {
+    if (inspectedId) inspector.current?.focus();
+  }, [inspectedId]);
   const host = useRef<HTMLDivElement>(null);
   const yard = useRef<Yard | null>(null);
   const connectButton = useRef<HTMLButtonElement>(null);
-  const [connecting, setConnecting] = useState(false);
+  const [connecting, setConnecting] = useState<AgentKind | null>(null);
   const agentLabel = useRef<HTMLInputElement>(null);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [name, setName] = useState(
@@ -33,9 +42,13 @@ export function WorkspaceScreen({
   );
   useEffect(() => {
     if (!host.current) return;
-    const scene = createYard(host.current, () => {
-      setRendererFailed(true);
-    });
+    const scene = createYard(
+      host.current,
+      () => {
+        setRendererFailed(true);
+      },
+      setSelected,
+    );
     yard.current = scene;
     return () => {
       scene.destroy();
@@ -64,13 +77,13 @@ export function WorkspaceScreen({
           className="register-shortcut"
           type="button"
           disabled={busy}
-          aria-expanded={connecting}
+          aria-expanded={connecting !== null}
           aria-controls="connection-panel"
           onClick={() => {
-            setConnecting(true);
+            setConnecting('ClaudeCode');
           }}
         >
-          Connect Claude Code
+          Connect agents
         </button>
         {busy ? (
           <span className="register-shortcut">Saving…</span>
@@ -95,12 +108,13 @@ export function WorkspaceScreen({
         {connecting && (
           <ConnectClaudeCode
             workspace={workspace}
+            initialKind={connecting}
             busy={busy}
             onBind={onBind}
             onApply={onApply}
             onRegister={focusRegistration}
             onClose={() => {
-              setConnecting(false);
+              setConnecting(null);
               connectButton.current?.focus();
             }}
           />
@@ -136,6 +150,48 @@ export function WorkspaceScreen({
           </p>
         )}
       </section>
+      {inspected && (
+        <section
+          ref={inspector}
+          tabIndex={-1}
+          className="panel"
+          aria-labelledby="inspector-heading"
+        >
+          <h2 id="inspector-heading">Agent inspector · {inspected.label}</h2>
+          <p>
+            {inspected.kind} · {activityLabel(inspected.state)}
+          </p>
+          <p>
+            {inspected.stale
+              ? 'Unknown (no events for 10 min)'
+              : 'Last observed state'}
+          </p>
+          <p>
+            {inspected.provenance
+              ? 'Verified' in inspected.provenance
+                ? `Verified · ${inspected.provenance.Verified.source}`
+                : `Inferred · ${inspected.provenance.Inferred.rule}`
+              : 'No hook events yet. Registration alone does not connect an agent.'}
+          </p>
+          <p>
+            Verified means a hook-shaped message from the same OS user, not
+            proof of what the agent accomplished.
+          </p>
+          <code>{inspected.id}</code>
+          <button
+            type="button"
+            onClick={() => {
+              setSelected(null);
+            }}
+          >
+            Close inspector
+          </button>
+        </section>
+      )}
+      <p>
+        Review, Fix and Waiting are not observed by this version. No activity is
+        inferred for those stations.
+      </p>
       <div className="workspace-grid">
         <section className="panel" aria-labelledby="agents-heading">
           <h2 id="agents-heading">
@@ -144,9 +200,8 @@ export function WorkspaceScreen({
           <AgentList
             agents={workspace.agents}
             busy={busy}
-            onSelect={() => {
-              setConnecting(true);
-            }}
+            onInspect={setSelected}
+            onSelect={setConnecting}
           />
           <IngestNotice workspace={workspace} />
           <RegisterAgent
@@ -157,8 +212,17 @@ export function WorkspaceScreen({
         </section>
         <div className="side-panels">
           <section className="panel" aria-labelledby="members-heading">
-            <h2 id="members-heading">Members</h2>
+            <h2 id="members-heading">Settings and members</h2>
             <MemberList members={workspace.members} />
+            <p>
+              Local-first storage. Device identity uses macOS Keychain by
+              default. A locked or unavailable Keychain is reported; Meshyard
+              never silently changes key stores.
+            </p>
+            <p>
+              Hooks share only activity categories and provenance. Prompts,
+              paths, commands and tool output stay out of Meshyard events.
+            </p>
             <form
               onSubmit={(e) => {
                 e.preventDefault();

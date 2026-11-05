@@ -37,7 +37,11 @@ type Character = {
 };
 const same = (a: Point, b: Point) => a.x === b.x && a.y === b.y;
 
-export function createYard(host: HTMLDivElement, onError: () => void): Yard {
+export function createYard(
+  host: HTMLDivElement,
+  onError: () => void,
+  onSelect?: (id: string) => void,
+): Yard {
   const app = new Application();
   const environment = new Container();
   const avatars = new Container();
@@ -274,6 +278,11 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
           pixelSprite('agent', 0, 0, agent.kind, 1),
         ];
         const body = new Container();
+        body.eventMode = 'static';
+        body.cursor = 'pointer';
+        body.on('pointertap', () => {
+          onSelect?.(agent.id);
+        });
         body.addChild(...poses);
         avatars.addChild(body);
         character = {
@@ -287,6 +296,11 @@ export function createYard(host: HTMLDivElement, onError: () => void): Yard {
           walk: null,
         };
         character.tag.dataset.agentId = agent.id;
+        character.tag.style.pointerEvents = 'auto';
+        character.tag.style.cursor = 'pointer';
+        character.tag.onclick = () => {
+          onSelect?.(agent.id);
+        };
         characters.set(agent.id, character);
       }
       character.agent = agent;

@@ -33,6 +33,7 @@ const workspace: WorkspaceView = {
   ],
   agents: [],
   ingest: { status: 'Disabled', dropped_invalid: 0, dropped_unbound: 0 },
+  codex_hook: { installed: false, binary_available: false },
   hook: { installed: false, binary_available: false },
 };
 function render(status: AppStatus, busy = false) {
@@ -61,6 +62,7 @@ const errors: Record<AppError, true> = {
   IpcUnavailable: true,
   IngestUnavailable: true,
   HookBinaryMissing: true,
+  HookInstallLocation: true,
   HookPlanStale: true,
   HookConfigInvalid: true,
 };
@@ -111,7 +113,7 @@ describe('real-state screen contract', () => {
     expect(html).toContain('No events yet');
     expect(html).not.toContain('Verified');
     expect(html).not.toContain('Idle');
-    expect(html).toContain('Not connected');
+    expect(html).toContain('<option value="Codex">Codex</option>');
     expect(yardZones(agents)).toEqual([{ label: 'No events yet', agents }]);
   });
   it('places actual activity in its real zone and shows only supplied provenance', () => {
@@ -292,8 +294,24 @@ describe('real-state screen contract', () => {
     expect(html).not.toContain('foreign worker');
     expect(html).not.toContain('Codex worker');
     expect(html).toContain('Unknown (no events for 10 min)');
-    expect(html).toContain('Codex connection is not available yet.');
+    expect(html).toContain('<option value="Codex">Codex</option>');
     expect(html).toContain('disabled=""');
+    const codexHtml = renderToStaticMarkup(
+      createElement(ConnectClaudeCode, {
+        workspace: view,
+        initialKind: 'Codex',
+        busy: false,
+        onBind: actions.bind,
+        onApply: actions.apply,
+        onRegister: () => {},
+        onClose: () => {},
+      }),
+    );
+    expect(codexHtml).toContain('Codex worker');
+    expect(codexHtml).not.toContain('own worker');
+    expect(codexHtml).not.toContain('foreign worker');
+    expect(codexHtml).toContain('/hooks');
+    expect(codexHtml).toContain('review and trust');
     const list = render({ Ready: view });
     expect(list).toContain('Last: Thinking');
     expect(list).toContain('stale-state');
