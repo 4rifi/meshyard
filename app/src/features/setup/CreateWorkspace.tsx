@@ -15,8 +15,8 @@ export function CreateWorkspace({
       <p className="eyebrow">Your local workspace</p>
       <h1 tabIndex={-1}>Create workspace</h1>
       <p>
-        A shared place starts here, on this device. Create a workspace and
-        register your first agent.
+        A local place for your agents. Create a workspace and register your
+        first agent.
       </p>
       <form
         onSubmit={(event) => {
@@ -47,22 +47,9 @@ export function CreateWorkspace({
             maxLength={64}
             autoComplete="nickname"
           />
-          <label htmlFor="mode">Connection mode</label>
-          <select
-            id="mode"
-            value="Strict"
-            onChange={() => {
-              /* only Strict is available */
-            }}
-            aria-describedby="mode-help"
-          >
-            <option value="Strict">Strict P2P</option>
-            <option value="Auto" disabled>
-              Auto — Requires a self-hosted relay (G-1)
-            </option>
-          </select>
-          <p id="mode-help">
-            Strict is saved with the workspace. Networking is not built yet.
+          <p>
+            Your yard stays on this Mac. Connect Claude Code or Codex after
+            setup.
           </p>
           <button type="submit">
             {busy ? 'Creating…' : 'Create workspace'}

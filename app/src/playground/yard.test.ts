@@ -235,7 +235,7 @@ describe('persistent yard scene', () => {
     expect(tags()[0]).toBe(aTag);
     expect(app().stage.children[1]?.children[0]).toBe(avatar);
     app().advance(0.2);
-    expect(position('a')).not.toEqual([12, 46]);
+    expect(position('a')).not.toEqual([12, 28]);
     expect(position('b')).toEqual(bPosition);
     expect(avatar?.children.map((pose) => pose.visible)).toEqual([
       false,
@@ -244,7 +244,7 @@ describe('persistent yard scene', () => {
       false,
     ]);
     app().advance(3);
-    expect(position('a')).toEqual([92, 46]);
+    expect(position('a')).toEqual([92, 28]);
     expect(position('b')).toEqual(bPosition);
     expect(app().ticker.started).toBe(false);
     expect(avatar?.children.map((pose) => pose.visible)).toEqual([
@@ -253,6 +253,22 @@ describe('persistent yard scene', () => {
       false,
       false,
     ]);
+    yard.destroy();
+  });
+  it('hydrates three distinct states into one local map without global Arrival overflow', async () => {
+    const yard = mount();
+    yard.update([
+      dto('build', 'Building'),
+      dto('test', 'Testing'),
+      dto('done', 'Finished'),
+    ]);
+    await flush();
+    expect(position('build')).toEqual([172, 28]);
+    expect(position('test')).toEqual([252, 28]);
+    expect(position('done')).toEqual([172, 92]);
+    expect(host.style.height).toBe('384px');
+    expect(host.children[1]?.children[0]?.children).toHaveLength(11);
+    expect(app().ticker.started).toBe(false);
     yard.destroy();
   });
   it('retargets from the current integer position; label/provenance/order-only updates never restart it', async () => {
@@ -276,8 +292,8 @@ describe('persistent yard scene', () => {
     yard.update([dto('a', 'Finished'), dto('b')]);
     expect(position('a')).toEqual(next);
     app().advance(3);
-    expect(position('a')).toEqual([172, 142]);
-    expect(position('b')).toEqual([52, 46]);
+    expect(position('a')).toEqual([172, 92]);
+    expect(position('b')).toEqual([52, 28]);
     expect(app().ticker.started).toBe(false);
     yard.destroy();
   });
@@ -297,11 +313,11 @@ describe('persistent yard scene', () => {
       expect(position(id)).toEqual(positions.get(id));
     expect(tags().find((tag) => tag.dataset.agentId === 'e')).toBe(retained);
     yard.update([dto('f', 'Thinking'), dto('e'), dto('c'), dto('b'), dto('d')]);
-    expect(position('f')).toEqual([12, 46]);
+    expect(position('f')).toEqual([92, 28]);
     expect(position('a')).toEqual([undefined, undefined]);
     expect(tags()).toHaveLength(5);
     app().advance(3);
-    expect(position('f')).toEqual([92, 46]);
+    expect(position('f')).toEqual([92, 28]);
     yard.destroy();
   });
   it('keeps neutral DTO identities stable across overflow growth and routes back from a vacated neutral plot', async () => {
@@ -327,7 +343,7 @@ describe('persistent yard scene', () => {
     expect(position('neutral')).toEqual(neutralPosition);
     expect(app().ticker.started).toBe(true);
     app().advance(3);
-    expect(position('neutral')).toEqual([252, 46]);
+    expect(position('neutral')).toEqual([252, 28]);
     expect(app().ticker.started).toBe(false);
     yard.update([]);
     expect(tags()).toHaveLength(0);
@@ -340,7 +356,7 @@ describe('persistent yard scene', () => {
     yard.update([dto('a')]);
     await flush();
     yard.update([dto('a', 'Testing')]);
-    expect(position('a')).toEqual([252, 46]);
+    expect(position('a')).toEqual([252, 28]);
     expect(app().ticker.started).toBe(false);
     media.matches = false;
     yard.update([dto('a', 'Finished')]);
@@ -349,7 +365,7 @@ describe('persistent yard scene', () => {
     const handler = media.addEventListener.mock.calls[0]?.[1];
     if (typeof handler !== 'function') throw new Error('Missing listener');
     handler();
-    expect(position('a')).toEqual([172, 142]);
+    expect(position('a')).toEqual([172, 92]);
     expect(app().ticker.started).toBe(false);
     yard.destroy();
   });
@@ -364,7 +380,7 @@ describe('persistent yard scene', () => {
     resize();
     expect(tags()[0]).toBe(identity);
     expect(app().stage.children[1]?.children[0]).toBe(avatar);
-    expect(position('a')).toEqual([12, 334]);
+    expect(position('a')).toEqual([12, 220]);
     expect(app().ticker.started).toBe(false);
     expect(host.style.width).toBe('320px');
     expect(host.style.left).toBe('0.5px');

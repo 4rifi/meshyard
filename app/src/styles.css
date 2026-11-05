@@ -664,3 +664,350 @@ a {
   font-size: 12px;
   line-height: 20px;
 }
+
+/* Focused solo views keep the primary yard inside a normal desktop window. */
+[hidden] {
+  display: none !important;
+}
+main {
+  padding: 12px;
+}
+.workspace-header {
+  padding: 8px 12px;
+  gap: 0 12px;
+  margin-bottom: 8px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.workspace-header::before {
+  height: 4px;
+  margin: -8px -12px 4px;
+}
+.workspace-header > div:first-child {
+  grid-row: 2;
+  grid-column: 1;
+}
+.workspace-header .eyebrow {
+  display: none;
+}
+.workspace-header h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 32px;
+}
+.workspace-header .register-shortcut {
+  grid-column: auto;
+  grid-row: 2;
+  min-height: 40px;
+  padding: 4px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+.workspace-header .identity {
+  grid-row: 3;
+  line-height: 16px;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.view-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.view-tabs button {
+  margin: 0 0 4px;
+  min-height: 40px;
+  padding: 4px 16px;
+  background: var(--deep);
+  color: var(--text);
+  border-top-color: var(--light);
+  box-shadow: 4px 4px 0 var(--line);
+}
+.view-tabs [aria-current='page'] {
+  color: var(--line);
+  background: var(--warn);
+  border-top-color: var(--text);
+}
+.yard {
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.yard::before {
+  display: none;
+}
+.yard-heading {
+  margin-bottom: 8px;
+}
+.yard-heading h2 {
+  font-size: 18px;
+  line-height: 24px;
+}
+.yard-viewport {
+  padding: 0;
+  max-height: calc(100dvh - 248px);
+  min-height: 192px;
+  overflow: auto;
+}
+.yard-caption {
+  margin-top: 8px;
+  font-family: -apple-system, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+}
+.agent-tag {
+  display: block;
+  white-space: nowrap;
+  max-height: 14px;
+}
+.reserved-label {
+  border-color: var(--muted);
+  color: var(--muted);
+  background: repeating-linear-gradient(
+    135deg,
+    var(--deep) 0 4px,
+    var(--panel) 4px 8px
+  );
+}
+.workspace-grid {
+  display: block;
+}
+.workspace-grid > .panel,
+.side-panels {
+  max-height: calc(100dvh - 220px);
+  overflow: auto;
+}
+.side-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.inspector {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  overflow: auto;
+  color: var(--text);
+}
+.inspector::backdrop {
+  background: #0b0912cc;
+}
+.inspector-id {
+  display: block;
+  padding: 8px;
+  background: var(--deep);
+}
+.inspector-actions {
+  display: flex;
+  justify-content: end;
+  border-top: 2px solid var(--light);
+}
+.connect-panel {
+  max-height: calc(100dvh - 196px);
+  overflow: auto;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+.connect-panel::before {
+  margin: -16px -16px 12px;
+}
+.connect-panel pre {
+  max-height: min(240px, 32dvh);
+}
+.connect-panel .items li {
+  padding: 8px;
+}
+.connect-panel .items button {
+  margin-top: 0;
+}
+main > .footnote {
+  margin: 8px 0 0;
+  padding: 8px;
+  line-height: 16px;
+  font-family: -apple-system, sans-serif;
+  font-size: 11px;
+}
+body > .footnote {
+  margin: 0;
+  padding: 4px 12px;
+  line-height: 16px;
+  font-size: 10px;
+}
+@media (max-width: 680px) {
+  .workspace-header {
+    gap: 4px 8px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .workspace-header > div:first-child {
+    grid-column: 1 / -1;
+  }
+  .workspace-header .register-shortcut {
+    grid-row: 3;
+    grid-column: auto;
+    justify-self: start;
+  }
+  .workspace-header .identity {
+    grid-row: 4;
+  }
+  .workspace-header h1 {
+    font-size: 20px;
+  }
+  .side-panels {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .yard-heading p {
+    margin: 0;
+  }
+  .yard-viewport {
+    max-height: calc(100dvh - 288px);
+  }
+  .yard-caption {
+    gap: 0;
+    display: grid;
+  }
+  .connect-panel {
+    max-height: calc(100dvh - 228px);
+  }
+  .view-tabs {
+    gap: 4px;
+  }
+  .view-tabs button {
+    padding: 4px 12px;
+  }
+}
+
+.connect-panel:has(.hook-review) > h2 {
+  display: none;
+}
+.hook-review h3 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+.hook-review p {
+  margin: 8px 0;
+}
+.hook-review pre {
+  margin: 8px 0;
+  max-height: 180px;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  border-top: 2px solid var(--light);
+}
+.review-actions button {
+  margin: 8px 4px 4px 0;
+}
+
+.plan-metadata,
+.storage-details {
+  background: var(--deep);
+  border: 2px solid var(--light);
+  margin: 8px 0;
+}
+.plan-metadata summary,
+.storage-details summary {
+  cursor: pointer;
+  min-height: 40px;
+  padding: 8px 12px;
+  font-family: 'Pixelify Sans', monospace;
+}
+.plan-metadata p,
+.storage-details p {
+  padding: 0 12px;
+}
+.plan-metadata code {
+  overflow-wrap: anywhere;
+}
+.side-panels .items {
+  margin-bottom: 8px;
+}
+.side-panels form {
+  margin-bottom: 16px;
+}
+
+.connect-panel:has(.hook-review) {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 196px);
+  overflow: hidden;
+}
+.hook-review {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.hook-review > :not(pre) {
+  flex-shrink: 0;
+}
+.hook-review pre {
+  flex: 1;
+  min-height: 72px;
+  max-height: none;
+}
+.review-actions {
+  position: static;
+  flex-shrink: 0;
+}
+@media (max-width: 680px) {
+  .connect-panel:has(.hook-review) {
+    height: calc(100dvh - 228px);
+  }
+}
+.connect-panel:has(.hook-review)::before {
+  display: none;
+}
+.hook-review {
+  flex: 1;
+  height: auto;
+}
+@media (max-width: 680px) {
+  .hook-review h3 {
+    margin-bottom: 4px;
+  }
+  .hook-review p {
+    font-size: 14px;
+    line-height: 20px;
+    margin: 4px 0;
+  }
+  .plan-metadata summary {
+    font-size: 14px;
+    min-height: 32px;
+    padding: 4px 8px;
+  }
+  .review-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .review-actions button {
+    min-height: 40px;
+    margin: 4px 0 0;
+    padding: 4px 8px;
+    font-size: 14px;
+  }
+  .review-actions button:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.connect-panel,
+.connect-panel:has(.hook-review) {
+  max-height: var(--connect-height, calc(100dvh - 228px));
+}
+.connect-panel:has(.hook-review) {
+  height: var(--connect-height, calc(100dvh - 228px));
+}
+@media (max-width: 680px) {
+  .view-tabs button {
+    white-space: nowrap;
+    font-size: 14px;
+    padding: 4px 8px;
+  }
+  .workspace-header .register-shortcut {
+    padding: 4px 8px;
+  }
+}

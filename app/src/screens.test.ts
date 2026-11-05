@@ -67,13 +67,14 @@ const errors: Record<AppError, true> = {
   HookConfigInvalid: true,
 };
 describe('real-state screen contract', () => {
-  it('offers labeled setup with Strict and disabled Auto', () => {
+  it('offers two labeled setup fields without a misleading network choice', () => {
     const html = render('Setup');
     expect(html).toContain('Create workspace');
     expect(html).toContain('for="workspace-name"');
     expect(html).toContain('for="display-name"');
-    expect(html).toContain('<option value="Auto" disabled=""');
-    expect(html).toContain('Requires a self-hosted relay (G-1)');
+    expect(html).not.toContain('Connection mode');
+    expect(html).not.toContain('<select');
+    expect(html).toContain('Your yard stays on this Mac.');
     expect(html).toContain('tabindex="-1"');
     expect(render('Setup', true)).toContain('<fieldset disabled=""');
   });
@@ -218,11 +219,11 @@ describe('real-state screen contract', () => {
         future
           .flatMap((plot) => plot.stations)
           .filter((station) => station.agents.length),
-      ).toMatchObject([{ label: 'Reviewing', prop: null }]);
+      ).toMatchObject([{ label: 'Review', prop: 'review', reserved: true }]);
     },
   );
   it.each([2, 4] as const)(
-    'reflows all eight stations in order within %i columns',
+    'reflows all eleven true and reserved stations within %i columns',
     (columns) => {
       const plot = yardPlots([], columns)[0];
       expect(plot?.stations.map(({ label }) => label)).toEqual([
@@ -234,29 +235,15 @@ describe('real-state screen contract', () => {
         'Merge',
         'Finished',
         'Error',
+        'Review',
+        'Fix',
+        'Waiting',
       ]);
       expect(plot?.stations.map(({ x, y }) => [x, y])).toEqual(
-        columns === 2
-          ? [
-              [0, 0],
-              [80, 0],
-              [0, 96],
-              [80, 96],
-              [0, 192],
-              [80, 192],
-              [0, 288],
-              [80, 288],
-            ]
-          : [
-              [0, 0],
-              [80, 0],
-              [160, 0],
-              [240, 0],
-              [0, 96],
-              [80, 96],
-              [160, 96],
-              [240, 96],
-            ],
+        Array.from({ length: 11 }, (_, index) => [
+          (index % columns) * 80,
+          Math.floor(index / columns) * 64,
+        ]),
       );
     },
   );

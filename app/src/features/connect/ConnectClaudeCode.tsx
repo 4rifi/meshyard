@@ -1,5 +1,5 @@
 import type { AgentKind } from '../../ipc/generated/AgentKind';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { WorkspaceView } from '../../ipc/generated/WorkspaceView';
 import type { AppStatus } from '../../ipc/generated/AppStatus';
 import type { AppError } from '../../ipc/generated/AppError';
@@ -56,7 +56,29 @@ export function ConnectClaudeCode({
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
   const active = useRef(false);
+  const section = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const element = section.current;
+      if (element)
+        element.style.setProperty(
+          '--connect-height',
+          `${String(Math.max(160, Math.floor(window.innerHeight - element.getBoundingClientRect().top - 12)))}px`,
+        );
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    const observer = new ResizeObserver(fit);
+    const header = section.current
+      ?.closest('main')
+      ?.querySelector('.workspace-header');
+    if (header) observer.observe(header);
+    return () => {
+      window.removeEventListener('resize', fit);
+      observer.disconnect();
+    };
+  }, [plan]);
   const review = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     active.current = true;
@@ -97,6 +119,7 @@ export function ConnectClaudeCode({
   };
   return (
     <section
+      ref={section}
       className="panel connect-panel"
       aria-labelledby="connect-heading"
       aria-busy={disabled}
@@ -104,83 +127,85 @@ export function ConnectClaudeCode({
       <h2 id="connect-heading" tabIndex={-1} ref={heading}>
         Connect agents
       </h2>
-      <p>
+      <p hidden={plan !== null}>
         Choose your local agent, review the exact settings changes, then
         install. Registration alone does not connect an agent.
       </p>
-      <label htmlFor="connect-kind">Agent kind</label>
-      <select
-        id="connect-kind"
-        value={kind}
-        disabled={disabled || plan !== null}
-        onChange={(event) => {
-          setKind(event.target.value === 'Codex' ? 'Codex' : 'ClaudeCode');
-          setError(null);
-        }}
-      >
-        <option value="ClaudeCode">Claude Code</option>
-        <option value="Codex">Codex</option>
-      </select>
-      {kind === 'Codex' && (
-        <p>
-          After Install, open /hooks in Codex and review and trust the exact
-          Meshyard hooks. Restart Codex to receive SessionStart. Changed hooks
-          require trust again. Project hooks also require a trusted project.
+      <div hidden={plan !== null}>
+        <label htmlFor="connect-kind">Agent kind</label>
+        <select
+          id="connect-kind"
+          value={kind}
+          disabled={disabled || plan !== null}
+          onChange={(event) => {
+            setKind(event.target.value === 'Codex' ? 'Codex' : 'ClaudeCode');
+            setError(null);
+          }}
+        >
+          <option value="ClaudeCode">Claude Code</option>
+          <option value="Codex">Codex</option>
+        </select>
+        {kind === 'Codex' && (
+          <p>
+            After Install, open /hooks in Codex and review and trust the exact
+            Meshyard hooks. Restart Codex to receive SessionStart. Changed hooks
+            require trust again. Project hooks also require a trusted project.
+          </p>
+        )}
+        <IngestNotice workspace={workspace} />
+        {error && (
+          <p role="alert">
+            <strong>{error}</strong>: {advice[error]}
+          </p>
+        )}
+        <ul className="items">
+          {own.map((agent) => (
+            <li key={agent.id}>
+              <strong>{agent.label}</strong>
+              <code>{agent.id}</code>
+              <span>{connectionLabels[agent.connection]}</span>
+              <button
+                type="button"
+                disabled={disabled || agent.bound || plan !== null}
+                onClick={() => {
+                  void run(async () => {
+                    const result = await onBind(agent.id);
+                    if (
+                      active.current &&
+                      result &&
+                      typeof result === 'object' &&
+                      'Error' in result
+                    )
+                      setError(result.Error);
+                  });
+                }}
+              >
+                {agent.bound ? 'Selected for hook' : 'Select for hook'}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          disabled={disabled || plan !== null}
+          onClick={onRegister}
+        >
+          Register one
+        </button>
+        <p role="status">
+          {bound
+            ? bound.connection === 'WaitingForFirstEvent'
+              ? `Start ${label} or send a message in an existing session. Waiting for the first event.`
+              : connectionLabels[bound.connection]
+            : `Choose your own ${label} agent to continue.`}
         </p>
-      )}
-      <IngestNotice workspace={workspace} />
-      {error && (
-        <p role="alert">
-          <strong>{error}</strong>: {advice[error]}
-        </p>
-      )}
-      <ul className="items">
-        {own.map((agent) => (
-          <li key={agent.id}>
-            <strong>{agent.label}</strong>
-            <code>{agent.id}</code>
-            <span>{connectionLabels[agent.connection]}</span>
-            <button
-              type="button"
-              disabled={disabled || agent.bound || plan !== null}
-              onClick={() => {
-                void run(async () => {
-                  const result = await onBind(agent.id);
-                  if (
-                    active.current &&
-                    result &&
-                    typeof result === 'object' &&
-                    'Error' in result
-                  )
-                    setError(result.Error);
-                });
-              }}
-            >
-              {agent.bound ? 'Selected for hook' : 'Select for hook'}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button
-        type="button"
-        disabled={disabled || plan !== null}
-        onClick={onRegister}
-      >
-        Register one
-      </button>
-      <p role="status">
-        {bound
-          ? bound.connection === 'WaitingForFirstEvent'
-            ? `Start ${label} or send a message in an existing session. Waiting for the first event.`
-            : connectionLabels[bound.connection]
-          : `Choose your own ${label} agent to continue.`}
-      </p>
-      {!hook.binary_available && (
-        <p>
-          The hook executable is unavailable. Move Meshyard to /Applications and
-          reopen it before installing hooks.
-        </p>
-      )}
+        {!hook.binary_available && (
+          <p>
+            The hook executable is unavailable. Move Meshyard to /Applications
+            and reopen it before installing hooks.
+          </p>
+        )}
+      </div>
       {plan ? (
         <div className="hook-review">
           <h3 tabIndex={-1} ref={review}>
@@ -189,46 +214,51 @@ export function ConnectClaudeCode({
           <p>
             Settings: <code>{plan.settings_path_display}</code>
           </p>
-          <p>
-            Base SHA-256: <code className="hash">{plan.base_sha256}</code>
-          </p>
-          <p>
-            The exact quoted hook binary and socket paths are shown in the diff.
-          </p>
+          <details className="plan-metadata">
+            <summary>Technical details</summary>
+            <p>
+              Base SHA-256: <code className="hash">{plan.base_sha256}</code>
+            </p>
+          </details>
           <pre tabIndex={0} aria-label="Exact settings diff">
             {plan.diff}
           </pre>
-          {plan.action !== 'NoChange' && (
+          <div className="review-actions">
+            {plan.action !== 'NoChange' && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  void run(async () => {
+                    const result = await onApply(plan.plan_id);
+                    if (!active.current || !result) return;
+                    if (typeof result === 'object' && 'Error' in result)
+                      setError(result.Error);
+                    else {
+                      setPlan(null);
+                      heading.current?.focus();
+                    }
+                  });
+                }}
+              >
+                {plan.action === 'Remove' ? 'Remove hook' : 'Install'}
+              </button>
+            )}
             <button
               type="button"
               disabled={disabled}
               onClick={() => {
-                void run(async () => {
-                  const result = await onApply(plan.plan_id);
-                  if (!active.current || !result) return;
-                  if (typeof result === 'object' && 'Error' in result)
-                    setError(result.Error);
-                  else {
-                    setPlan(null);
-                    heading.current?.focus();
-                  }
-                });
+                setPlan(null);
+                setError(null);
+                heading.current?.focus();
               }}
             >
-              {plan.action === 'Remove' ? 'Remove hook' : 'Install'}
+              Cancel
             </button>
-          )}
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => {
-              setPlan(null);
-              setError(null);
-              heading.current?.focus();
-            }}
-          >
-            Cancel
-          </button>
+            <button type="button" disabled={disabled} onClick={onClose}>
+              Close connection panel
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -255,9 +285,11 @@ export function ConnectClaudeCode({
         </>
       )}
 
-      <button type="button" disabled={disabled} onClick={onClose}>
-        Close connection panel
-      </button>
+      {!plan && (
+        <button type="button" disabled={disabled} onClick={onClose}>
+          Close connection panel
+        </button>
+      )}
     </section>
   );
 }

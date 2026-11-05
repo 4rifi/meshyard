@@ -30,87 +30,71 @@ export function yardZones(
   return Array.from(zones, ([label, group]) => ({ label, agents: group }));
 }
 
-/** Only states emitted by frozen wire v1 receive a named station. */
+/** Reserved places are visible, but hooks never synthesize their activity. */
 export const stations = [
-  { state: null, label: 'Arrival', prop: 'arrival' },
-  { state: 'Thinking', label: 'Thinking', prop: 'desk' },
-  { state: 'Building', label: 'Build', prop: 'workbench' },
-  { state: 'Testing', label: 'Test', prop: 'test' },
-  { state: 'Idle', label: 'Idle', prop: 'bench' },
-  { state: 'Merging', label: 'Merge', prop: 'gate' },
-  { state: 'Finished', label: 'Finished', prop: 'flag' },
-  { state: 'Error', label: 'Error', prop: 'alarm' },
+  { state: null, label: 'Arrival', prop: 'arrival', reserved: false },
+  { state: 'Thinking', label: 'Thinking', prop: 'desk', reserved: false },
+  { state: 'Building', label: 'Build', prop: 'workbench', reserved: false },
+  { state: 'Testing', label: 'Test', prop: 'test', reserved: false },
+  { state: 'Idle', label: 'Idle', prop: 'bench', reserved: false },
+  { state: 'Merging', label: 'Merge', prop: 'gate', reserved: false },
+  { state: 'Finished', label: 'Finished', prop: 'flag', reserved: false },
+  { state: 'Error', label: 'Error', prop: 'alarm', reserved: false },
+  { state: 'Reviewing', label: 'Review', prop: 'review', reserved: true },
+  { state: 'Fixing', label: 'Fix', prop: 'repair', reserved: true },
+  {
+    state: 'WaitingForInput',
+    label: 'Waiting',
+    prop: 'waiting',
+    reserved: true,
+  },
 ] as const;
-
+export const stationHeight = 64;
+export const plotHeight = (columns: 2 | 4) =>
+  Math.ceil(stations.length / columns) * stationHeight;
 export function yardPlots(
   agents: AgentView[],
   columns: 2 | 4 = 4,
   slots?: ReadonlyMap<string, number>,
-  minPlots = 1,
 ) {
-  const groups = yardZones(agents);
-  // Two distinct 16px character tiles per station and plot. Extra plots keep all
-  // real agents visible without shrinking pixels or dropping crowded registries.
-  const count = Math.max(
-    minPlots,
-    ...groups.map((zone) =>
-      Math.max(
-        ...zone.agents.map(
-          (agent, index) => Math.floor((slots?.get(agent.id) ?? index) / 2) + 1,
-        ),
-      ),
-    ),
-  );
-  type Plot = {
-    stations: {
-      label: string;
-      prop: Prop | null;
-      x: number;
-      y: number;
-      agents: AgentView[];
-    }[];
+  type Station = {
+    label: string;
+    prop: Prop | null;
+    reserved: boolean;
+    x: number;
+    y: number;
+    agents: AgentView[];
   };
-  const plots: Plot[] = Array.from({ length: count }, (_, page) => ({
-    stations: stations.map((station, index) => ({
-      ...station,
-      x: (index % columns) * 80,
-      y: Math.floor(index / columns) * 96,
-      agents: (
-        groups.find((zone) => zone.label === activityLabel(station.state))
-          ?.agents ?? []
-      ).filter(
-        (agent, index) =>
-          Math.floor((slots?.get(agent.id) ?? index) / 2) === page,
-      ),
-    })),
-  }));
-  // Preserve future DTO states as neutral plots, with their exact labels and no
-  // invented workstation. Today's pipeline never emits these three states.
-  for (const zone of groups.filter(
-    (group) =>
-      !stations.some((station) => activityLabel(station.state) === group.label),
-  )) {
+  const plots: { key: string; stations: Station[] }[] = [
+    { key: 'base', stations: [] },
+  ];
+  stations.forEach((station, index) => {
+    const group = agents.filter((agent) => agent.state === station.state);
     const pages = Math.max(
-      ...zone.agents.map(
-        (agent, index) => Math.floor((slots?.get(agent.id) ?? index) / 2) + 1,
+      1,
+      ...group.map(
+        (agent, ordinal) =>
+          Math.floor((slots?.get(agent.id) ?? ordinal) / 2) + 1,
       ),
     );
-    for (let page = 0; page < pages; page += 1) {
-      plots.push({
-        stations: [
-          {
-            label: zone.label,
-            prop: null,
-            x: 0,
-            y: 0,
-            agents: zone.agents.filter(
-              (agent, index) =>
-                Math.floor((slots?.get(agent.id) ?? index) / 2) === page,
-            ),
-          },
-        ],
-      });
+    for (let page = 0; page < pages; page++) {
+      const occupants = group.filter(
+        (agent, ordinal) =>
+          Math.floor((slots?.get(agent.id) ?? ordinal) / 2) === page,
+      );
+      const place = {
+        ...station,
+        x: page === 0 ? (index % columns) * 80 : 0,
+        y: page === 0 ? Math.floor(index / columns) * stationHeight : 0,
+        agents: occupants,
+      };
+      if (page === 0) plots[0]?.stations.push(place);
+      else if (occupants.length)
+        plots.push({
+          key: `overflow:${station.label}:${String(page)}`,
+          stations: [{ ...place, label: `${station.label} +` }],
+        });
     }
-  }
+  });
   return plots;
 }

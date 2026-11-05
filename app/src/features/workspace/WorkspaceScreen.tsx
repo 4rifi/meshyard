@@ -5,6 +5,7 @@ import type { RegisterAgent as RegisterInput } from '../../ipc/generated/Registe
 import { createYard, type Yard } from '../../playground/yard';
 import { MemberList } from './MemberList';
 import { AgentList } from './AgentList';
+import { provenanceLabel, kindLabel } from './activityLabels';
 import type { AppStatus } from '../../ipc/generated/AppStatus';
 import { ConnectClaudeCode, IngestNotice } from '../connect/ConnectClaudeCode';
 import { activityLabel } from '../../playground/yardData';
@@ -25,6 +26,7 @@ export function WorkspaceScreen({
   onBind: (id: string) => Promise<AppStatus | undefined>;
   onApply: (id: string) => Promise<AppStatus | undefined>;
 }) {
+  const [view, setView] = useState<'yard' | 'agents' | 'settings'>('yard');
   const [selected, setSelected] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const selectAgent = useCallback((id: string) => {
@@ -35,17 +37,32 @@ export function WorkspaceScreen({
         : (host.current?.parentElement ?? null);
     setSelected(id);
   }, []);
-  const inspector = useRef<HTMLElement>(null);
+  const inspector = useRef<HTMLDialogElement>(null);
   const inspected = workspace.agents.find((agent) => agent.id === selected);
   const inspectedId = inspected?.id;
+  const closeInspector = () => {
+    inspector.current?.close();
+    setSelected(null);
+    opener.current?.focus();
+  };
   useEffect(() => {
-    if (inspectedId) inspector.current?.focus();
+    if (inspectedId) {
+      inspector.current?.showModal();
+      inspector.current?.focus();
+    }
   }, [inspectedId]);
   const host = useRef<HTMLDivElement>(null);
   const yard = useRef<Yard | null>(null);
   const connectButton = useRef<HTMLButtonElement>(null);
   const [connecting, setConnecting] = useState<AgentKind | null>(null);
   const agentLabel = useRef<HTMLInputElement>(null);
+  const registrationPending = useRef(false);
+  useEffect(() => {
+    if (view === 'agents' && registrationPending.current) {
+      registrationPending.current = false;
+      agentLabel.current?.focus();
+    }
+  }, [view]);
   const [rendererFailed, setRendererFailed] = useState(false);
   const [name, setName] = useState(
     workspace.members.find((m) => m.is_you)?.display_name ?? '',
@@ -57,7 +74,10 @@ export function WorkspaceScreen({
       () => {
         setRendererFailed(true);
       },
-      selectAgent,
+      (id) => {
+        opener.current = host.current?.parentElement ?? null;
+        setSelected(id);
+      },
     );
     yard.current = scene;
     return () => {
@@ -69,8 +89,11 @@ export function WorkspaceScreen({
     yard.current?.update(workspace.agents);
   }, [workspace.id_short, workspace.agents]);
   const focusRegistration = () => {
-    agentLabel.current?.scrollIntoView({ block: 'center' });
-    agentLabel.current?.focus({ preventScroll: true });
+    setConnecting(null);
+    if (view !== 'agents') {
+      registrationPending.current = true;
+      setView('agents');
+    } else agentLabel.current?.focus();
   };
   return (
     <>
@@ -79,9 +102,6 @@ export function WorkspaceScreen({
           <p className="eyebrow">Meshyard · Local workspace</p>
           <h1 tabIndex={-1}>{workspace.name}</h1>
         </div>
-        <span className="mode">
-          {workspace.mode === 'Strict' ? 'Strict P2P' : 'Auto'}
-        </span>
         <button
           ref={connectButton}
           className="register-shortcut"
@@ -114,7 +134,26 @@ export function WorkspaceScreen({
           <code>{workspace.device_short}</code>
         </p>
       </header>
-      <div id="connection-panel">
+      <nav className="view-tabs" aria-label="Workspace views">
+        {(['yard', 'agents', 'settings'] as const).map((tab) => (
+          <button
+            type="button"
+            key={tab}
+            aria-current={view === tab && !connecting ? 'page' : undefined}
+            onClick={() => {
+              setConnecting(null);
+              setView(tab);
+            }}
+          >
+            {tab === 'yard'
+              ? 'Yard'
+              : tab === 'agents'
+                ? 'Agent list'
+                : 'Settings'}
+          </button>
+        ))}
+      </nav>
+      <div id="connection-panel" hidden={!connecting}>
         {connecting && (
           <ConnectClaudeCode
             workspace={workspace}
@@ -130,7 +169,11 @@ export function WorkspaceScreen({
           />
         )}
       </div>
-      <section className="panel yard" aria-labelledby="yard-heading">
+      <section
+        hidden={view !== 'yard' || connecting !== null}
+        className="panel yard"
+        aria-labelledby="yard-heading"
+      >
         <div className="yard-heading">
           <h2 id="yard-heading">The yard</h2>
           <p>Stations reflect observed agent states</p>
@@ -146,38 +189,30 @@ export function WorkspaceScreen({
         {!workspace.agents.length && (
           <p className="empty-yard">Register an agent to see it here.</p>
         )}
-        <p className="narrow-yard-help">
-          At very narrow widths the map uses smaller pixels. Full names and
-          status are in the agent list below.
-        </p>
         <p className="yard-caption">
           <span>{workspace.agents.length} registered agents</span>
-          <span>Movement follows observed state changes</span>
+          <span>Review / Fix / Waiting: reserved, no hook activity</span>
         </p>
         {rendererFailed && (
           <p role="status">
             Graphics are unavailable. Every agent is listed below.
           </p>
         )}
-        <div className="station-reserved" aria-label="Unsupported stations">
-          {['Review', 'Fix', 'Waiting'].map((station) => (
-            <span key={station}>
-              <strong>{station}</strong>
-              <small>Not reported by current hooks</small>
-            </span>
-          ))}
-        </div>
       </section>
       {inspected && (
-        <section
+        <dialog
           ref={inspector}
+          onCancel={(event) => {
+            event.preventDefault();
+            closeInspector();
+          }}
           tabIndex={-1}
           className="panel inspector"
           aria-labelledby="inspector-heading"
         >
           <h2 id="inspector-heading">Agent inspector · {inspected.label}</h2>
           <p>
-            {inspected.kind} · {activityLabel(inspected.state)}
+            {kindLabel(inspected.kind)} · {activityLabel(inspected.state)}
           </p>
           <p>
             {inspected.stale
@@ -185,34 +220,39 @@ export function WorkspaceScreen({
               : 'Last observed state'}
           </p>
           <p>
-            {inspected.provenance
-              ? 'Verified' in inspected.provenance
-                ? `Verified · ${inspected.provenance.Verified.source}`
-                : `Inferred · ${inspected.provenance.Inferred.rule}`
-              : 'No hook events yet. Registration alone does not connect an agent.'}
+            {provenanceLabel(inspected.provenance) ??
+              'No hook events yet. Registration alone does not connect an agent.'}
           </p>
           <p>
             Verified means a hook-shaped message from the same OS user, not
             proof of what the agent accomplished.
           </p>
-          <code>{inspected.id}</code>
-          <button
-            type="button"
-            onClick={() => {
-              setSelected(null);
-              opener.current?.focus();
-            }}
-          >
-            Close inspector
-          </button>
-        </section>
+          <p className="inspector-id">
+            Agent ID
+            <br />
+            <code>{inspected.id}</code>
+          </p>
+          <div className="inspector-actions">
+            <button
+              type="button"
+              onClick={() => {
+                closeInspector();
+              }}
+            >
+              Close inspector
+            </button>
+          </div>
+        </dialog>
       )}
-      <p>
-        Review, Fix and Waiting are not observed by this version. No activity is
-        inferred for those stations.
-      </p>
-      <div className="workspace-grid">
-        <section className="panel" aria-labelledby="agents-heading">
+      <div
+        className="workspace-grid"
+        hidden={connecting !== null || view === 'yard'}
+      >
+        <section
+          hidden={view !== 'agents'}
+          className="panel"
+          aria-labelledby="agents-heading"
+        >
           <h2 id="agents-heading">
             Agents <span className="count">{workspace.agents.length}</span>
           </h2>
@@ -229,23 +269,10 @@ export function WorkspaceScreen({
             labelInput={agentLabel}
           />
         </section>
-        <div className="side-panels">
+        <div className="side-panels" hidden={view !== 'settings'}>
           <section className="panel" aria-labelledby="members-heading">
             <h2 id="members-heading">Settings and members</h2>
             <MemberList members={workspace.members} />
-            <p>
-              Local-first storage. Device identity uses macOS Keychain by
-              default. A locked or unavailable Keychain is reported; Meshyard
-              never silently changes key stores.
-            </p>
-            <p>
-              Hooks share only activity categories and provenance. Prompts,
-              paths, commands and tool output stay out of Meshyard events.
-            </p>
-            <details className="font-license">
-              <summary>Pixelify Sans · Font license</summary>
-              <pre>{fontLicense}</pre>
-            </details>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -267,6 +294,27 @@ export function WorkspaceScreen({
                 Save display name
               </button>
             </form>
+            <details className="storage-details">
+              <summary>Storage and privacy</summary>
+              <p>
+                Workspace mode:{' '}
+                {workspace.mode === 'Strict' ? 'Strict P2P' : 'Auto'}. Peer
+                pairing is not available.
+              </p>
+              <p>
+                Local-first storage. Device identity uses macOS Keychain by
+                default. A locked or unavailable Keychain is reported; Meshyard
+                never silently changes key stores.
+              </p>
+              <p>
+                Hooks share only activity categories and provenance. Prompts,
+                paths, commands and tool output stay out of Meshyard events.
+              </p>
+            </details>
+            <details className="font-license">
+              <summary>Pixelify Sans · Font license</summary>
+              <pre>{fontLicense}</pre>
+            </details>
           </section>
           <section className="panel" aria-labelledby="peers-heading">
             <h2 id="peers-heading">Peers</h2>

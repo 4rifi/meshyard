@@ -1,4 +1,4 @@
-import type { yardPlots } from './yardData';
+import { plotHeight, type yardPlots } from './yardData';
 
 export type Point = { x: number; y: number };
 export type Lane = { from: Point; to: Point };
@@ -17,11 +17,11 @@ export function yardGeometry(
   const destinations = new Map<string, Point>();
   const rows = new Set<number>();
   plots.forEach((plot, page) => {
-    const offset = page * (8 / columns) * 96;
+    const offset = page * plotHeight(columns);
     plot.stations.forEach((station) => {
-      const y = offset + Math.floor(station.y / 192) * 192 + 72;
+      const y = offset + Math.floor(station.y / 128) * 128 + 40;
       rows.add(y);
-      const centre = { x: station.x + 8, y: offset + station.y + 46 };
+      const centre = { x: station.x + 8, y: offset + station.y + 28 };
       lanes.push({ from: centre, to: { x: centre.x, y } });
       // Both permanent slots join the door, including slots vacated during a walk.
       for (const x of [station.x + 12, station.x + 52]) {

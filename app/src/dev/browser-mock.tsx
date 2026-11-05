@@ -47,27 +47,43 @@ let workspace: WorkspaceView = {
   codex_hook: { installed: false, binary_available: true },
   hook: { installed: false, binary_available: true },
   agents:
-    scenario === 'agents'
+    scenario === 'agents' ||
+    scenario === 'three-agents' ||
+    scenario === 'installed'
       ? [
           {
-            ...agent('fixture-build', 'Claude builder'),
+            ...agent('fixture-build', 'Claude build'),
             state: 'Building',
             provenance: { Inferred: { rule: 'ToolEdit' } },
           },
           {
-            ...agent('fixture-testing', 'test runner', 'Codex'),
+            ...agent('fixture-testing', 'Codex test', 'Codex'),
             state: 'Testing',
             provenance: { Inferred: { rule: 'ToolShell' } },
           },
         ]
       : [],
 };
-if (scenario === 'agents')
+if (scenario === 'three-agents')
+  workspace.agents.push({
+    ...agent('fixture-finished', 'Claude done'),
+    state: 'Finished',
+    provenance: { Verified: { source: 'Stop' } },
+  });
+if (
+  scenario === 'agents' ||
+  scenario === 'three-agents' ||
+  scenario === 'installed'
+)
   workspace.agents = workspace.agents.map((a) => ({
     ...a,
     bound: true,
     connection: a.state ? 'Connected' : 'NotConnected',
   }));
+if (scenario === 'installed') {
+  workspace.hook.installed = true;
+  workspace.codex_hook.installed = true;
+}
 if (scenario === 'connected') {
   workspace.hook.installed = true;
   workspace.agents = [

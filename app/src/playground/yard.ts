@@ -9,7 +9,12 @@ import {
 } from 'pixi.js';
 import type { AgentView } from '../ipc/generated/AgentView';
 import { initializeScene } from './sceneLifecycle';
-import { activityLabel, yardPlots } from './yardData';
+import {
+  activityLabel,
+  yardPlots,
+  plotHeight as pageHeight,
+  stationHeight,
+} from './yardData';
 import { ink, pixelSprite } from './sprites';
 import {
   plannedPath,
@@ -56,7 +61,7 @@ export function createYard(
   let restFrame = 0;
   let media: MediaQueryList | undefined;
   let columns: 2 | 4 = 4;
-  let basePages = 1;
+
   // Retain empty visited plots, so overflow growth/removal cannot shift other UUIDs
   // or erase a corridor underneath a character being retargeted.
   const plotPages = new Map<string, number>();
@@ -156,29 +161,15 @@ export function createYard(
     for (const agent of [...agents].sort((a, b) => a.id.localeCompare(b.id))) {
       const slot = reserve(agent.id, activityLabel(agent.state));
       slots.set(agent.id, slot);
-      reserve(agent.id, activityLabel(null));
     }
-    for (const group of reservations.values()) {
-      for (const slot of group.values())
-        basePages = Math.max(basePages, Math.floor(slot / 2) + 1);
-    }
-    const freshPlots = yardPlots(agents, columns, slots, basePages);
-    const occurrences = new Map<string, number>();
-    for (const plot of retainedPlots) {
+    const freshPlots = yardPlots(agents, columns, slots);
+    for (const plot of retainedPlots)
       for (const station of plot.stations) station.agents = [];
-    }
     for (const plot of freshPlots) {
-      const kind =
-        plot.stations[0]?.prop === null
-          ? `neutral:${plot.stations[0].label}`
-          : 'base';
-      const ordinal = occurrences.get(kind) ?? 0;
-      occurrences.set(kind, ordinal + 1);
-      const key = `${kind}:${String(ordinal)}`;
-      let page = plotPages.get(key);
+      let page = plotPages.get(plot.key);
       if (page === undefined) {
         page = retainedPlots.length;
-        plotPages.set(key, page);
+        plotPages.set(plot.key, page);
       }
       retainedPlots[page] = plot;
     }
@@ -186,7 +177,7 @@ export function createYard(
     for (const plot of retainedPlots) {
       plot.stations.forEach((station, index) => {
         station.x = (index % columns) * 80;
-        station.y = Math.floor(index / columns) * 96;
+        station.y = Math.floor(index / columns) * stationHeight;
       });
     }
     const plots = retainedPlots;
@@ -202,7 +193,7 @@ export function createYard(
       ),
     );
     const width = columns * 80;
-    const plotHeight = (8 / columns) * 96;
+    const plotHeight = pageHeight(columns);
     const height = plots.length * plotHeight;
     dimensions = { width, height };
     app.renderer.resize(width, height);
@@ -219,25 +210,31 @@ export function createYard(
     }
     // Each row PAIR shares a horizontal path. A minimal existing-palette left lane
     // connects pairs and overflow pages; the pure graph uses the same geometry.
-    if (height > 192) ground.rect(0, 80, 16, height - 176).fill(ink.path);
-    for (let y = 80; y < height; y += 192) {
-      ground.rect(0, y, width, 16).fill(ink.wood);
-      ground.rect(0, y + 2, width, 12).fill(ink.path);
-      for (let x = 0; x < width; x += 16) {
-        ground.rect(x, y + 4, 2, 2).fill(ink.wood);
-        ground.rect(x + 10, y + 10, 2, 1).fill(ink.wood);
+    if (height > 128) ground.rect(0, 48, 16, height - 48).fill(ink.path);
+    plots.forEach((_, page) => {
+      for (
+        let y = page * plotHeight + 48;
+        y < (page + 1) * plotHeight;
+        y += 128
+      ) {
+        ground.rect(0, y, width, 16).fill(ink.wood);
+        ground.rect(0, y + 2, width, 12).fill(ink.path);
+        for (let x = 0; x < width; x += 16) {
+          ground.rect(x, y + 4, 2, 2).fill(ink.wood);
+          ground.rect(x + 10, y + 10, 2, 1).fill(ink.wood);
+        }
       }
-    }
+    });
     plots.forEach((plot, page) => {
       const offset = page * plotHeight;
       plot.stations.forEach((station) => {
-        const pathY = offset + Math.floor(station.y / 192) * 192 + 88;
-        const centreY = offset + station.y + 62;
+        const pathY = offset + Math.floor(station.y / 128) * 128 + 56;
+        const centreY = offset + station.y + 44;
         ground
-          .rect(station.x + 4, offset + station.y + 24, 72, 40)
+          .rect(station.x + 4, offset + station.y + 18, 72, 32)
           .fill(ink.grassDark);
         ground
-          .rect(station.x + 6, offset + station.y + 26, 68, 36)
+          .rect(station.x + 6, offset + station.y + 20, 68, 28)
           .fill(ink.grass);
         ground
           .rect(
@@ -254,17 +251,19 @@ export function createYard(
     plots.forEach((plot, page) => {
       const offset = page * plotHeight;
       // Trees stay off the route lane and preserve the existing sprite palette.
-      environment.addChild(pixelSprite('tree', width - 16, offset + 64));
+      environment.addChild(
+        pixelSprite('tree', width - 16, offset + plotHeight - 16),
+      );
       plot.stations.forEach((station) => {
         if (station.prop)
           environment.addChild(
-            pixelSprite(station.prop, station.x + 32, offset + station.y + 28),
+            pixelSprite(station.prop, station.x + 32, offset + station.y + 18),
           );
         tag(
           station.label,
           station.x + 2,
-          offset + station.y + 8,
-          'station-label',
+          offset + station.y + 2,
+          station.reserved ? 'station-label reserved-label' : 'station-label',
           stationLabels,
         );
       });
@@ -274,15 +273,9 @@ export function createYard(
       if (!target) continue;
       let character = characters.get(agent.id);
       if (!character) {
-        const arrivalSlot = reserve(agent.id, activityLabel(null));
-        const position = {
-          x: 12 + (arrivalSlot % 2) * 40,
-          y:
-            (plotPages.get(`base:${String(Math.floor(arrivalSlot / 2))}`) ??
-              0) *
-              plotHeight +
-            46,
-        };
+        // A hydrated state is not an observed transition from Arrival. Spawn at
+        // its real target; only subsequent DTO state changes create a walk.
+        const position = target;
         const poses: [Graphics, Graphics, Graphics, Graphics] = [
           pixelSprite('agent', 0, 0, agent.kind),
           pixelSprite('agent', 0, 0, agent.kind, 1),
