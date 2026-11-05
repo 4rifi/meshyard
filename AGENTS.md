@@ -1,41 +1,34 @@
-# Meshyard — Codex instructions
+# Meshyard — isolated rework instructions
 
-Role: **Lead developer / implementer.** Claude Code is the architect and reviewer.
+The current owner brief at `/Volumes/Untitled/projects/tokens-abuse/BRIEF.md`
+overrides historical paths, freezes, task selection and push permissions. Read it
+completely at task start and after every compaction, then read HANDOFF, ARCHITECTURE,
+PROTOCOL, SECURITY and relevant task specs. Historical boards/reports remain evidence.
 
-## Team and file ownership
-- **Claude**: specs (`docs/tasks/`), reviews (`docs/reviews/`), ADRs and the normative docs.
-- **Hardworker (you)**: code, tests, `docs/reports/`, task status, sections marked
-  "updated by Codex, pending review", commits and pushes (HANDOFF D-4, merge rule D-6).
-- **Knower** (`01a19e2a-ebb0-7c21-8860-08f501a12e7e`): research and project memory; owns
-  `docs/knowledge/` — do not edit it. Ask it for hard technical questions before guessing.
-- Work only in `/Volumes/MeshyardProjects/meshyard` and its worktrees; source
-  `/Volumes/MeshyardProjects/meshyard-smithers/env.sh` before builds. Nothing on the internal disk.
+- Work only in `/Volumes/TokensAbuse/meshyard`, branch `rework`.
+- Source `/Volumes/TokensAbuse/env.sh` before EVERY shell command. Builds, caches,
+  dependencies, temporary HOME/project fixtures, screenshots and logs stay on APFS.
+  Export final artifacts only to `/Volumes/Untitled/projects/tokens-abuse/dist`.
+- Never access old MeshyardProjects checkouts/runs or Documents/meshyard. Never
+  modify real agent configuration, global memory, `~/.claude` or `~/.codex`.
+- Implement the assigned phase directly; no nested workers or resumed sessions.
+- Local focused imperative English commits only: no push, force, history rewrite,
+  coauthor or generated attribution. Do not mark historical tasks done yourself.
+- Keep signed wire v1 immutable. No unsafe Rust, production unwrap/expect, secrets
+  in logs or unjustified TypeScript any. Generate bindings, permissions and lockfiles
+  with their tools. Do not edit `docs/knowledge`.
+- Keep code/docs/comments English except German TESTER-GUIDE and final REPORT.
+- Record actual commands, exits and limits in `docs/reports/REWORK.md`; keep
+  `/Volumes/TokensAbuse/logs/current-status.md` concise. Unexecuted means not validated.
+- Never weaken assertions or bypass permissions. Known sandbox netmon denial is
+  retained for unchanged normal-context parent verification; do not repeat it.
+- Route architect questions with context/options/recommendation through
+  `/Volumes/TokensAbuse/logs/architect-question.txt`; parent records DECISIONS.md.
+  Do not ask Dion or launch Claude against real agent directories independently.
+- Keychain remains default, no fallback. Real-HOME unique-service probe passed;
+  first packaged production-service launch remains an owner checkpoint. Do not
+  create that production identity unattended. Explicit file profiles are tests only.
 
-## Start of every session
-1. Read `docs/HANDOFF.md` (protocol, current state, open decisions).
-2. Pick the lowest-numbered `ready` task in `docs/ROADMAP.md` whose dependencies are `done`.
-3. Read its spec in `docs/tasks/`, plus the referenced sections of `docs/ARCHITECTURE.md` and
-   `docs/SECURITY.md`.
-
-## While implementing
-- Follow the spec. If it is wrong or impossible (e.g. an iroh API differs), make the smallest
-  reasonable, reversible choice, document it in your report, and update the doc section marked
-  "updated by Codex, pending review". Bigger architectural deviations: add to HANDOFF "Open
-  decisions" and stop that part.
-- Rust: no `unsafe`, no `unwrap()`/`expect()` outside tests, `thiserror` for library errors,
-  `tracing` for logs, never log secrets/prompts/commands/paths.
-- TypeScript: strict, no `any`. Generated files (`app/src/ipc/generated/`, lockfiles,
-  Tauri gen) are never edited by hand.
-- Tests must not need the public internet; mark optional internet tests `#[ignore]`.
-- Keep dependencies minimal; justify each new one in the report.
-
-## Done means
-- `npm run check` passes and task-specific tests pass — paste the real command output summary
-  into `docs/reports/T-XXX.md`.
-- Report lists: what was done, files, commands + results, deviations, gaps, questions.
-- Set the task to `review` in ROADMAP + HANDOFF. Never set your own task to `done`.
-- Never claim a run, screenshot, or hardware test that did not happen.
-
-## Git
-- No `Co-Authored-By` or "Generated with …" lines. No force push, no history rewrite.
-- Commit/push only as defined in HANDOFF decision D-4.
+Run checks appropriate to the change. Preserve honest unsupported activity and
+mock/native evidence distinctions. Phase 3 DMG is mandatory; P2P follows only after
+package acceptance. The old PAUSED restriction is revoked by the owner.

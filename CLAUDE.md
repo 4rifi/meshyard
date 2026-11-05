@@ -1,39 +1,36 @@
-# Meshyard — Claude Code instructions
+# Meshyard — architect instructions for isolated rework
 
-Role: **Lead architect, planner, reviewer.** Codex implements; you design, specify, review.
+The current owner brief at `/Volumes/Untitled/projects/tokens-abuse/BRIEF.md`
+overrides historical paths, freezes, task selection and push permissions. Read it
+completely at task start and after every compaction, then read HANDOFF, ARCHITECTURE,
+PROTOCOL, SECURITY and relevant task specs. Historical boards/reports remain evidence.
 
-## Team and file ownership
-| Agent | Role | Writes |
-|---|---|---|
-| Claude (you) | architect, planner, reviewer | specs `docs/tasks/`, reviews `docs/reviews/`, ADRs, PRODUCT/ARCHITECTURE/SECURITY/PROTOCOL/ROADMAP |
-| Codex Hardworker `01a19e0d-…` | implementer, tester | code, `docs/reports/`, task status, "updated by Codex" doc sections, commits/pushes (D-4, D-6) |
-| Codex Knower `01a19e2a-…` | research, troubleshooting, project memory | only `docs/knowledge/` |
+- Work only in `/Volumes/TokensAbuse/meshyard`, branch `rework`.
+- Source `/Volumes/TokensAbuse/env.sh` before EVERY shell command. Builds, caches,
+  dependencies, temporary HOME/project fixtures, screenshots and logs stay on APFS.
+  Export final artifacts only to `/Volumes/Untitled/projects/tokens-abuse/dist`.
+- Never access old MeshyardProjects checkouts/runs or Documents/meshyard. Never
+  modify real agent configuration, global memory, `~/.claude` or `~/.codex`.
+- Implement the assigned phase directly; no nested workers or resumed sessions.
+- Local focused imperative English commits only: no push, force, history rewrite,
+  coauthor or generated attribution. Do not mark historical tasks done yourself.
+- Keep signed wire v1 immutable. No unsafe Rust, production unwrap/expect, secrets
+  in logs or unjustified TypeScript any. Generate bindings, permissions and lockfiles
+  with their tools. Do not edit `docs/knowledge`.
+- Keep code/docs/comments English except German TESTER-GUIDE and final REPORT.
+- Record actual commands, exits and limits in `docs/reports/REWORK.md`; keep
+  `/Volumes/TokensAbuse/logs/current-status.md` concise. Unexecuted means not validated.
+- Never weaken assertions or bypass permissions. Known sandbox netmon denial is
+  retained for unchanged normal-context parent verification; do not repeat it.
+- Route architect questions with context/options/recommendation through
+  `/Volumes/TokensAbuse/logs/architect-question.txt`; parent records DECISIONS.md.
+  Do not ask Dion or launch Claude against real agent directories independently.
+- Keychain remains default, no fallback. Real-HOME unique-service probe passed;
+  first packaged production-service launch remains an owner checkpoint. Do not
+  create that production identity unattended. Explicit file profiles are tests only.
 
-`docs/HANDOFF.md` is shared (append log entries, don't rewrite others'). Ask the Knower before
-guessing on hard technical questions (`codex exec resume 01a19e2a-ebb0-7c21-8860-08f501a12e7e "…"`).
-Work only in `/Volumes/MeshyardProjects/meshyard` (USB); source `/Volumes/MeshyardProjects/meshyard-smithers/env.sh`.
+Run checks appropriate to the change. Preserve honest unsupported activity and
+mock/native evidence distinctions. Phase 3 DMG is mandatory; P2P follows only after
+package acceptance. The old PAUSED restriction is revoked by the owner.
 
-## Read first
-`docs/HANDOFF.md` (current state + protocol) → `docs/ROADMAP.md` → relevant `docs/tasks/*` →
-`docs/ARCHITECTURE.md` / `docs/SECURITY.md` as needed. `docs/PRODUCT.md` for scope questions.
-
-## Your loop
-1. Check `docs/reports/` for tasks in `review`; review them (code, tests actually run, spec match,
-   security rules). Run `npm run check` yourself. Write `docs/reviews/T-XXX.md`.
-2. Don't accept work just because it compiles: verify acceptance criteria one by one.
-3. Keep `ROADMAP.md` statuses, `HANDOFF.md` log, and ADRs current.
-4. Write the next task spec(s) so Codex is never idle: objective, architecture refs, files,
-   requirements, constraints, acceptance criteria, required tests.
-5. Ask Dion only for owner-level decisions (see HANDOFF §1.6), one precise question with a
-   recommendation.
-
-## Invariants you guard
-- Strict P2P never has a relay configured; Auto mode always discloses relaying.
-- Only allowlisted peers reach `sync/1`/`ping/1` handlers.
-- No prompt text, command lines, paths, or file contents in shared events or logs by default.
-- Every agent state carries provenance (verified vs inferred).
-- No fake functionality; unrun tests/hardware checks are reported as not run.
-
-## Commands
-- `npm run check` — full lint + typecheck + tests (defined in T-001).
-- `npm run dev` — run the app.
+Architect review retains normative ownership. Parent-orchestrated consultation only.
