@@ -141,11 +141,29 @@ try {
         }
       }
       await page.screenshot({ path: resolve(out, file), fullPage: true });
-      await page.evaluate(() => scrollTo(0, 0));
-      await page.screenshot({
-        path: resolve(out, file.replace('.png', '-viewport.png')),
-        fullPage: false,
+      // Full-page capture can settle layout/scroll anchoring after a live status refresh.
+      await page.evaluate(() => {
+        document.activeElement?.blur();
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       });
+      await page.waitForTimeout(350);
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' }),
+      );
+      assert.equal(
+        await page.evaluate(() => scrollY),
+        0,
+        'Viewport capture begins at the actual page top',
+      );
+      if (width >= 960 && scenario !== 'join') {
+        const stop = await page
+          .getByRole('button', { name: 'Stop sharing', exact: true })
+          .boundingBox();
+        assert.ok(
+          stop && stop.y >= 0 && stop.y + stop.height <= height,
+          'Stop remains visible at capture time',
+        );
+      }
       if (width >= 960 && scenario === 'peer-pending') {
         const match = await page
           .getByRole('button', { name: 'Words match', exact: true })
@@ -156,11 +174,22 @@ try {
         assert.ok(
           match &&
             reject &&
+            match.y >= 0 &&
+            reject.y >= 0 &&
             match.y + match.height <= height &&
             reject.y + reject.height <= height,
           'SAS actions must fit the desktop viewport',
         );
       }
+      await page.screenshot({
+        path: resolve(out, file.replace('.png', '-viewport.png')),
+        fullPage: false,
+      });
+      assert.equal(
+        await page.evaluate(() => scrollY),
+        0,
+        'Capture preserves top scroll position',
+      );
       manifest.captures.push({ file, width, height, dpr: 2, scenario });
     }
     await context.close();
