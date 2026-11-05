@@ -34,3 +34,6 @@ mock/native evidence distinctions. Phase 3 DMG is mandatory; P2P follows only af
 package acceptance. The old PAUSED restriction is revoked by the owner.
 
 Architect review retains normative ownership. Parent-orchestrated consultation only.
+
+Read `/Volumes/TokensAbuse/logs/parent-feedback.md` when present before validation
+and commits; current parent findings supplement this isolated workflow.

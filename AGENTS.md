@@ -32,3 +32,7 @@ PROTOCOL, SECURITY and relevant task specs. Historical boards/reports remain evi
 Run checks appropriate to the change. Preserve honest unsupported activity and
 mock/native evidence distinctions. Phase 3 DMG is mandatory; P2P follows only after
 package acceptance. The old PAUSED restriction is revoked by the owner.
+
+Read `/Volumes/TokensAbuse/logs/parent-feedback.md` when present at task start,
+before validation batches and before commits. Incorporate current scoped feedback
+without overwriting that file or weakening owner constraints.

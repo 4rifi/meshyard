@@ -30,12 +30,13 @@ Keep Meshyard running to receive events.
 
 ## Inspect activity
 
-Click an agent name in the yard or use **Inspect** in the accessible agent list.
+Click an agent name in the yard or select its name in the accessible agent list.
 The inspector shows the last state and its provenance. **Verified** means a
 hook-shaped event from the same OS user; **Inferred** means a tool category or
 command classifier rule. Neither proves the work succeeded. After ten minutes
 without activity, active agents show Unknown. Finished becomes Idle after a minute.
-Settings include your display name, identity/storage information and privacy limits.
+Use **Yard**, **Agent list** and **Settings** to switch views. Settings puts your
+display-name edit first, with storage/privacy and font-license details below.
 
 Review, Fix and Waiting are unsupported: frozen wire v1 cannot label their
 provenance honestly. Codex model-request failures are not relabelled as verified
@@ -67,3 +68,9 @@ restore one over newer unrelated settings. Removing hooks preserves agent histor
 
 Build/test instructions and isolated profiles: [Development](docs/DEVELOPMENT.md).
 Validation evidence and open native gates: [Rework report](docs/reports/REWORK.md).
+
+The yard uses original pixel art and locally bundled OFL-licensed Pixelify Sans;
+body text stays in a readable system font. Review, Fix and Waiting are hatched reserved
+places on the map, not reported activity. Reduce Motion in macOS disables walking and poses.
+The tested unique-service Keychain roundtrip does not certify the first default
+Keychain launch of the packaged app; that remains the documented owner checkpoint.

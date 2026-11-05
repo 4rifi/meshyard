@@ -70,3 +70,38 @@ its backend in response to an environment failure.
 `npm run build:frontend` only builds frontend assets. `npm run check:csp` uses
 externally supplied image-local Playwright/Chromium/PNG tools; see its script for
 required environment variables. Browser mocks never count as native acceptance.
+
+## Visual evidence and packaging art
+
+`assets/meshyard-icon.svg` is original pixel geometry; `npm run icons` generates
+the platform icons. `assets/dmg-background.svg` is the original 640×440 installer
+window source. `node scripts/render-dmg-background.mjs` renders its licensed local pixel font
+and produces the 640×440 PNG. Phase 3 configures DMG icon locations. Local
+Pixelify Sans and its exact OFL are in `app/src/assets/fonts/`; body text stays
+system sans for readability. No remote assets are requested.
+
+The browser evidence command is `node scripts/pixel-qa.mjs`. It uses the existing
+local Chrome with image-local Playwright tooling, production CSP and isolated IPC
+fixtures. Screenshots and viewport/DPR manifests go to the APFS dist directory.
+It is visual/accessibility evidence, not native package acceptance.
+
+For bundle smoke outside /Applications, run the copied bundled hook directly in
+the existing executable-to-store test using MESHYARD_TEST_HOOK_BIN. Do not weaken
+production installer location checks. Native file-store smoke remains explicit;
+default production-service Keychain first launch is an owner checkpoint. The
+real-HOME unique-service Keychain probe passed; see the rework report.
+
+### Focused solo view regression
+
+The primary scene has eleven places (including hatched, unsupported Review/Fix/Waiting),
+in 4 columns on desktop or 2 on narrow windows. Each logical station is 80×64.
+Hydrated DTOs spawn at their real state; only subsequent observed transitions
+walk. Slot reservations are per actual state, never a global Arrival index.
+True crowded stations use sparse labelled overflow plots; no empty complete map
+is allocated merely because three agents exist at different stations.
+
+The screenshot harness now records both full-page and actual viewport PNGs at
+1120×900 DPR2, 960×680 DPR1, 375×800 DPR2 and 320×680 DPR2, including a three-agent
+regression and a real mock-DTO reduced-motion transition. These remain synthetic
+IPC evidence. Profile save and review actions have explicit viewport visibility
+assertions. Yard, Agent list and Settings are separate reachable views.
