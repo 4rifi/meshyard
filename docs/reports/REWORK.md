@@ -213,7 +213,6 @@ Focused first-parent commits after the supplied baseline:
 
 A final report-only commit follows. No remote branch was changed.
 
-
 ## Phase 1 accepted normal-context verification (2026-11-05)
 
 The parent rechecked clean SHA `57bc67295d955b86ac61e94da2091eb2a08451a2`
@@ -224,7 +223,6 @@ Exact evidence: `/Volumes/TokensAbuse/logs/phase1-normal/result.json` and its
 for Phase 1 while preserving every historical failure above. Two existing ignored
 entries remain: manual Keychain probe (not validated) and the lock-child helper,
 which the parent test executes separately. Phase 2 proceeds under the current brief.
-
 
 ## Phase 2 — solo functionality (2026-11-05)
 
@@ -288,18 +286,18 @@ fixtures, builds and evidence stayed in the APFS image. Evidence root:
 `/Volumes/TokensAbuse/logs/phase2/`. JSON records include actual exits and measured
 wall time where available.
 
-| Command | Actual result | Evidence |
-| --- | --- | --- |
-| `npm run bindings:generate` | exit 0; only AppError and WorkspaceView DTO additions | `bindings.log`, `bindings.json` |
-| `cargo test -p meshyard-hook --lib --test binary` | exit 0, 5.528 s; 5 unit + 4 executable tests | `hook-final.*` |
-| `cargo build -p meshyard-hook` | exit 0, 2.421 s | `hook-build.*` |
-| `MESHYARD_TEST_HOOK_BIN="$CARGO_TARGET_DIR/debug/meshyard-hook" cargo test -p meshyard-app --test local_workspace isolated_hook_executable -- --ignored --nocapture` | exit 0, 18.061 s; 1 explicit smoke | `executable-smoke.*` |
-| `npm run check:frontend` after UI review | exit 0, 20.772 s; TypeScript/ESLint, 6 files / 58 tests; no lint warnings | `frontend-reviewed.*` |
-| `npm run format:check` before final UI review/docs | exit 0, 0.882 s; later edited files formatted with Prettier | `format-final.*` |
-| `npm run check` (one full project run) | exit 101, 77.345 s; fmt and all-target Clippy pass; app/agents/core/hook tests pass; network 6 pass / 9 fail | `full-check.*` |
-| `cargo test -p meshyard-store -p meshyard-node` | exit 0, 106.268 s; includes root-owned APFS fixture; no blocked network suite repeated | `remaining-crates.*` |
-| `npm run format:check` after final UI and report edits | exit 0, 0.654 s | `format-reviewed.*` |
-| isolated Keychain probe, then diagnostic assertion | each exit 101; initial load returned Unavailable rather than NotFound, before record creation | `keychain-probe.*`, `keychain-diagnostic.*` |
+| Command                                                                                                                                                              | Actual result                                                                                                | Evidence                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| `npm run bindings:generate`                                                                                                                                          | exit 0; only AppError and WorkspaceView DTO additions                                                        | `bindings.log`, `bindings.json`             |
+| `cargo test -p meshyard-hook --lib --test binary`                                                                                                                    | exit 0, 5.528 s; 5 unit + 4 executable tests                                                                 | `hook-final.*`                              |
+| `cargo build -p meshyard-hook`                                                                                                                                       | exit 0, 2.421 s                                                                                              | `hook-build.*`                              |
+| `MESHYARD_TEST_HOOK_BIN="$CARGO_TARGET_DIR/debug/meshyard-hook" cargo test -p meshyard-app --test local_workspace isolated_hook_executable -- --ignored --nocapture` | exit 0, 18.061 s; 1 explicit smoke                                                                           | `executable-smoke.*`                        |
+| `npm run check:frontend` after UI review                                                                                                                             | exit 0, 20.772 s; TypeScript/ESLint, 6 files / 58 tests; no lint warnings                                    | `frontend-reviewed.*`                       |
+| `npm run format:check` before final UI review/docs                                                                                                                   | exit 0, 0.882 s; later edited files formatted with Prettier                                                  | `format-final.*`                            |
+| `npm run check` (one full project run)                                                                                                                               | exit 101, 77.345 s; fmt and all-target Clippy pass; app/agents/core/hook tests pass; network 6 pass / 9 fail | `full-check.*`                              |
+| `cargo test -p meshyard-store -p meshyard-node`                                                                                                                      | exit 0, 106.268 s; includes root-owned APFS fixture; no blocked network suite repeated                       | `remaining-crates.*`                        |
+| `npm run format:check` after final UI and report edits                                                                                                               | exit 0, 0.654 s                                                                                              | `format-reviewed.*`                         |
+| isolated Keychain probe, then diagnostic assertion                                                                                                                   | each exit 101; initial load returned Unavailable rather than NotFound, before record creation                | `keychain-probe.*`, `keychain-diagnostic.*` |
 
 Full-check successful test targets: agent pipeline 12, app units 26, local
 workspace 12 (explicit executable smoke ordinarily ignored), core 13 + 2,
@@ -420,15 +418,15 @@ profiles, builds and screenshots remained on APFS. Existing local Google Chrome
 was reused; only Playwright Core (one package) was installed in image-local
 `tooling/visual`, outside product dependencies. No browser download.
 
-| Command | Actual result | Evidence under `/Volumes/TokensAbuse/logs/pixel/` |
-| --- | --- | --- |
-| `npm run icons` | exit 0; Tauri-generated platform icon files | `icons.log` |
-| `npm run check:frontend` final handoff | exit 0; 6 files, 59 tests, TypeScript/ESLint pass | `frontend-handoff.log` |
-| `npm run check` normal context, final corrected run | exit 0, 40.934 s; fmt/Clippy/Rust/frontend/Prettier pass | `check-final-normal.json`, `full-check-final-normal.log` |
-| `cargo test --workspace` normal context | exit 0, 30.311 s; no Rust source change in this phase | `checks-normal.json`, `workspace-tests-normal.log` |
-| `npm run build:frontend` | exit 0; local font emitted; Vite warns about >500 kB chunk | `production-final.log` |
-| Node production asset audit | exit 0; no mockIPC/connectFixture/fixture-plan marker; one local font; CSP unchanged | `production-audit.json` |
-| `node scripts/render-dmg-background.mjs` normal context | exit 0; PNG rendered and viewed | `dmg-art.log` |
+| Command                                                 | Actual result                                                                        | Evidence under `/Volumes/TokensAbuse/logs/pixel/`        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `npm run icons`                                         | exit 0; Tauri-generated platform icon files                                          | `icons.log`                                              |
+| `npm run check:frontend` final handoff                  | exit 0; 6 files, 59 tests, TypeScript/ESLint pass                                    | `frontend-handoff.log`                                   |
+| `npm run check` normal context, final corrected run     | exit 0, 40.934 s; fmt/Clippy/Rust/frontend/Prettier pass                             | `check-final-normal.json`, `full-check-final-normal.log` |
+| `cargo test --workspace` normal context                 | exit 0, 30.311 s; no Rust source change in this phase                                | `checks-normal.json`, `workspace-tests-normal.log`       |
+| `npm run build:frontend`                                | exit 0; local font emitted; Vite warns about >500 kB chunk                           | `production-final.log`                                   |
+| Node production asset audit                             | exit 0; no mockIPC/connectFixture/fixture-plan marker; one local font; CSP unchanged | `production-audit.json`                                  |
+| `node scripts/render-dmg-background.mjs` normal context | exit 0; PNG rendered and viewed                                                      | `dmg-art.log`                                            |
 
 The first Chrome launch aborted (SIGABRT) inside the restricted process context;
 its actual log is preserved as `screenshots.log`. Normal-context execution was
@@ -605,7 +603,8 @@ No Rust source changed in this visual phase; the separately executed workspace
 run also passed exit 0 / 30.311 s. Production build and static asset audit pass
 (`parent-production.log`, `parent-production-audit.json`); the local font and
 exact OFL text are included, mock IPC is excluded, CSP unchanged. Vite's existing
->500 kB chunk advisory remains; no build error is hidden.
+
+> 500 kB chunk advisory remains; no build error is hidden.
 
 Final full-page and viewport files, manifest and four reviewed viewport contact
 sheets are exported under `/Volumes/Untitled/projects/tokens-abuse/dist/screenshots/`.
@@ -676,15 +675,15 @@ exit files and package JSON evidence live in `/Volumes/TokensAbuse/logs/phase3/`
   context. Individual argument arrays/exits/logs in `package-results.json`:
   `hdiutil verify` 0; attach `-readonly -nobrowse -mountpoint` 0; `ditto` app to
   APFS Applications-like directory 0; detach 0; `codesign --verify --deep --strict
-  --verbose=2` 0; codesign details 0 (adhoc/runtime, arm64); `spctl --assess --type
-  execute --verbose=4` **expected 3/rejected**; `plutil -p` 0 (version, id, URL);
+--verbose=2` 0; codesign details 0 (adhoc/runtime, arm64); `spctl --assess --type
+execute --verbose=4` **expected 3/rejected**; `plutil -p` 0 (version, id, URL);
   `file` on both main/helper 0 (arm64); strict scan of copied app 0.
 - Actual signed bundled hook extracted byte-for-byte to temporary APFS path.
   `MESHYARD_TEST_HOOK_BIN=/Volumes/TokensAbuse/tmp/phase3-package-020/extracted/meshyard-hook
-  MESHYARD_TEST_PACKAGED_HOOK_BIN=/Volumes/TokensAbuse/tmp/phase3-package-020/Applications/Meshyard.app/Contents/MacOS/meshyard-hook
-  cargo test --locked -p meshyard-app --test local_workspace
-  isolated_hook_executable_routes_both_agent_kinds_and_reopens_state -- --ignored
-  --exact --nocapture`: **exit 0, one test passed**, `bundled-hook-e2e.log/.exit`.
+MESHYARD_TEST_PACKAGED_HOOK_BIN=/Volumes/TokensAbuse/tmp/phase3-package-020/Applications/Meshyard.app/Contents/MacOS/meshyard-hook
+cargo test --locked -p meshyard-app --test local_workspace
+isolated_hook_executable_routes_both_agent_kinds_and_reopens_state -- --ignored
+--exact --nocapture`: **exit 0, one test passed**, `bundled-hook-e2e.log/.exit`.
   Original outside-/Applications .app path rejects HookInstallLocation; extracted
   bytes equal original. Temporary HOME/settings/project only, reviewed installer
   apply/removal for both kinds, golden fixtures through real executable and UDS,
@@ -916,3 +915,62 @@ checks all instructions and excludes remote/observed agents. Frontend 78 tests p
 (`phase4-first-hook-frontend2.log`); browser solo coverage now 72 scenarios/144 PNGs
 (`phase4-first-hook-visual.log`). First attempt caught an ESLint void shorthand,
 corrected before rebuild. New hint personally reviewed at 960.
+
+Final first-hook Tauri release now exits **0** (`phase4-build-first-hook.log`),
+two bundles and strict guard PASS. Earlier detach-recovered SHA755211 artifact is
+intermediate only. Final DMG SHA256:
+`6df94732a9aa3dac6ba94592ce9576f578b96753da6ec3977fea243a75b1e581`.
+`python3 scripts/check-package.py --base /Volumes/TokensAbuse/tmp/phase4-package-030-first-hook --out /Volumes/TokensAbuse/logs/phase4-final`
+exit 0; hdiutil verify/read-only attach/copy/detach, codesign strict, both arm64,
+version/bundle/URL registration, five-file strict guard PASS; spctl expected exit3.
+`python3 scripts/check-dmg-layout.py --base /Volumes/TokensAbuse/tmp/phase4-package-030-first-hook --out /Volumes/TokensAbuse/logs/phase4-final`
+exit 0: UDZO, every recursive signed payload file and symlink equals build and copied
+app, Applications symlink, .DS_Store and exact pixel background. Finder window not
+visually validated. Main hash `cfa98ab4e982b15bb3b2980978f02ecd66266b40e5db0b60b5adb7552023c98d`;
+helper unchanged. `phase4-final/process-binary-equality.json` verifies final helper
+and strict release node equal the passing actual process/recovery tests. Parent
+explicitly accepts reuse for this frontend-only rebuild.
+
+Parent alone executed final `python3 scripts/check-package-smoke.py --app /Volumes/TokensAbuse/tmp/phase4-package-030-first-hook/Applications/Meshyard.app --out /Volumes/TokensAbuse/logs/phase4-final`:
+exit 0, exact new main hash checked, fresh isolated APFS HOME/DATA_DIR/HOOK_HOME,
+explicit file keys, owned PID42746 alive12s, empty log, only owned child terminated
+and absence verified (`phase4-final/native-smoke.json`). Worker launched no native
+app; unknown owner app left untouched. This is packaged process smoke, not production
+Keychain/native UI/real CLI evidence.
+
+Strengthened P2P capture-time scrollY==0 and nonnegative/visible Stop/SAS bounds pass
+(`map-p2p-qa-final2.log`); parent re-reviewed full pending960 viewport and accepted.
+No app changes required after first-hook hint.
+
+### Final Phase 4 delivery closeout
+
+All preceding pending statements are historical checkpoints, superseded here.
+Final `npm run check` PASS: 78 frontend tests and all standard gates
+(`phase4-check-final.log`). Separate workspace and strict checks passed as above.
+Final bundled-helper E2E completed: `isolated_hook_executable_routes_both_agent_kinds_and_reopens_state`,
+1 passed in 5.08s (`phase4-bundled-hook-final.log`), actual final helper, both
+Claude/Codex fixtures, signed persisted view, reopen/uninstall, isolated HOME.
+No real CLI-emitted hook claim. Final normal build succeeded; final DMG is
+6df94732a9aa3dac6ba94592ce9576f578b96753da6ec3977fea243a75b1e581.
+
+Delivery staged in `/Volumes/TokensAbuse/dist`: final DMG and SHA256, German
+REPORT and TESTER-GUIDE, 224 current PNGs and three manifests (72 solo/144,
+32 P2P/64, 16 map). Final UI commit 658697e. Browser mock/synthetic IPC only,
+DPR2 emulated. Preserved 0.2 DMG and historical documents/screens; old procedural
+review sheets archived after exact hash equality, excluded from current evidence.
+
+Not validated: default production Keychain installed first launch; real CLI hooks;
+full native UI/Retina/installer clicks; visual Finder window layout; camera QR and
+OS deep-link runtime; two Macs/cross-network/NAT. Same-Mac production-core sockets
+and parent-owned native 12s process smoke passed separately. Review/Fix/Waiting
+reserved and Codex StopFailure unsupported. Ad-hoc, not notarized; Vite chunk
+warning nonfatal. Unknown native restart cause remains unknown. Parent alone
+cleans temporary auth copy after worker exit; no cleanup claim. No source changes,
+rebuild, broad rerun, native launch, real agent configuration edits or push in closeout.
+
+Closeout export completed with SHA256 equality for every selected file to
+`/Volumes/Untitled/projects/tokens-abuse/dist`; 0.2 DMG hash preserved at both
+destinations. EXPORT.json inventories finished files. Current screenshots contain
+224 PNGs excluding exFAT AppleDouble `._*` metadata, plus three manifests.
+No external build/cache export. Documentation-only formatting and diff checks
+are recorded in `logs/phase4-closeout-doc-check.log` (image-local logs directory).

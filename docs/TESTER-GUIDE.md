@@ -20,11 +20,15 @@ bleibt der unten beschriebene persönliche Checkpoint.
    muss eine neue Vorschau erstellt werden.
 6. In Codex `/hooks` öffnen und die genauen neuen Meshyard-Hooks prüfen und als
    vertrauenswürdig bestätigen. Nach Änderungen erneut bestätigen. Projekt-Hooks
-   brauchen zusätzlich ein vertrauenswürdiges Projekt. CLI neu starten.
+   brauchen zusätzlich ein vertrauenswürdiges Projekt. Eine NEUE Claude-Code- bzw.
+   Codex-Sitzung starten.
 7. Eine Nachricht senden, eine Datei bearbeiten oder Tests ausführen. Meshyard
    offen lassen. Registrierung allein ist keine Verbindung: erst ein empfangenes
    Ereignis erzeugt Status und Herkunft. Namen im Yard anklicken oder in der Liste
    den Agent-Namen wählen, um den Inspector zu öffnen.
+   Bei registrierten Agenten ohne Ereignisse zeigt der Yard den Hinweis
+   **Connect agents → Review settings → Install → neue Sitzung**; Registrierung
+   allein erzeugt keine Aktivität.
 8. Anzeigenamen und Datenschutzhinweise unter **Settings and members** prüfen.
 9. Zum Entfernen **Connect agents** → Typ wählen → **Review hook removal** →
    Diff prüfen → **Remove hook**. Für beide Typen wiederholen, bevor die App gelöscht wird.

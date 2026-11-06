@@ -19,8 +19,8 @@ exact package checks and limitations:
 4. Register one agent of each kind you use. Open **Connect agents**, choose the kind
    and select your agent. Review the exact settings diff and press **Install**.
 5. For Codex, open `/hooks` in Codex and review and trust the new Meshyard definitions.
-   New or changed definitions do not run until trusted. Restart your CLI or send a
-   message; the app changes from waiting to Connected only after an event arrives.
+   New or changed definitions do not run until trusted. Start a NEW Claude Code or
+   Codex session and send a message; the app changes from waiting to Connected only after an event arrives.
 
 Claude Code installs to `~/.claude/settings.json`; Codex to `~/.codex/hooks.json`.
 The installer keeps unrelated settings, creates a private backup before replacement,
